@@ -257,7 +257,7 @@ const FMT = {
   eur0:n=>(Number(n)||0).toLocaleString('fr-FR',{maximumFractionDigits:0})+' €',
   num:n=>(Number(n)||0).toLocaleString('fr-FR'),
   dec1:n=>(Number(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1}),
-  pct:n=>(Number(n)*100).toLocaleString('fr-FR',{maximumFractionDigits:0})+' %',
+  pct:n=>(Number(n)*100).toLocaleString('fr-FR',{maximumFractionDigits:1})+' %',
   esc:s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
   deltaCell(cur,prev){
     if(prev==null||cur==null||prev===0) return {txt:'—',cls:''};
@@ -270,17 +270,65 @@ const FMT = {
 
 /* ===================== CALC (tes formules) ===================== */
 const CALC = {
-  tauxCommission(dateRef, sommePrime){
-    const nouveau = dateRef >= new Date(2026,0,1);
-    if(nouveau) return sommePrime>=250?0.15 : sommePrime>=100?0.10 : 0;
-    return           sommePrime>=250?0.12 : sommePrime>=100?0.08 : 0;
+  SEUIL_2026:'2026-01-01',
+  /* Barème : l'ancien s'applique si le groupe contient au moins une vente
+     antérieure à 2026 (équivalent du MAX(date < 2026-01-01) de la requête SQL). */
+  tauxCommission(ancien, sommePrime){
+    if(ancien) return sommePrime>=250?0.12 : sommePrime>=100?0.08 : 0;
+    return            sommePrime>=250?0.15 : sommePrime>=100?0.10 : 0;
+  },
+  /* ---------------------------------------------------------------------
+     On commissionne sur le MOIS, à la maille vendeur.
+
+     Le taux d'un vendeur pour un mois donné se calcule donc une bonne fois
+     pour toutes, sur l'INTÉGRALITÉ des données — jamais sur le sous-ensemble
+     affiché. Sans ça, deux biais apparaissent :
+       · filtrer du 1er au 15 septembre ferait perdre la tranche au vendeur,
+         puisque sa prime affichée serait deux fois moindre ;
+       · afficher par semaine ou par jour évaluerait le seuil des 100 € sur
+         une semaine, ramenant presque tout le monde à 0 %.
+
+     Une fois le taux mensuel connu, on le fige sur chaque ligne de vente
+     (l.commission = l.prime × taux du mois). Toute agrégation — semaine, mois,
+     année, avec ou sans filtre — n'est plus qu'une somme, et reste cohérente :
+     la somme des semaines d'un mois vaut exactement la commission du mois.
+     --------------------------------------------------------------------- */
+  mois(dateStr){ return String(dateStr).slice(0,7); },   // 'YYYY-MM'
+
+  /** À appeler une fois sur la totalité des lignes, juste après le chargement. */
+  indexerMois(rows){
+    // clé = 'YYYY-MM|vendeur' — le mois fait toujours 7 caractères, donc un
+    // nom de vendeur contenant « | » ne casse pas le découpage.
+    const primeParVM=new Map();
+    rows.forEach(l=>{
+      const k=CALC.mois(l.date)+'|'+(l.vendeur||'(vide)');
+      primeParVM.set(k,(primeParVM.get(k)||0)+l.prime);
+    });
+    const tauxParVM=new Map();
+    primeParVM.forEach((prime,k)=>{
+      const ancien=k.slice(0,7)<CALC.SEUIL_2026.slice(0,7);
+      tauxParVM.set(k,CALC.tauxCommission(ancien,prime));
+    });
+    rows.forEach(l=>{
+      const k=CALC.mois(l.date)+'|'+(l.vendeur||'(vide)');
+      l.primeMois=primeParVM.get(k)||0;
+      l.tauxMois=tauxParVM.get(k)||0;
+      l.commission=l.prime*l.tauxMois;
+    });
+    return rows;
+  },
+
+  commission(lignes){
+    return lignes.reduce((s,l)=>s+(l.commission||0),0);
   },
   agrege(lignes, dateRef){
     let revenus=0,prime=0,remise=0,taxe=0; const paniers=new Set(),vendeurs=new Set();
     lignes.forEach(l=>{revenus+=l.prixClient;prime+=l.prime;remise+=l.remise;taxe+=l.taxe;if(l.panier!=null)paniers.add(l.panier);vendeurs.add(l.vendeur);});
     const nbVentes=lignes.length,nbPaniers=paniers.size;
-    const taux=CALC.tauxCommission(dateRef,prime);
-    const commission=revenus===0?0:prime*taux;
+    const commission=CALC.commission(lignes);
+    /* taux affiché = taux effectif (commission / prime), moyenne pondérée des
+       paliers individuels. Sur un seul vendeur, il vaut exactement son palier. */
+    const taux=prime?commission/prime:0;
     return {nbVendeurs:vendeurs.size,nbVentes,nbPaniers,revenus,remise,taxe,prime,taux,commission,
       primeNet:prime-commission,
       revParPanier:nbPaniers?revenus/nbPaniers:null,
@@ -542,6 +590,9 @@ async function login(){
     const r=await API.data(pwd);
     if(!r.ok){toast(r.message||'Erreur',true);return;}
     S.rows=r.rows||[];S.role=r.role;S.pwd=pwd;
+    /* taux mensuel figé sur chaque ligne, calculé sur TOUTES les données :
+       les filtres de date et la granularité d'affichage ne peuvent plus le fausser */
+    CALC.indexerMois(S.rows);
     /* zones : renvoyées par l'API ; sinon on retombe sur une table locale (ancien déploiement) */
     S.zones=Array.isArray(r.zones)&&r.zones.length?r.zones:(ACCES_LOCAL[r.role]||[]);
     $('login').classList.add('hide');$('app').classList.remove('hide');
