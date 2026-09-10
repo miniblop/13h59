@@ -92,6 +92,27 @@
   .toast.show{opacity:1}.toast.err{background:var(--neg)}
   .hide{display:none!important}
   .warn{background:#fbf7ef;border:1px solid #ece2cf;color:#7a6a4a;border-radius:12px;padding:10px 12px;font-size:13px;margin-bottom:12px}
+  /* --- caisse --- */
+  .caisse-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .preview{margin-top:12px;padding:10px 12px;background:var(--chip);border-radius:10px;display:flex;justify-content:space-between;align-items:center;font-size:13px}
+  .preview b{font-size:16px}
+  .seg{display:flex;gap:8px}
+  .seg .opt{flex:1;text-align:center;padding:11px;border:1px solid var(--line);border-radius:10px;cursor:pointer;font-weight:700;user-select:none}
+  .seg .opt.on{background:var(--band);color:#fff;border-color:var(--band)}
+  .totaux{border-top:1px dashed var(--line);padding-top:12px;margin-top:12px}
+  .tl{display:flex;justify-content:space-between;padding:3px 0}
+  .tl.grand{font-size:22px;font-weight:800;margin-top:4px}
+  .rendu{background:#eef6f0;color:var(--pos);border-radius:10px;padding:10px 12px;font-weight:800;display:flex;justify-content:space-between;margin-top:8px}
+  .rendu.neg{background:#fbeceb;color:var(--neg)}
+  .cligne{display:flex;gap:8px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px}
+  .cligne .info{flex:1;min-width:0}
+  .cligne .nom{font-weight:700}
+  .cligne .det{color:var(--muted);font-size:12px;margin-top:2px}
+  .cligne .pc{font-weight:800;white-space:nowrap}
+  .cligne .del{border:none;background:#fbeceb;color:var(--neg);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:15px;flex:0 0 auto}
+  .cvide{color:var(--muted);text-align:center;padding:24px 10px;font-size:13px}
+  @media(max-width:820px){.caisse-grid{grid-template-columns:1fr}}
   /* --- mobile --- */
   @media(max-width:680px){
     .band{font-size:20px;letter-spacing:2px;padding:14px}
@@ -121,14 +142,54 @@
 
 <div class="wrap hide" id="app">
   <div class="tabs">
-    <div class="tab active" data-tab="vendeur">Vendeur</div>
+    <div class="tab active" data-tab="caisse">Caisse</div>
+    <div class="tab" data-tab="vendeur">Vendeur</div>
     <div class="tab" data-tab="gestion" id="tabGestion">Gestion</div>
     <div style="flex:1"></div>
     <div class="tab btn-ghost" id="btnLogout">Déconnexion</div>
   </div>
 
+  <!-- ONGLET CAISSE -->
+  <div id="viewCaisse">
+    <div class="caisse-grid">
+      <div class="card">
+        <h2>Nouvel article</h2>
+        <div id="caisseInfo" class="muted" style="font-size:12px;margin:6px 0 4px">Panier n° <b id="cPanier">…</b> · prochaine vente n° <b id="cVente">…</b></div>
+        <label style="margin-top:10px">Vendeur</label>
+        <div class="ms cap" id="cVendeur"></div>
+        <label style="margin-top:10px">Référence / produit</label>
+        <input id="cRef" placeholder="ex : Sticker, REF 001, Friperie…">
+        <div class="row2" style="margin-top:10px">
+          <div><label>Prix (€)</label><input id="cPrix" type="number" min="0" step="0.5" inputmode="decimal" placeholder="0,00"></div>
+          <div><label>Remise</label><div class="ms" id="cRemise"></div></div>
+        </div>
+        <div class="preview"><span>Prix client <span id="cBadge" class="pill hide">remise magasin</span></span><b id="cApercu">0,00 €</b></div>
+        <button class="btn btn-accent" id="cAdd" style="width:100%;margin-top:14px">＋ Ajouter au panier</button>
+      </div>
+
+      <div class="card">
+        <div class="cardhead"><h2>Panier</h2><span class="pill"><span id="cNb">0</span> article(s)</span></div>
+        <label>Paiement</label>
+        <div class="seg" id="cSeg"></div>
+        <div id="cLignes" style="margin-top:10px"></div>
+        <div class="totaux">
+          <div class="tl"><span>Sous-total</span><span id="cSous">0,00 €</span></div>
+          <div class="tl"><span>Remises</span><span id="cRem">0,00 €</span></div>
+          <div class="tl grand"><span>Total</span><span id="cTot">0,00 €</span></div>
+          <div id="cEspeces" class="hide">
+            <label style="margin-top:10px">Montant reçu (€)</label>
+            <input id="cRecu" type="number" min="0" step="0.5" inputmode="decimal" placeholder="0,00">
+            <div class="rendu" id="cRenduBox"><span>Rendu de monnaie</span><span id="cRendu">0,00 €</span></div>
+          </div>
+          <button class="btn btn-accent" id="cValider" style="width:100%;margin-top:12px" disabled>✓ Valider la vente</button>
+          <button class="btn btn-ghost" id="cVider" style="width:100%;margin-top:8px">Vider le panier</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ONGLET VENDEUR -->
-  <div id="viewVendeur">
+  <div id="viewVendeur" class="hide">
     <div class="card">
       <h2>Suivi vendeur</h2>
       <div class="filters" style="margin-top:12px">
@@ -304,6 +365,21 @@ const API = {
     }
     const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify({action:'data',password})});
     return res.json();
+  },
+  async caisseData(password){
+    if(DEMO_MODE){
+      return {ok:true,
+        vendeurs:[...new Set(DEMO_ROWS.map(r=>r.vendeur))].sort((a,b)=>a.localeCompare(b,'fr')),
+        remises:[{nom:'pas_de_remise',valeur:0,estPourcentage:false,magasin:false},{nom:'carte_fidelite_10%',valeur:-0.10,estPourcentage:true,magasin:false},{nom:'machine_cadeau_5€',valeur:-5,estPourcentage:false,magasin:true},{nom:'soldes_20',valeur:-0.20,estPourcentage:true,magasin:false}],
+        paiements:['cb','espèces'],prochainPanier:9001,prochaineVente:9001};
+    }
+    const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify({action:'caisse_data',password})});
+    return res.json();
+  },
+  async caisseSave(password,payload){
+    if(DEMO_MODE){return {ok:true,panier:9001,ventes:payload.lignes.map((_,i)=>9001+i),nbLignes:payload.lignes.length};}
+    const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify({action:'caisse_save',password,payload})});
+    return res.json();
   }
 };
 
@@ -345,7 +421,7 @@ const GEST_KPIS=[
 ];
 
 /* ===================== ÉTAT / UI ===================== */
-const S={rows:[],role:null,selMetric:'revenus',vLignes:[]};
+const S={rows:[],role:null,selMetric:'revenus',vLignes:[],pwd:''};
 let vendeurSel=null;
 const G={selMetric:'revenus',gLignes:[],selVendeurs:new Set(),selReduc:new Set(),selPaiement:new Set(),selRemise:new Set()};
 const $=id=>document.getElementById(id);
@@ -442,10 +518,11 @@ async function login(){
   try{
     const r=await API.data(pwd);
     if(!r.ok){toast(r.message||'Erreur',true);return;}
-    S.rows=r.rows;S.role=r.role;
+    S.rows=r.rows;S.role=r.role;S.pwd=pwd;
     $('login').classList.add('hide');$('app').classList.remove('hide');
     if(S.role!=='gestion') $('tabGestion').classList.add('lock');
     initVendeur();
+    initCaisse();
     if(S.role==='gestion') initGestion();
   }catch(e){toast('Connexion impossible : '+e.message,true);}
   finally{$('btnLogin').disabled=false;$('btnLogin').textContent='Entrer';}
@@ -455,7 +532,10 @@ document.querySelectorAll('.tab[data-tab]').forEach(t=>t.addEventListener('click
   const tab=t.dataset.tab;
   if(tab==='gestion'&&S.role!=='gestion'){toast('Réservé aux gestionnaires.',true);return;}
   document.querySelectorAll('.tab[data-tab]').forEach(x=>x.classList.remove('active'));t.classList.add('active');
-  $('viewVendeur').classList.toggle('hide',tab!=='vendeur');$('viewGestion').classList.toggle('hide',tab!=='gestion');
+  $('viewCaisse').classList.toggle('hide',tab!=='caisse');
+  $('viewVendeur').classList.toggle('hide',tab!=='vendeur');
+  $('viewGestion').classList.toggle('hide',tab!=='gestion');
+  if(tab==='caisse'&&!caisseLoaded) initCaisse();
 }));
 
 /* ===================== VUE VENDEUR ===================== */
@@ -566,6 +646,88 @@ function renderGestion(){
   $('gDetail').innerHTML=det.html;
   $('gDetailNote').textContent=det.total>det.shown?`(${det.shown} affichées sur ${det.total} — le CSV exporte tout)`:'';
 }
+
+/* ===================== VUE CAISSE ===================== */
+const C={data:null,cart:[],paiement:'cb'};
+let caisseLoaded=false,cVendeurSel=null,cRemiseSel=null;
+const round2=x=>Math.round((Number(x)+1e-9)*100)/100;
+function calcLigneCaisse(prix,typeRemise){
+  const rd=(C.data.remises||[]).find(r=>r.nom===typeRemise)||{valeur:0,estPourcentage:false,magasin:false};
+  const remise=rd.estPourcentage?round2(prix*rd.valeur):round2(rd.valeur);
+  return {remise,prixClient:round2(prix+remise),magasin:rd.magasin};
+}
+async function initCaisse(){
+  try{
+    const r=await API.caisseData(S.pwd);
+    if(!r.ok){toast(r.message||'Caisse indisponible',true);return;}
+    C.data=r;caisseLoaded=true;
+    cVendeurSel=makeSingle($('cVendeur'),{values:r.vendeurs,onChange:majApercuCaisse});
+    const remNoms=r.remises.map(x=>x.nom);
+    cRemiseSel=makeSingle($('cRemise'),{values:remNoms,value:remNoms.indexOf('pas_de_remise')>=0?'pas_de_remise':remNoms[0],onChange:majApercuCaisse});
+    const seg=$('cSeg');seg.innerHTML='';
+    (r.paiements||['cb','espèces']).forEach((p,i)=>{const el=document.createElement('div');el.className='opt'+(i===0?' on':'');el.textContent=p.toUpperCase();el.onclick=()=>{C.paiement=p;seg.querySelectorAll('.opt').forEach(o=>o.classList.remove('on'));el.classList.add('on');majEspecesCaisse();};seg.appendChild(el);});
+    C.paiement=(r.paiements&&r.paiements[0])||'cb';
+    $('cPanier').textContent=r.prochainPanier;$('cVente').textContent=r.prochaineVente;
+    majApercuCaisse();renderCaisse();
+  }catch(e){toast('Caisse indisponible : '+e.message,true);}
+}
+function majApercuCaisse(){
+  if(!C.data)return;
+  const prix=parseFloat($('cPrix').value)||0;
+  const c=calcLigneCaisse(prix,cRemiseSel?cRemiseSel.getVal():'pas_de_remise');
+  $('cApercu').textContent=FMT.eur(c.prixClient);
+  $('cBadge').classList.toggle('hide',!c.magasin);
+}
+function majEspecesCaisse(){
+  const esp=/esp/i.test(C.paiement);
+  $('cEspeces').classList.toggle('hide',!esp);
+  if(!esp)return;
+  const tot=C.cart.reduce((s,l)=>s+l.prixClient,0);
+  const rendu=round2((parseFloat($('cRecu').value)||0)-tot);
+  $('cRendu').textContent=FMT.eur(rendu);
+  $('cRenduBox').className='rendu'+(rendu<0?' neg':'');
+}
+function renderCaisse(){
+  const box=$('cLignes');
+  if(!C.cart.length){box.innerHTML='<div class="cvide">Aucun article pour l\'instant.</div>';}
+  else{
+    box.innerHTML=C.cart.map((l,idx)=>{
+      const det=(l.reference?FMT.esc(l.reference)+' · ':'')+FMT.eur(l.prix)+(l.remise!==0?' ('+FMT.esc(l.typeRemise)+')':'');
+      return `<div class="cligne"><div class="info"><div class="nom">${FMT.esc(l.vendeur)}${l.magasin?' <span class="pill">magasin</span>':''}</div><div class="det">${det}</div></div><div class="pc">${FMT.eur(l.prixClient)}</div><button class="del" data-i="${idx}">✕</button></div>`;
+    }).join('');
+    box.querySelectorAll('.del').forEach(b=>b.onclick=()=>{C.cart.splice(+b.dataset.i,1);renderCaisse();});
+  }
+  let sous=0,rem=0,tot=0;C.cart.forEach(l=>{sous+=l.prix;rem+=l.remise;tot+=l.prixClient;});
+  $('cSous').textContent=FMT.eur(sous);$('cRem').textContent=FMT.eur(rem);$('cTot').textContent=FMT.eur(tot);
+  $('cNb').textContent=C.cart.length;$('cValider').disabled=C.cart.length===0;
+  majEspecesCaisse();
+}
+$('cPrix').addEventListener('input',majApercuCaisse);
+$('cRecu').addEventListener('input',majEspecesCaisse);
+$('cAdd').addEventListener('click',()=>{
+  if(!C.data){toast('Caisse non chargée.',true);return;}
+  const vendeur=cVendeurSel.getVal(),reference=$('cRef').value.trim(),prix=parseFloat($('cPrix').value),typeRemise=cRemiseSel.getVal();
+  if(!vendeur){toast('Choisis un vendeur.',true);return;}
+  if(isNaN(prix)||prix<=0){toast('Prix invalide.',true);$('cPrix').focus();return;}
+  const c=calcLigneCaisse(prix,typeRemise);
+  C.cart.push({vendeur,reference,prix,typeRemise,prixClient:c.prixClient,remise:c.remise,magasin:c.magasin});
+  $('cRef').value='';$('cPrix').value='';majApercuCaisse();renderCaisse();$('cRef').focus();
+});
+$('cVider').addEventListener('click',()=>{if(C.cart.length&&!confirm('Vider le panier ?'))return;C.cart=[];$('cRecu').value='';renderCaisse();});
+$('cValider').addEventListener('click',async()=>{
+  if(!C.cart.length)return;
+  const btn=$('cValider'),t=btn.textContent;btn.disabled=true;btn.textContent='Enregistrement…';
+  try{
+    const payload={paiement:C.paiement,lignes:C.cart.map(l=>({vendeur:l.vendeur,reference:l.reference,prix:l.prix,typeRemise:l.typeRemise}))};
+    const res=await API.caisseSave(S.pwd,payload);
+    if(res&&res.ok){
+      toast('Vente enregistrée · panier n°'+res.panier+' · '+res.nbLignes+' ligne(s)');
+      C.cart=[];$('cRecu').value='';renderCaisse();
+      const d=await API.caisseData(S.pwd);if(d&&d.ok){C.data=d;$('cPanier').textContent=d.prochainPanier;$('cVente').textContent=d.prochaineVente;}
+    }else toast('Échec : '+((res&&res.message)||'inconnu'),true);
+  }catch(e){toast('Erreur : '+e.message,true);}
+  finally{btn.textContent=t;btn.disabled=false;}
+});
 
 /* ===================== DONNÉES DÉMO ===================== */
 const DEMO_ROWS=(function(){
