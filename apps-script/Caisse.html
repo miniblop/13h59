@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  :root{
+    --bg:#faf7f2; --card:#ffffff; --ink:#241f1a; --muted:#8a8178;
+    --line:#e9e2d8; --accent:#e0722a; --accent-d:#c65e1c;
+    --ok:#2f8f5b; --ok-bg:#e7f4ec; --danger:#c0392b; --danger-bg:#fbeceb;
+    --chip:#f2ede4;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--bg); color:var(--ink); font-size:14px;
+  }
+  .wrap{display:grid; grid-template-columns:1fr 380px; gap:14px; padding:14px; height:100vh; overflow:hidden}
+  .col{display:flex; flex-direction:column; min-height:0}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px}
+  h2{margin:0 0 2px; font-size:16px; letter-spacing:.2px}
+  .sub{color:var(--muted); font-size:12px; margin-bottom:12px}
+  label{display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; font-weight:600; letter-spacing:.2px}
+  input,select{
+    width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:10px;
+    font-size:15px; background:#fff; color:var(--ink); outline:none;
+  }
+  input:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(224,114,42,.15)}
+  .row{display:flex; gap:10px}
+  .row > *{flex:1}
+  .btn{
+    border:none; border-radius:10px; padding:12px 14px; font-size:15px; font-weight:700;
+    cursor:pointer; transition:.15s; letter-spacing:.2px;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn-accent{background:var(--accent); color:#fff}
+  .btn-accent:hover{background:var(--accent-d)}
+  .btn-ghost{background:var(--chip); color:var(--ink)}
+  .btn-ghost:hover{background:#e8e1d6}
+  .btn-block{width:100%}
+  .btn:disabled{opacity:.5; cursor:not-allowed; transform:none}
+  .preview{margin-top:12px; padding:10px 12px; background:var(--chip); border-radius:10px; font-size:13px; display:flex; justify-content:space-between; align-items:center}
+  .preview b{font-size:16px}
+  .badge{display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:var(--ok-bg); color:var(--ok); margin-left:6px}
+
+  /* Panier */
+  .panier-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px}
+  .pill{background:var(--chip); border-radius:999px; padding:4px 10px; font-weight:700; font-size:12px}
+  .lignes{flex:1; overflow:auto; margin:6px -4px; padding:0 4px}
+  .ligne{display:flex; gap:8px; align-items:flex-start; padding:10px; border:1px solid var(--line); border-radius:10px; margin-bottom:8px; background:#fff}
+  .ligne .info{flex:1; min-width:0}
+  .ligne .nom{font-weight:700}
+  .ligne .det{color:var(--muted); font-size:12px; margin-top:2px}
+  .ligne .pc{font-weight:800; white-space:nowrap}
+  .ligne .del{border:none; background:var(--danger-bg); color:var(--danger); border-radius:8px; width:30px; height:30px; cursor:pointer; font-size:16px; line-height:1}
+  .vide{color:var(--muted); text-align:center; padding:30px 10px; font-size:13px}
+  .totaux{border-top:1px dashed var(--line); padding-top:12px; margin-top:6px}
+  .tl{display:flex; justify-content:space-between; padding:3px 0}
+  .tl.grand{font-size:22px; font-weight:800; margin-top:4px}
+  .rendu{background:var(--ok-bg); color:var(--ok); border-radius:10px; padding:10px 12px; font-weight:800; display:flex; justify-content:space-between; margin-top:8px}
+  .rendu.neg{background:var(--danger-bg); color:var(--danger)}
+  .toast{position:fixed; left:50%; bottom:18px; transform:translateX(-50%); background:var(--ink); color:#fff; padding:12px 18px; border-radius:12px; font-weight:600; opacity:0; transition:.25s; pointer-events:none; max-width:80%}
+  .toast.show{opacity:1}
+  .toast.err{background:var(--danger)}
+  .seg{display:flex; gap:8px}
+  .seg .opt{flex:1; text-align:center; padding:11px; border:1px solid var(--line); border-radius:10px; cursor:pointer; font-weight:700; user-select:none}
+  .seg .opt.active{background:var(--accent); color:#fff; border-color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- COLONNE GAUCHE : ajout d'article -->
+  <div class="col">
+    <div class="card" style="flex:1; overflow:auto">
+      <h2>Nouvel article</h2>
+      <div class="sub">Panier n° <b id="noPanier">…</b> · prochaine vente n° <b id="noVente">…</b></div>
+
+      <label>Vendeur</label>
+      <input id="vendeur" list="listeVendeurs" placeholder="Tape pour rechercher…" autocomplete="off">
+      <datalist id="listeVendeurs"></datalist>
+
+      <label>Référence / produit</label>
+      <input id="reference" placeholder="ex : Sticker, REF 001, Friperie…">
+
+      <div class="row">
+        <div>
+          <label>Prix (€)</label>
+          <input id="prix" type="number" min="0" step="0.5" inputmode="decimal" placeholder="0,00">
+        </div>
+        <div>
+          <label>Remise</label>
+          <select id="remise"></select>
+        </div>
+      </div>
+
+      <div class="preview">
+        <span>Prix client <span id="apercuInfo" class="badge" style="display:none"></span></span>
+        <b id="apercuPC">0,00 €</b>
+      </div>
+
+      <button class="btn btn-accent btn-block" id="btnAdd" style="margin-top:14px">＋ Ajouter au panier</button>
+    </div>
+  </div>
+
+  <!-- COLONNE DROITE : panier -->
+  <div class="col">
+    <div class="card" style="flex:1; display:flex; flex-direction:column; min-height:0">
+      <div class="panier-head">
+        <h2>Panier</h2>
+        <span class="pill"><span id="nbArticles">0</span> article(s)</span>
+      </div>
+
+      <label style="margin-top:2px">Paiement</label>
+      <div class="seg" id="segPaiement"></div>
+
+      <div class="lignes" id="lignes">
+        <div class="vide">Aucun article pour l'instant.</div>
+      </div>
+
+      <div class="totaux">
+        <div class="tl"><span>Sous-total</span><span id="sousTotal">0,00 €</span></div>
+        <div class="tl"><span>Remises</span><span id="totRemise">0,00 €</span></div>
+        <div class="tl grand"><span>Total</span><span id="total">0,00 €</span></div>
+
+        <div id="blocEspeces" style="display:none">
+          <label>Montant reçu (€)</label>
+          <input id="recu" type="number" min="0" step="0.5" inputmode="decimal" placeholder="0,00">
+          <div class="rendu" id="blocRendu"><span>Rendu de monnaie</span><span id="rendu">0,00 €</span></div>
+        </div>
+
+        <button class="btn btn-accent btn-block" id="btnValider" style="margin-top:12px" disabled>✓ Valider la vente</button>
+        <button class="btn btn-ghost btn-block" id="btnVider" style="margin-top:8px">Vider le panier</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  var DATA = null;        // données serveur
+  var panier = [];        // {vendeur, reference, prix, typeRemise, prixClient, remise, magasin}
+  var paiement = 'cb';
+
+  var $ = function(id){ return document.getElementById(id); };
+  function fmt(n){ return (Number(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:2, maximumFractionDigits:2}) + ' €'; }
+  function toast(msg, err){
+    var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (err?' err':'');
+    setTimeout(function(){ t.className = 'toast' + (err?' err':''); }, err?4000:2200);
+  }
+  function remiseParNom(nom){
+    for (var i=0;i<DATA.remises.length;i++){ if (DATA.remises[i].nom===nom) return DATA.remises[i]; }
+    return {valeur:0, estPourcentage:false, magasin:false};
+  }
+  function round2(x){ return Math.round((Number(x)+Number.EPSILON)*100)/100; }
+  function calcLigne(prix, typeRemise){
+    var rd = remiseParNom(typeRemise);
+    var remise = rd.estPourcentage ? round2(prix*rd.valeur) : round2(rd.valeur);
+    return { remise:remise, prixClient:round2(prix+remise), magasin:rd.magasin };
+  }
+
+  // --- Chargement initial ---
+  google.script.run.withSuccessHandler(function(d){
+    DATA = d;
+    $('noPanier').textContent = d.prochainPanier;
+    $('noVente').textContent = d.prochaineVente;
+
+    var dl = $('listeVendeurs');
+    d.vendeurs.forEach(function(v){ var o=document.createElement('option'); o.value=v; dl.appendChild(o); });
+
+    var sel = $('remise');
+    d.remises.forEach(function(r){
+      var o=document.createElement('option'); o.value=r.nom;
+      o.textContent = r.nom + (r.magasin ? '  (magasin)' : '');
+      if (r.nom==='pas_de_remise') o.selected=true;
+      sel.appendChild(o);
+    });
+
+    var seg = $('segPaiement');
+    d.paiements.forEach(function(p,i){
+      var el=document.createElement('div'); el.className='opt'+(i===0?' active':''); el.textContent=p.toUpperCase(); el.dataset.val=p;
+      el.onclick=function(){ paiement=p; document.querySelectorAll('.seg .opt').forEach(function(o){o.classList.remove('active');}); el.classList.add('active'); majEspeces(); };
+      seg.appendChild(el);
+    });
+    paiement = d.paiements[0];
+    majApercu();
+  }).withFailureHandler(function(e){ toast('Erreur de chargement : '+e.message, true); }).getCaisseData();
+
+  // --- Aperçu prix client (formulaire) ---
+  function majApercu(){
+    if(!DATA) return;
+    var prix = parseFloat($('prix').value)||0;
+    var c = calcLigne(prix, $('remise').value);
+    $('apercuPC').textContent = fmt(c.prixClient);
+    var badge=$('apercuInfo');
+    if (c.magasin){ badge.style.display='inline-block'; badge.textContent='remise magasin'; }
+    else { badge.style.display='none'; }
+  }
+  $('prix').addEventListener('input', majApercu);
+  $('remise').addEventListener('change', majApercu);
+
+  // --- Ajout au panier ---
+  $('btnAdd').addEventListener('click', function(){
+    var vendeur=$('vendeur').value.trim();
+    var reference=$('reference').value.trim();
+    var prix=parseFloat($('prix').value);
+    var typeRemise=$('remise').value;
+    if(!vendeur){ toast('Choisis un vendeur.', true); $('vendeur').focus(); return; }
+    if(DATA.vendeurs.indexOf(vendeur)===-1){ toast('Vendeur inconnu (vérifie l\'orthographe).', true); return; }
+    if(isNaN(prix)||prix<=0){ toast('Prix invalide.', true); $('prix').focus(); return; }
+
+    var c=calcLigne(prix, typeRemise);
+    panier.push({vendeur:vendeur, reference:reference, prix:prix, typeRemise:typeRemise, prixClient:c.prixClient, remise:c.remise, magasin:c.magasin});
+    // reset partiel (on garde le vendeur, souvent le même sur un panier)
+    $('reference').value=''; $('prix').value='';
+    majApercu(); render(); $('reference').focus();
+  });
+
+  // --- Rendu du panier ---
+  function render(){
+    var box=$('lignes');
+    if(!panier.length){ box.innerHTML='<div class="vide">Aucun article pour l\'instant.</div>'; }
+    else{
+      box.innerHTML='';
+      panier.forEach(function(l,idx){
+        var det = l.reference ? (l.reference+' · ') : '';
+        det += fmt(l.prix);
+        if(l.remise!==0) det += '  ('+(l.typeRemise)+')';
+        var row=document.createElement('div'); row.className='ligne';
+        row.innerHTML =
+          '<div class="info"><div class="nom">'+escapeHtml(l.vendeur)+(l.magasin?' <span class="badge">magasin</span>':'')+'</div>'+
+          '<div class="det">'+escapeHtml(det)+'</div></div>'+
+          '<div class="pc">'+fmt(l.prixClient)+'</div>'+
+          '<button class="del" title="Retirer">✕</button>';
+        row.querySelector('.del').onclick=function(){ panier.splice(idx,1); render(); };
+        box.appendChild(row);
+      });
+    }
+    var sousTotal=0, totRemise=0, total=0;
+    panier.forEach(function(l){ sousTotal+=l.prix; totRemise+=l.remise; total+=l.prixClient; });
+    $('sousTotal').textContent=fmt(sousTotal);
+    $('totRemise').textContent=fmt(totRemise);
+    $('total').textContent=fmt(total);
+    $('nbArticles').textContent=panier.length;
+    $('btnValider').disabled = panier.length===0;
+    majEspeces();
+  }
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+
+  // --- Espèces / rendu ---
+  function majEspeces(){
+    var espece = /esp/i.test(paiement);
+    $('blocEspeces').style.display = espece ? 'block' : 'none';
+    if(!espece) return;
+    var total=panier.reduce(function(s,l){return s+l.prixClient;},0);
+    var recu=parseFloat($('recu').value)||0;
+    var rendu=round2(recu-total);
+    $('rendu').textContent=fmt(rendu);
+    $('blocRendu').className = 'rendu' + (rendu<0?' neg':'');
+  }
+  $('recu').addEventListener('input', majEspeces);
+
+  // --- Vider ---
+  $('btnVider').addEventListener('click', function(){
+    if(panier.length && !confirm('Vider le panier ?')) return;
+    panier=[]; $('recu').value=''; render();
+  });
+
+  // --- Valider la vente ---
+  $('btnValider').addEventListener('click', function(){
+    if(!panier.length) return;
+    var btn=$('btnValider'); btn.disabled=true; var txt=btn.textContent; btn.textContent='Enregistrement…';
+    var payload={ paiement:paiement, lignes:panier.map(function(l){ return {vendeur:l.vendeur, reference:l.reference, prix:l.prix, typeRemise:l.typeRemise}; }) };
+    google.script.run
+      .withSuccessHandler(function(res){
+        if(res && res.ok){
+          toast('Vente enregistrée · panier n°'+res.panier+' · '+res.nbLignes+' ligne(s)');
+          panier=[]; $('recu').value=''; $('vendeur').value='';
+          render();
+          // rafraîchit les prochains numéros
+          google.script.run.withSuccessHandler(function(d){ DATA=d; $('noPanier').textContent=d.prochainPanier; $('noVente').textContent=d.prochaineVente; }).getCaisseData();
+        } else {
+          toast('Échec : '+(res && res.message ? res.message : 'inconnu'), true);
+        }
+        btn.textContent=txt; btn.disabled=false;
+      })
+      .withFailureHandler(function(e){ toast('Erreur : '+e.message, true); btn.textContent=txt; btn.disabled=false; })
+      .enregistrerVente(payload);
+  });
+</script>
+</body>
+</html>
