@@ -79,6 +79,9 @@
   .ms{position:relative}
   .ms-btn{width:100%;text-align:left;padding:10px 28px 10px 11px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;font-size:14px;position:relative}
   .ms-btn::after{content:'▾';position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:12px}
+  .ms-btn.ms-empty{color:var(--muted)}
+  .ms-empty-list{padding:8px 6px;color:var(--muted);font-size:13px}
+  .warn .btn-dl{margin-left:8px}
   .cap .ms-btn,.cap .ms-opt span{text-transform:capitalize}
   .ms-opt input:checked ~ span{font-weight:700;color:#111}
   .ms-panel{position:absolute;top:calc(100% + 4px);left:0;z-index:40;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;min-width:230px;max-height:300px;overflow:auto;box-shadow:0 10px 28px rgba(0,0,0,.10)}
@@ -142,21 +145,23 @@
 
 <div class="wrap hide" id="app">
   <div class="tabs">
-    <div class="tab active" data-tab="caisse">Caisse</div>
-    <div class="tab" data-tab="vendeur">Vendeur</div>
+    <div class="tab" data-tab="vendeur" id="tabVendeur">Vendeur</div>
     <div class="tab" data-tab="gestion" id="tabGestion">Gestion</div>
+    <div class="tab" data-tab="caisse"  id="tabCaisse">Caisse</div>
     <div style="flex:1"></div>
     <div class="tab btn-ghost" id="btnLogout">Déconnexion</div>
   </div>
 
   <!-- ONGLET CAISSE -->
-  <div id="viewCaisse">
+  <div id="viewCaisse" class="hide">
+    <div id="cErr" class="warn hide"></div>
     <div class="caisse-grid">
       <div class="card">
         <h2>Nouvel article</h2>
         <div id="caisseInfo" class="muted" style="font-size:12px;margin:6px 0 4px">Panier n° <b id="cPanier">…</b> · prochaine vente n° <b id="cVente">…</b></div>
         <label style="margin-top:10px">Vendeur</label>
         <div class="ms cap" id="cVendeur"></div>
+        <input id="cVendeurLibre" class="hide" placeholder="Nom du vendeur" autocomplete="off">
         <label style="margin-top:10px">Référence / produit</label>
         <input id="cRef" placeholder="ex : Sticker, REF 001, Friperie…">
         <div class="row2" style="margin-top:10px">
@@ -240,6 +245,9 @@
 /* ===================== CONFIG ===================== */
 const DEMO_MODE   = false;
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwKx5Wr_N24BPfisZM74sgZcldr-L3TSZHjPJ3WDIGaENIVa3ANVWRn5UgPTOVCeMeObw/exec';
+/* Onglet ouvert par défaut après connexion ('vendeur' | 'gestion' | 'caisse').
+   Si le rôle n'y a pas accès, on ouvre le premier onglet autorisé. */
+const ONGLET_DEFAUT = 'vendeur';
 const PALETTE=['#111111','#6f6f6f','#a8977f','#3f6f6a','#9c5f4a','#4a4f6b','#7a8a55','#b08a4a'];
 const MAX_SERIES=8, DETAIL_CAP=300;
 
@@ -359,9 +367,10 @@ const CHART = {
 const API = {
   async data(password){
     if(DEMO_MODE){
-      const role=password==='gestion'?'gestion':(password==='vendeur'?'vendeur':null);
-      if(!role) return {ok:false,message:'Mot de passe incorrect (démo : "vendeur" ou "gestion").'};
-      return {ok:true,role,rows:DEMO_ROWS};
+      const role=['gestion','caisse','vendeur'].includes(password)?password:null;
+      if(!role) return {ok:false,message:'Mot de passe incorrect (démo : "vendeur", "caisse" ou "gestion").'};
+      const zones=ACCES_LOCAL[role];
+      return {ok:true,role,zones,rows:zones.includes('vendeur')||zones.includes('gestion')?DEMO_ROWS:[]};
     }
     const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify({action:'data',password})});
     return res.json();
@@ -421,7 +430,9 @@ const GEST_KPIS=[
 ];
 
 /* ===================== ÉTAT / UI ===================== */
-const S={rows:[],role:null,selMetric:'revenus',vLignes:[],pwd:''};
+/* Zones accessibles par rôle — doit rester identique à ACCES dans Api.gs */
+const ACCES_LOCAL={gestion:['caisse','vendeur','gestion'],caisse:['caisse'],vendeur:['vendeur']};
+const S={rows:[],role:null,zones:[],selMetric:'revenus',vLignes:[],pwd:''};
 let vendeurSel=null;
 const G={selMetric:'revenus',gLignes:[],selVendeurs:new Set(),selReduc:new Set(),selPaiement:new Set(),selRemise:new Set()};
 const $=id=>document.getElementById(id);
@@ -510,33 +521,43 @@ document.addEventListener('click',e=>{
 });
 
 /* ===================== LOGIN ===================== */
-if(DEMO_MODE) $('demoHint').innerHTML='Mode démonstration — mot de passe : <b>vendeur</b> ou <b>gestion</b>.';
+if(DEMO_MODE) $('demoHint').innerHTML='Mode démonstration — mot de passe : <b>vendeur</b>, <b>caisse</b> ou <b>gestion</b>.';
 $('btnLogin').addEventListener('click',login);
 $('pwd').addEventListener('keydown',e=>{if(e.key==='Enter')login();});
+
+/* Ordre d'affichage des onglets (= ordre du menu) */
+const TAB_ORDER=['vendeur','gestion','caisse'];
+function peut(zone){ return S.zones.indexOf(zone)!==-1; }
+function showTab(tab){
+  if(!peut(tab)){toast('Accès non autorisé avec ce mot de passe.',true);return;}
+  document.querySelectorAll('.tab[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));
+  $('viewCaisse').classList.toggle('hide',tab!=='caisse');
+  $('viewVendeur').classList.toggle('hide',tab!=='vendeur');
+  $('viewGestion').classList.toggle('hide',tab!=='gestion');
+  if(tab==='caisse'&&!caisseLoaded) initCaisse();
+}
 async function login(){
   const pwd=$('pwd').value;$('btnLogin').disabled=true;$('btnLogin').textContent='…';
   try{
     const r=await API.data(pwd);
     if(!r.ok){toast(r.message||'Erreur',true);return;}
-    S.rows=r.rows;S.role=r.role;S.pwd=pwd;
+    S.rows=r.rows||[];S.role=r.role;S.pwd=pwd;
+    /* zones : renvoyées par l'API ; sinon on retombe sur une table locale (ancien déploiement) */
+    S.zones=Array.isArray(r.zones)&&r.zones.length?r.zones:(ACCES_LOCAL[r.role]||[]);
     $('login').classList.add('hide');$('app').classList.remove('hide');
-    if(S.role!=='gestion') $('tabGestion').classList.add('lock');
-    initVendeur();
-    initCaisse();
-    if(S.role==='gestion') initGestion();
+    /* on masque simplement les onglets interdits */
+    $('tabVendeur').classList.toggle('hide',!peut('vendeur'));
+    $('tabGestion').classList.toggle('hide',!peut('gestion'));
+    $('tabCaisse').classList.toggle('hide',!peut('caisse'));
+    if(peut('vendeur')) initVendeur();
+    if(peut('gestion')) initGestion();
+    const premier=peut(ONGLET_DEFAUT)?ONGLET_DEFAUT:TAB_ORDER.find(peut);
+    if(premier) showTab(premier); else toast('Aucun espace accessible avec ce mot de passe.',true);
   }catch(e){toast('Connexion impossible : '+e.message,true);}
   finally{$('btnLogin').disabled=false;$('btnLogin').textContent='Entrer';}
 }
 $('btnLogout').addEventListener('click',()=>location.reload());
-document.querySelectorAll('.tab[data-tab]').forEach(t=>t.addEventListener('click',()=>{
-  const tab=t.dataset.tab;
-  if(tab==='gestion'&&S.role!=='gestion'){toast('Réservé aux gestionnaires.',true);return;}
-  document.querySelectorAll('.tab[data-tab]').forEach(x=>x.classList.remove('active'));t.classList.add('active');
-  $('viewCaisse').classList.toggle('hide',tab!=='caisse');
-  $('viewVendeur').classList.toggle('hide',tab!=='vendeur');
-  $('viewGestion').classList.toggle('hide',tab!=='gestion');
-  if(tab==='caisse'&&!caisseLoaded) initCaisse();
-}));
+document.querySelectorAll('.tab[data-tab]').forEach(t=>t.addEventListener('click',()=>showTab(t.dataset.tab)));
 
 /* ===================== VUE VENDEUR ===================== */
 function initVendeur(){
@@ -579,24 +600,38 @@ function makeMulti(host,{title,values,labels,onChange}){
   refreshBtn();
   return {getSel:()=>sel};
 }
-function makeSingle(host,{values,labels,value,onChange}){
-  let cur=value!=null?value:values[0];
+function makeSingle(host,{values,labels,value,placeholder,onChange}){
+  /* liste toujours normalisée : jamais de crash si l'API renvoie null / vide / doublons */
+  const vals=(Array.isArray(values)?values:[]).map(v=>String(v==null?'':v).trim()).filter(Boolean)
+             .filter((v,i,a)=>a.indexOf(v)===i);
+  let cur = (value!=null&&vals.indexOf(value)>=0) ? value : (placeholder!=null ? null : (vals[0]!=null?vals[0]:null));
   const disp=v=>labels&&labels[v]!=null?labels[v]:v;
+  const cb=onChange||function(){};
   host.innerHTML=`<button type="button" class="ms-btn"></button><div class="ms-panel hide"></div>`;
   const btn=host.querySelector('.ms-btn'),panel=host.querySelector('.ms-panel');
-  const refresh=()=>btn.textContent=disp(cur);
+  const refresh=()=>{
+    btn.textContent = cur==null ? (placeholder||'— Choisir —') : disp(cur);
+    btn.classList.toggle('ms-empty',cur==null);
+  };
   function build(filter){
-    const search=values.length>8?`<input class="ms-search" placeholder="Rechercher…">`:'';
-    const list=values.filter(v=>disp(v).toLowerCase().includes((filter||'').toLowerCase()))
+    if(!vals.length){panel.innerHTML='<div class="ms-empty-list">Aucune option disponible.</div>';return;}
+    const search=vals.length>8?`<input class="ms-search" placeholder="Rechercher…">`:'';
+    const list=vals.filter(v=>String(disp(v)).toLowerCase().includes((filter||'').toLowerCase()))
       .map(v=>`<label class="ms-opt"><input type="radio" name="rad_${host.id}" value="${FMT.esc(v)}" ${v===cur?'checked':''}><span>${FMT.esc(disp(v))}</span></label>`).join('');
-    panel.innerHTML=search+`<div class="ms-list">${list}</div>`;
-    if(search){const s=panel.querySelector('.ms-search');s.oninput=()=>build(s.value);setTimeout(()=>s.focus(),0);}
-    panel.querySelectorAll('.ms-opt input').forEach(r=>r.onchange=()=>{cur=r.value;refresh();panel.classList.add('hide');onChange(cur);});
+    panel.innerHTML=search+`<div class="ms-list">${list||'<div class="ms-empty-list">Aucun résultat.</div>'}</div>`;
+    if(search){const s=panel.querySelector('.ms-search');s.value=filter||'';s.oninput=()=>build(s.value);setTimeout(()=>s.focus(),0);}
+    /* click ET change : sur iPad/Safari le change n'est pas toujours émis au 1er tap */
+    panel.querySelectorAll('.ms-opt').forEach(lab=>{
+      const inp=lab.querySelector('input');
+      let done=false;
+      const pick=e=>{if(done)return;done=true;e.preventDefault();e.stopPropagation();cur=inp.value;refresh();panel.classList.add('hide');cb(cur);};
+      lab.onclick=pick; inp.onchange=pick;
+    });
   }
   btn.onclick=e=>{e.stopPropagation();const open=!panel.classList.contains('hide');document.querySelectorAll('.ms-panel').forEach(p=>p.classList.add('hide'));if(!open){build('');panel.classList.remove('hide');}};
   panel.onclick=e=>e.stopPropagation();
   refresh();
-  return {getVal:()=>cur};
+  return {getVal:()=>cur,setVal:v=>{cur=v;refresh();},count:()=>vals.length};
 }
 document.addEventListener('click',()=>document.querySelectorAll('.ms-panel').forEach(p=>p.classList.add('hide')));
 
@@ -651,25 +686,67 @@ function renderGestion(){
 const C={data:null,cart:[],paiement:'cb'};
 let caisseLoaded=false,cVendeurSel=null,cRemiseSel=null;
 const round2=x=>Math.round((Number(x)+1e-9)*100)/100;
+const REMISE_DEFAUT=[{nom:'pas_de_remise',valeur:0,estPourcentage:false,magasin:false}];
 function calcLigneCaisse(prix,typeRemise){
-  const rd=(C.data.remises||[]).find(r=>r.nom===typeRemise)||{valeur:0,estPourcentage:false,magasin:false};
+  const liste=(C.data&&Array.isArray(C.data.remises)&&C.data.remises.length)?C.data.remises:REMISE_DEFAUT;
+  const rd=liste.find(r=>r&&r.nom===typeRemise)||{valeur:0,estPourcentage:false,magasin:false};
   const remise=rd.estPourcentage?round2(prix*rd.valeur):round2(rd.valeur);
-  return {remise,prixClient:round2(prix+remise),magasin:rd.magasin};
+  return {remise,prixClient:round2(prix+remise),magasin:!!rd.magasin};
 }
-async function initCaisse(){
+/* nom du vendeur : liste déroulante si dispo, sinon champ libre de secours */
+function vendeurCaisse(){
+  if(cVendeurSel&&cVendeurSel.count()) return cVendeurSel.getVal();
+  return $('cVendeurLibre').value.trim();
+}
+function caisseErr(msg){
+  const el=$('cErr');
+  if(!msg){el.classList.add('hide');el.innerHTML='';return;}
+  el.classList.remove('hide');
+  el.innerHTML='⚠️ '+FMT.esc(msg)+' <button class="btn-dl" id="cRetry">↻ Réessayer</button>';
+  $('cRetry').onclick=()=>initCaisse(true);
+}
+async function initCaisse(force){
+  if(caisseLoaded&&!force) return;
+  caisseErr('');
   try{
     const r=await API.caisseData(S.pwd);
-    if(!r.ok){toast(r.message||'Caisse indisponible',true);return;}
-    C.data=r;caisseLoaded=true;
-    cVendeurSel=makeSingle($('cVendeur'),{values:r.vendeurs,onChange:majApercuCaisse});
-    const remNoms=r.remises.map(x=>x.nom);
+    if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur.');
+    C.data=r;
+
+    /* --- vendeurs --- */
+    const vendeurs=(Array.isArray(r.vendeurs)?r.vendeurs:[])
+      .map(v=>String(v==null?'':v).trim()).filter(Boolean)
+      .filter((v,i,a)=>a.indexOf(v)===i)
+      .sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
+    if(vendeurs.length){
+      $('cVendeur').classList.remove('hide');$('cVendeurLibre').classList.add('hide');
+      cVendeurSel=makeSingle($('cVendeur'),{values:vendeurs,placeholder:'— Choisir un vendeur —',onChange:majApercuCaisse});
+    }else{
+      $('cVendeur').classList.add('hide');$('cVendeurLibre').classList.remove('hide');
+      cVendeurSel=null;
+      caisseErr("Le serveur n'a renvoyé aucun vendeur (vérifie getCaisseData / l'onglet des vendeurs). Saisis le nom à la main en attendant.");
+    }
+
+    /* --- remises --- */
+    const remises=(Array.isArray(r.remises)&&r.remises.length?r.remises:REMISE_DEFAUT).filter(x=>x&&x.nom);
+    C.data.remises=remises.length?remises:REMISE_DEFAUT;
+    const remNoms=C.data.remises.map(x=>x.nom);
     cRemiseSel=makeSingle($('cRemise'),{values:remNoms,value:remNoms.indexOf('pas_de_remise')>=0?'pas_de_remise':remNoms[0],onChange:majApercuCaisse});
+
+    /* --- paiements --- */
+    const paiements=(Array.isArray(r.paiements)&&r.paiements.length?r.paiements:['cb','espèces']).filter(Boolean);
     const seg=$('cSeg');seg.innerHTML='';
-    (r.paiements||['cb','espèces']).forEach((p,i)=>{const el=document.createElement('div');el.className='opt'+(i===0?' on':'');el.textContent=p.toUpperCase();el.onclick=()=>{C.paiement=p;seg.querySelectorAll('.opt').forEach(o=>o.classList.remove('on'));el.classList.add('on');majEspecesCaisse();};seg.appendChild(el);});
-    C.paiement=(r.paiements&&r.paiements[0])||'cb';
-    $('cPanier').textContent=r.prochainPanier;$('cVente').textContent=r.prochaineVente;
+    paiements.forEach((p,i)=>{const el=document.createElement('div');el.className='opt'+(i===0?' on':'');el.textContent=String(p).toUpperCase();el.onclick=()=>{C.paiement=p;seg.querySelectorAll('.opt').forEach(o=>o.classList.remove('on'));el.classList.add('on');majEspecesCaisse();};seg.appendChild(el);});
+    C.paiement=paiements[0]||'cb';
+
+    $('cPanier').textContent=r.prochainPanier!=null?r.prochainPanier:'?';
+    $('cVente').textContent=r.prochaineVente!=null?r.prochaineVente:'?';
+    caisseLoaded=true;
     majApercuCaisse();renderCaisse();
-  }catch(e){toast('Caisse indisponible : '+e.message,true);}
+  }catch(e){
+    caisseLoaded=false;
+    caisseErr('Caisse indisponible : '+((e&&e.message)||e));
+  }
 }
 function majApercuCaisse(){
   if(!C.data)return;
@@ -706,8 +783,8 @@ $('cPrix').addEventListener('input',majApercuCaisse);
 $('cRecu').addEventListener('input',majEspecesCaisse);
 $('cAdd').addEventListener('click',()=>{
   if(!C.data){toast('Caisse non chargée.',true);return;}
-  const vendeur=cVendeurSel.getVal(),reference=$('cRef').value.trim(),prix=parseFloat($('cPrix').value),typeRemise=cRemiseSel.getVal();
-  if(!vendeur){toast('Choisis un vendeur.',true);return;}
+  const vendeur=vendeurCaisse(),reference=$('cRef').value.trim(),prix=parseFloat($('cPrix').value),typeRemise=cRemiseSel?cRemiseSel.getVal():'pas_de_remise';
+  if(!vendeur){toast('Choisis un vendeur.',true);if(!cVendeurSel)$('cVendeurLibre').focus();return;}
   if(isNaN(prix)||prix<=0){toast('Prix invalide.',true);$('cPrix').focus();return;}
   const c=calcLigneCaisse(prix,typeRemise);
   C.cart.push({vendeur,reference,prix,typeRemise,prixClient:c.prixClient,remise:c.remise,magasin:c.magasin});
