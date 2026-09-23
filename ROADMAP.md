@@ -10,6 +10,7 @@
 - 3 rôles par mot de passe (caisse / vendeur / gestion), Sheet privé possible.
 - Dashboards : onglet Vendeur, onglet Gestion (tableau transposé, filtres, CSV, graphes).
 - Commission recalculée **par mois × vendeur, figée sur toutes les données** (logique à préserver).
+- Caisse : **anti-doublon** par identifiant de transaction (idempotence serveur) + récap « Ventes du jour » (totaux CB / espèces, détection des paniers identiques).
 
 ## Palier 1 — Sortir de Google Sheets 🎯 (prochaine étape)
 - [ ] Schéma **Postgres** : vendeurs, articles (stock par vendeur), ventes, paniers, remises, taxes.

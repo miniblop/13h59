@@ -53,7 +53,7 @@ function _acces() {
 }
 
 /** Numéro de version du code — sert à vérifier ce qui est réellement DÉPLOYÉ. */
-function _version() { return '2026-09-10-noms3'; }
+function _version() { return '2026-09-23-antidoublon'; }
 
 /** Fait converger les variantes de CASSE d'un même vendeur.
  *  "hello cloudy" (297 ventes) et "Hello Cloudy" (1 vente) désignent la même
@@ -90,6 +90,7 @@ function doPost(e) {
     if (body.action === 'data')        return _apiData(body);
     if (body.action === 'caisse_data') return _caisseData(body);
     if (body.action === 'caisse_save') return _caisseSave(body);
+    if (body.action === 'caisse_jour') return _caisseJour(body);
     return _json({ ok: false, message: 'Action inconnue.' });
   } catch (err) {
     return _json({ ok: false, message: 'Erreur : ' + (err && err.message ? err.message : err) });
@@ -172,6 +173,17 @@ function _caisseSave(body) {
   if (!role) return _json({ ok: false, message: 'Mot de passe incorrect.' });
   if (!_peut(role, 'caisse')) return _json({ ok: false, message: "Ce mot de passe ne donne pas accès à la caisse." });
   return _json(enregistrerVente(body.payload));
+}
+
+/* Ventes d'une journée pour le récap de l'onglet Caisse (lecture seule).
+   body.date = 'yyyy-MM-dd' (optionnel, défaut : aujourd'hui). */
+function _caisseJour(body) {
+  const role = _role(body.password);
+  if (!role) return _json({ ok: false, message: 'Mot de passe incorrect.' });
+  if (!_peut(role, 'caisse')) return _json({ ok: false, message: "Ce mot de passe ne donne pas accès à la caisse." });
+  const r = getVentesDuJour(body.date);
+  r.lignes.forEach(function (l) { l.vendeur = _nomPropre(l.vendeur); });
+  return _json({ ok: true, jour: r.jour, lignes: r.lignes });
 }
 
 /** Variante GET (JSONP) — filet de secours si un jour on a un souci CORS.

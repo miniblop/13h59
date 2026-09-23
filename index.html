@@ -123,6 +123,16 @@
   .cligne .pc{font-weight:800;white-space:nowrap}
   .cligne .del{border:none;background:#fbeceb;color:var(--neg);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:15px;flex:0 0 auto}
   .cvide{color:var(--muted);text-align:center;padding:24px 10px;font-size:13px}
+  /* --- récap du jour (caisse) --- */
+  .kpi.static{cursor:default}.kpi.static:hover{border-color:var(--line)}
+  .jour-ctrl{display:flex;gap:8px;align-items:center}
+  .jour-ctrl input{width:auto;padding:6px 9px;font-size:13px}
+  .jtbl td,.jtbl th{padding:7px 10px}
+  .jtbl td:nth-child(2),.jtbl td:nth-child(3),.jtbl th:nth-child(2),.jtbl th:nth-child(3){text-align:left}
+  .jtbl tr.phead td{background:var(--tot);font-weight:700;text-align:left;border-bottom:1px solid var(--line)}
+  .jtbl tr.phead td.r{text-align:right}
+  .jtbl tr.phead.suspect td{background:#fbeceb}
+  .dbl{display:inline-block;background:var(--neg);color:#fff;border-radius:999px;padding:1px 8px;font-size:10px;font-weight:800;margin-left:6px;vertical-align:middle}
   @media(max-width:820px){.caisse-grid{grid-template-columns:1fr}}
   /* --- mobile --- */
   @media(max-width:680px){
@@ -201,6 +211,16 @@
           <button class="btn btn-ghost" id="cVider" style="width:100%;margin-top:8px">Vider le panier</button>
         </div>
       </div>
+    </div>
+
+    <div class="card" id="cJourCard" style="margin-top:16px">
+      <div class="cardhead">
+        <h2>Ventes du jour</h2>
+        <div class="jour-ctrl"><input id="cJourDate" type="date"><button class="btn-dl" id="cJourRefresh">↻ Actualiser</button></div>
+      </div>
+      <div id="cJourWarn" class="warn hide"></div>
+      <div class="kpis kpis5" id="cJourKpis"></div>
+      <div class="tblwrap" style="margin-top:12px"><table class="jtbl" id="cJourTbl"></table></div>
     </div>
   </div>
 
@@ -453,6 +473,14 @@ const API = {
   async caisseSave(password,payload){
     if(DEMO_MODE){return {ok:true,panier:9001,ventes:payload.lignes.map((_,i)=>9001+i),nbLignes:payload.lignes.length};}
     const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify({action:'caisse_save',password,payload})});
+    return res.json();
+  },
+  async caisseJour(password,date){
+    if(DEMO_MODE){
+      const j=date||DEMO_ROWS[DEMO_ROWS.length-1].date;
+      return {ok:true,jour:j,lignes:DEMO_ROWS.filter(r=>r.date===j).map((r,i)=>({...r,heure:String(10+Math.floor(i/3)).padStart(2,'0')+':'+String((i*7)%60).padStart(2,'0')}))};
+    }
+    const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify({action:'caisse_jour',password,date})});
     return res.json();
   }
 };
@@ -783,7 +811,16 @@ function renderGestion(){
 }
 
 /* ===================== VUE CAISSE ===================== */
-const C={data:null,cart:[],paiement:'cb'};
+/* txId = identifiant unique du panier en cours d'envoi. Il est CONSERVÉ tant que
+   le panier n'a pas changé : si la réponse du serveur se perd et qu'on clique à
+   nouveau, le serveur reconnaît la transaction et n'écrit rien une 2e fois.
+   Toute modification du panier (ajout, retrait, paiement, vidage) le remet à zéro. */
+const C={data:null,cart:[],paiement:'cb',txId:null};
+function nouvelIdTx(){
+  if(window.crypto&&crypto.randomUUID) return crypto.randomUUID().replace(/-/g,'');
+  return Date.now().toString(36)+Math.random().toString(36).slice(2,12)+Math.random().toString(36).slice(2,12);
+}
+function panierModifie(){C.txId=null;}
 let caisseLoaded=false,cVendeurSel=null,cRemiseSel=null;
 const round2=x=>Math.round((Number(x)+1e-9)*100)/100;
 const REMISE_DEFAUT=[{nom:'pas_de_remise',valeur:0,estPourcentage:false,magasin:false}];
@@ -836,13 +873,14 @@ async function initCaisse(force){
     /* --- paiements --- */
     const paiements=(Array.isArray(r.paiements)&&r.paiements.length?r.paiements:['cb','espèces']).filter(Boolean);
     const seg=$('cSeg');seg.innerHTML='';
-    paiements.forEach((p,i)=>{const el=document.createElement('div');el.className='opt'+(i===0?' on':'');el.textContent=String(p).toUpperCase();el.onclick=()=>{C.paiement=p;seg.querySelectorAll('.opt').forEach(o=>o.classList.remove('on'));el.classList.add('on');majEspecesCaisse();};seg.appendChild(el);});
+    paiements.forEach((p,i)=>{const el=document.createElement('div');el.className='opt'+(i===0?' on':'');el.textContent=String(p).toUpperCase();el.onclick=()=>{if(C.paiement!==p)panierModifie();C.paiement=p;seg.querySelectorAll('.opt').forEach(o=>o.classList.remove('on'));el.classList.add('on');majEspecesCaisse();};seg.appendChild(el);});
     C.paiement=paiements[0]||'cb';
 
     $('cPanier').textContent=r.prochainPanier!=null?r.prochainPanier:'?';
     $('cVente').textContent=r.prochaineVente!=null?r.prochaineVente:'?';
     caisseLoaded=true;
     majApercuCaisse();renderCaisse();
+    chargerJour();
   }catch(e){
     caisseLoaded=false;
     caisseErr('Caisse indisponible : '+((e&&e.message)||e));
@@ -872,7 +910,7 @@ function renderCaisse(){
       const det=(l.reference?FMT.esc(l.reference)+' · ':'')+FMT.eur(l.prix)+(l.remise!==0?' ('+FMT.esc(l.typeRemise)+')':'');
       return `<div class="cligne"><div class="info"><div class="nom">${FMT.esc(l.vendeur)}${l.magasin?' <span class="pill">magasin</span>':''}</div><div class="det">${det}</div></div><div class="pc">${FMT.eur(l.prixClient)}</div><button class="del" data-i="${idx}">✕</button></div>`;
     }).join('');
-    box.querySelectorAll('.del').forEach(b=>b.onclick=()=>{C.cart.splice(+b.dataset.i,1);renderCaisse();});
+    box.querySelectorAll('.del').forEach(b=>b.onclick=()=>{C.cart.splice(+b.dataset.i,1);panierModifie();renderCaisse();});
   }
   let sous=0,rem=0,tot=0;C.cart.forEach(l=>{sous+=l.prix;rem+=l.remise;tot+=l.prixClient;});
   $('cSous').textContent=FMT.eur(sous);$('cRem').textContent=FMT.eur(rem);$('cTot').textContent=FMT.eur(tot);
@@ -888,23 +926,90 @@ $('cAdd').addEventListener('click',()=>{
   if(isNaN(prix)||prix<=0){toast('Prix invalide.',true);$('cPrix').focus();return;}
   const c=calcLigneCaisse(prix,typeRemise);
   C.cart.push({vendeur,reference,prix,typeRemise,prixClient:c.prixClient,remise:c.remise,magasin:c.magasin});
+  panierModifie();
   $('cRef').value='';$('cPrix').value='';majApercuCaisse();renderCaisse();$('cRef').focus();
 });
-$('cVider').addEventListener('click',()=>{if(C.cart.length&&!confirm('Vider le panier ?'))return;C.cart=[];$('cRecu').value='';renderCaisse();});
+$('cVider').addEventListener('click',()=>{if(C.cart.length&&!confirm('Vider le panier ?'))return;C.cart=[];panierModifie();$('cRecu').value='';renderCaisse();});
 $('cValider').addEventListener('click',async()=>{
   if(!C.cart.length)return;
   const btn=$('cValider'),t=btn.textContent;btn.disabled=true;btn.textContent='Enregistrement…';
+  if(!C.txId) C.txId=nouvelIdTx();
   try{
-    const payload={paiement:C.paiement,lignes:C.cart.map(l=>({vendeur:l.vendeur,reference:l.reference,prix:l.prix,typeRemise:l.typeRemise}))};
+    const payload={idTransaction:C.txId,paiement:C.paiement,lignes:C.cart.map(l=>({vendeur:l.vendeur,reference:l.reference,prix:l.prix,typeRemise:l.typeRemise}))};
     const res=await API.caisseSave(S.pwd,payload);
     if(res&&res.ok){
-      toast('Vente enregistrée · panier n°'+res.panier+' · '+res.nbLignes+' ligne(s)');
-      C.cart=[];$('cRecu').value='';renderCaisse();
+      toast(res.deja
+        ? 'Déjà enregistrée (panier n°'+res.panier+') — aucun doublon créé'
+        : 'Vente enregistrée · panier n°'+res.panier+' · '+res.nbLignes+' ligne(s)');
+      C.cart=[];C.txId=null;$('cRecu').value='';renderCaisse();
       const d=await API.caisseData(S.pwd);if(d&&d.ok){C.data=d;$('cPanier').textContent=d.prochainPanier;$('cVente').textContent=d.prochaineVente;}
     }else toast('Échec : '+((res&&res.message)||'inconnu'),true);
-  }catch(e){toast('Erreur : '+e.message,true);}
-  finally{btn.textContent=t;btn.disabled=false;}
+  }catch(e){
+    /* Réponse perdue : le serveur a PEUT-ÊTRE écrit la vente. Le panier et son
+       identifiant sont gardés : « Valider » à nouveau est sans risque. */
+    toast('Pas de réponse du serveur. Vérifie « Ventes du jour » ; revalider ce panier ne crée pas de doublon.',true);
+  }finally{
+    btn.textContent=t;btn.disabled=C.cart.length===0;
+    chargerJour();
+  }
 });
+
+/* ===================== RÉCAP DU JOUR (caisse) ===================== */
+function aujourdhui(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+let jourReq=0;
+async function chargerJour(){
+  const inp=$('cJourDate');if(!inp.value)inp.value=aujourdhui();
+  const moi=++jourReq;
+  $('cJourRefresh').textContent='…';
+  try{
+    const r=await API.caisseJour(S.pwd,inp.value);
+    if(moi!==jourReq)return;               // une requête plus récente a pris le relais
+    if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide');
+    renderJour(r.lignes||[]);
+  }catch(e){
+    if(moi!==jourReq)return;
+    $('cJourWarn').classList.remove('hide');
+    $('cJourWarn').textContent='⚠️ Récap indisponible : '+((e&&e.message)||e);
+  }finally{ if(moi===jourReq)$('cJourRefresh').textContent='↻ Actualiser'; }
+}
+/* Signature d'un panier : son contenu, indépendamment de l'ordre des lignes. */
+function signaturePanier(ls){
+  return ls[0].paiement+'#'+ls.map(l=>[String(l.vendeur).toLowerCase(),String(l.reference).trim().toLowerCase(),l.prix,l.remiseType].join('|')).sort().join('§');
+}
+function minutes(h){if(!h)return null;const[a,b]=h.split(':').map(Number);return a*60+b;}
+function renderJour(lignes){
+  const esp=l=>/esp/i.test(l.paiement);
+  let tot=0,totEsp=0,totCb=0;
+  lignes.forEach(l=>{tot+=l.prixClient;if(esp(l))totEsp+=l.prixClient;else totCb+=l.prixClient;});
+  /* regroupement par panier (lignes sans numéro : une par « panier ») */
+  const map=new Map();
+  lignes.forEach((l,i)=>{const k=l.panier!=null?'p'+l.panier:'v'+l.vente+'_'+i;if(!map.has(k))map.set(k,[]);map.get(k).push(l);});
+  const paniers=[...map.values()].sort((a,b)=>(a[0].panier??a[0].vente)-(b[0].panier??b[0].vente));
+  /* doublon probable : même contenu + même paiement que le panier précédent, à moins de 10 min */
+  let nbSuspects=0;
+  paniers.forEach((p,i)=>{
+    if(!i)return;const q=paniers[i-1];
+    const ta=minutes(q[0].heure),tb=minutes(p[0].heure);
+    const proche=ta==null||tb==null||Math.abs(tb-ta)<=10;
+    if(proche&&signaturePanier(p)===signaturePanier(q)){p.suspect=q[0].panier;nbSuspects++;}
+  });
+  const kp=[['Paniers',FMT.num(paniers.length)],['Articles',FMT.num(lignes.length)],['CB',FMT.eur(totCb)],['Espèces',FMT.eur(totEsp)],['Total',FMT.eur(tot)]];
+  $('cJourKpis').innerHTML=kp.map(([k,v])=>`<div class="kpi static"><div class="k"><span class="dot"></span>${k}</div><div class="v">${v}</div></div>`).join('');
+  const w=$('cJourWarn');
+  if(nbSuspects){w.classList.remove('hide');w.innerHTML='⚠️ <b>'+nbSuspects+' panier(s)</b> identique(s) au panier précédent (même contenu, même paiement, moins de 10 min d\'écart). Si ce n\'est pas une vraie vente, supprime ses lignes dans l\'onglet <b>ventes</b> du Sheet.';}
+  else w.classList.add('hide');
+  if(!lignes.length){$('cJourTbl').innerHTML='<tbody><tr><td class="muted" style="text-align:center;padding:20px">Aucune vente ce jour-là.</td></tr></tbody>';return;}
+  const head='<thead><tr><th>Vendeur</th><th>Référence</th><th>Remise</th><th>Prix</th><th>Prix client</th></tr></thead>';
+  const body=[...paniers].reverse().map(p=>{
+    const t=p.reduce((s,l)=>s+l.prixClient,0),h=p[0];
+    const titre=(h.panier!=null?'Panier n°'+h.panier:'Sans n° de panier')+(h.heure?' · '+h.heure:'')+' · '+FMT.esc(String(h.paiement).toUpperCase())+(p.suspect?`<span class="dbl" title="Identique au panier n°${p.suspect}">doublon ?</span>`:'');
+    return `<tr class="phead${p.suspect?' suspect':''}"><td colspan="4">${titre}</td><td class="r">${FMT.eur(t)}</td></tr>`+
+      p.map(l=>`<tr><td style="text-transform:capitalize">${FMT.esc(l.vendeur)}</td><td>${FMT.esc(l.reference)}</td><td>${!l.remiseType||l.remiseType==='pas_de_remise'?'—':FMT.esc(l.remiseType)}</td><td>${FMT.eur(l.prix)}</td><td>${FMT.eur(l.prixClient)}</td></tr>`).join('');
+  }).join('');
+  $('cJourTbl').innerHTML=head+'<tbody>'+body+'</tbody>';
+}
+$('cJourRefresh').addEventListener('click',chargerJour);
+$('cJourDate').addEventListener('change',chargerJour);
 
 /* ===================== DONNÉES DÉMO ===================== */
 const DEMO_ROWS=(function(){
