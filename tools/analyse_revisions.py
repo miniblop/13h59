@@ -7,7 +7,7 @@ Dépendance : pip install openpyxl
 
 Pour chaque ligne qui existe dans une révision puis disparaît dans la suivante,
 le script indique quand, par qui, et si son contenu était un doublon probable
-(même vendeur / référence / prix / remise / paiement qu'une ligne d'un panier
+(même créateur / référence / prix / remise / paiement qu'une ligne d'un panier
 voisin enregistré à moins de 10 minutes).
 """
 import sys
@@ -49,7 +49,7 @@ def lire_ventes(path):
             "vente": int(v),
             "panier": nombre(g("numero_panier")),
             "date": g("date"),
-            "vendeur": str(g("vendeur") or "").strip(),
+            "createur": str(g("vendeur") or "").strip(),      # colonne du Sheet, nom historique
             "reference": texte(g("reference_produit")),
             "remise": str(g("type_de_remise") or "").strip(),
             "paiement": str(g("type_de_paiement") or "").strip(),
@@ -60,7 +60,7 @@ def lire_ventes(path):
 
 
 def contenu(l):
-    return (l["vendeur"].lower(), l["reference"].lower(), l["prix"], l["remise"], l["paiement"])
+    return (l["createur"].lower(), l["reference"].lower(), l["prix"], l["remise"], l["paiement"])
 
 
 def cle(l):
@@ -116,7 +116,7 @@ def main(dossier):
                 j = jumelles[0]
                 ecart = abs((l["date"] - j["date"]).total_seconds())
                 tag = f"  ← DOUBLON de la vente {j['vente']} (panier {j['panier']}, {ecart:.0f} s d'écart)"
-            print(f"  vente {l['vente']} panier {l['panier']} {l['date']}  {l['vendeur']} | "
+            print(f"  vente {l['vente']} panier {l['panier']} {l['date']}  {l['createur']} | "
                   f"{l['reference']} | {l['prix']} € {l['paiement']}{tag}")
         print()
     print(f"Total : {len(supprimees)} ligne(s) supprimée(s), dont {total_dbl} doublon(s) probable(s).")

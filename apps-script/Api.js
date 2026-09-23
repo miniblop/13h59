@@ -6,7 +6,7 @@
  *  Sécurité :
  *   - Les mots de passe ne sont PAS dans le code : ils sont
  *     stockés dans Paramètres du projet ▸ Propriétés du script :
- *        MDP_VENDEUR   = mot de passe des vendeurs   → onglet Vendeur
+ *        MDP_CREATEUR  = mot de passe des créateurs  → onglet Créateur
  *        MDP_CAISSE    = mot de passe de la caisse   → onglet Caisse
  *        MDP_GESTION   = mot de passe gestionnaire   → accès à tout
  *   - Déploie en "Exécuter en tant que MOI" + "Accès : tout le monde".
@@ -18,7 +18,7 @@
  *  fait planter le projet entier ("Identifier ... has already been declared").
  *  On passe donc par des fonctions, qui elles peuvent coexister sans erreur.      */
 
-/** Nettoie un nom de vendeur SANS en changer l'apparence :
+/** Nettoie un nom de créateur SANS en changer l'apparence :
  *   - normalise l'accentuation Unicode (é composé U+00E9 vs e + ´ U+0301)
  *   - supprime les caractères invisibles (zero-width, BOM)
  *   - ramène espaces insécables / doubles espaces à un espace simple
@@ -46,16 +46,16 @@ function _sheetData() {
 /** Zones accessibles par rôle. */
 function _acces() {
   return {
-    gestion: ['caisse', 'vendeur', 'gestion'],
-    caisse:  ['caisse'],
-    vendeur: ['vendeur']
+    gestion:  ['caisse', 'createur', 'gestion'],
+    caisse:   ['caisse'],
+    createur: ['createur']
   };
 }
 
 /** Numéro de version du code — sert à vérifier ce qui est réellement DÉPLOYÉ. */
-function _version() { return '2026-09-23-antidoublon'; }
+function _version() { return '2026-09-24-createurs'; }
 
-/** Fait converger les variantes de CASSE d'un même vendeur.
+/** Fait converger les variantes de CASSE d'un même créateur.
  *  "hello cloudy" (297 ventes) et "Hello Cloudy" (1 vente) désignent la même
  *  personne : on garde l'orthographe la plus fréquente pour les deux.
  *  Indispensable car l'interface affiche les noms en `text-transform: capitalize`,
@@ -63,10 +63,10 @@ function _version() { return '2026-09-23-antidoublon'; }
 function _canoniserCasse(lignes) {
   const freq = {};
   lignes.forEach(function (l) {
-    if (!l.vendeur) return;
-    const k = l.vendeur.toLowerCase();
+    if (!l.createur) return;
+    const k = l.createur.toLowerCase();
     if (!freq[k]) freq[k] = {};
-    freq[k][l.vendeur] = (freq[k][l.vendeur] || 0) + 1;
+    freq[k][l.createur] = (freq[k][l.createur] || 0) + 1;
   });
   const canon = {};
   Object.keys(freq).forEach(function (k) {
@@ -77,7 +77,7 @@ function _canoniserCasse(lignes) {
     canon[k] = best;
   });
   lignes.forEach(function (l) {
-    if (l.vendeur) l.vendeur = canon[l.vendeur.toLowerCase()] || l.vendeur;
+    if (l.createur) l.createur = canon[l.createur.toLowerCase()] || l.createur;
   });
   return lignes;
 }
@@ -97,19 +97,19 @@ function doPost(e) {
   }
 }
 
-/** Renvoie le rôle ('gestion' / 'caisse' / 'vendeur') d'un mot de passe, ou null. */
+/** Renvoie le rôle ('gestion' / 'caisse' / 'createur') d'un mot de passe, ou null. */
 function _role(password) {
   const props = PropertiesService.getScriptProperties();
   // on ignore les espaces parasites de part et d'autre (copier-coller, clavier mobile)
   const net = function (v) { return String(v == null ? '' : v).trim(); };
   const p    = net(password);
-  const mdpV = net(props.getProperty('MDP_VENDEUR'));
-  const mdpC = net(props.getProperty('MDP_CAISSE'));
-  const mdpG = net(props.getProperty('MDP_GESTION'));
+  const mdpCr = net(props.getProperty('MDP_CREATEUR'));
+  const mdpCa = net(props.getProperty('MDP_CAISSE'));
+  const mdpG  = net(props.getProperty('MDP_GESTION'));
   if (!p) return null;
   if (mdpG && p === mdpG) return 'gestion';
-  if (mdpC && p === mdpC) return 'caisse';
-  if (mdpV && p === mdpV) return 'vendeur';
+  if (mdpCa && p === mdpCa) return 'caisse';
+  if (mdpCr && p === mdpCr) return 'createur';
   return null;
 }
 
@@ -127,27 +127,27 @@ function _caisseData(body) {
 
   const d = getCaisseData() || {};
 
-  // Normalisation défensive : on garantit toujours une liste de vendeurs exploitable.
-  let vendeurs = d.vendeurs;
-  if (!Array.isArray(vendeurs)) vendeurs = [];
-  vendeurs = vendeurs
+  // Normalisation défensive : on garantit toujours une liste de créateurs exploitable.
+  let createurs = d.createurs;
+  if (!Array.isArray(createurs)) createurs = [];
+  createurs = createurs
     .map(_nomPropre)
     .filter(function (v) { return v !== ''; });
   // dédoublonnage insensible à la casse (l'interface affiche en capitalize,
   // donc "hello cloudy" et "Hello Cloudy" seraient deux lignes identiques)
   const vus = {};
-  vendeurs = vendeurs.filter(function (v) {
+  createurs = createurs.filter(function (v) {
     const k = v.toLowerCase();
     if (vus[k]) return false;
     vus[k] = 1;
     return true;
   }).sort(function (a, b) { return a.localeCompare(b, 'fr'); });
 
-  // Filet de secours : si getCaisseData ne renvoie rien, on déduit les vendeurs de "All data".
-  if (!vendeurs.length) {
+  // Filet de secours : si getCaisseData ne renvoie rien, on déduit les créateurs de "All data".
+  if (!createurs.length) {
     const vusSecours = {};
-    _lireDonnees().forEach(function (l) { if (l.vendeur) vusSecours[l.vendeur] = 1; });
-    vendeurs = Object.keys(vusSecours).sort(function (a, b) { return a.localeCompare(b, 'fr'); });
+    _lireDonnees().forEach(function (l) { if (l.createur) vusSecours[l.createur] = 1; });
+    createurs = Object.keys(vusSecours).sort(function (a, b) { return a.localeCompare(b, 'fr'); });
   }
 
   const remises = Array.isArray(d.remises) && d.remises.length
@@ -159,7 +159,7 @@ function _caisseData(body) {
   return _json({
     ok: true,
     role: role,
-    vendeurs: vendeurs,
+    createurs: createurs,
     remises: remises,
     paiements: paiements,
     prochainPanier: d.prochainPanier,
@@ -182,7 +182,7 @@ function _caisseJour(body) {
   if (!role) return _json({ ok: false, message: 'Mot de passe incorrect.' });
   if (!_peut(role, 'caisse')) return _json({ ok: false, message: "Ce mot de passe ne donne pas accès à la caisse." });
   const r = getVentesDuJour(body.date);
-  r.lignes.forEach(function (l) { l.vendeur = _nomPropre(l.vendeur); });
+  r.lignes.forEach(function (l) { l.createur = _nomPropre(l.createur); });
   return _json({ ok: true, jour: r.jour, lignes: r.lignes });
 }
 
@@ -213,9 +213,9 @@ function _ping() {
     version: _version(),
     ongletSource: _sheetData(),
     motsDePasse: {
-      MDP_VENDEUR: def('MDP_VENDEUR'),
-      MDP_CAISSE:  def('MDP_CAISSE'),
-      MDP_GESTION: def('MDP_GESTION')
+      MDP_CREATEUR: def('MDP_CREATEUR'),
+      MDP_CAISSE:   def('MDP_CAISSE'),
+      MDP_GESTION:  def('MDP_GESTION')
     }
   };
 }
@@ -229,7 +229,7 @@ function _apiDataObj(password) {
   if (!role) return { ok: false, message: 'Mot de passe incorrect.' };
   const zones = _acces()[role] || [];
   // Le rôle "caisse" n'a pas besoin des données de reporting : on ne les envoie pas.
-  const rows = (zones.indexOf('vendeur') !== -1 || zones.indexOf('gestion') !== -1) ? _lireDonnees() : [];
+  const rows = (zones.indexOf('createur') !== -1 || zones.indexOf('gestion') !== -1) ? _lireDonnees() : [];
   return { ok: true, role: role, zones: zones, rows: rows };
 }
 
@@ -262,7 +262,7 @@ function _lireDonnees() {
     const panierBrut = get(r, 'numero_panier');
     out.push({
       date: dateStr,
-      vendeur: _nomPropre(get(r, 'vendeur')),
+      createur: _nomPropre(get(r, COL_CREATEUR)),
       panier: (panierBrut === '' || panierBrut == null) ? null : num(panierBrut),
       vente: num(get(r, 'numero_vente')),
       reference: String(get(r, 'reference_produit') || ''),
@@ -272,7 +272,7 @@ function _lireDonnees() {
       remise: num(get(r, 'remise')),
       prixClient: num(get(r, 'prix_client')),
       taxe: num(get(r, 'taxe')),
-      prime: num(get(r, 'prime_vendeur'))
+      prime: num(get(r, COL_PRIME_CREATEUR))
     });
   });
   return _canoniserCasse(out);
@@ -298,8 +298,8 @@ function inspecterNom() {
   if (!sh) { Logger.log('Onglet introuvable : ' + _sheetData()); return; }
   const entetes = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]
     .map(function (h) { return String(h).trim().toLowerCase(); });
-  const col = entetes.indexOf('vendeur') + 1;
-  if (!col) { Logger.log("Colonne 'vendeur' introuvable."); return; }
+  const col = entetes.indexOf(COL_CREATEUR) + 1;
+  if (!col) { Logger.log("Colonne '" + COL_CREATEUR + "' introuvable."); return; }
 
   const nbLig = sh.getLastRow() - 1;
   const vals = sh.getRange(2, col, nbLig, 1).getValues();
@@ -331,16 +331,16 @@ function inspecterNom() {
 }
 
 /** Petit test à lancer depuis l'éditeur : vérifie que les 3 mots de passe existent
- *  et que getCaisseData() renvoie bien des vendeurs. Voir Exécutions ▸ Journaux. */
+ *  et que getCaisseData() renvoie bien des créateurs. Voir Exécutions ▸ Journaux. */
 function testConfig() {
   const props = PropertiesService.getScriptProperties();
   Logger.log('Onglet source utilisé : ' + _sheetData());
-  ['MDP_VENDEUR', 'MDP_CAISSE', 'MDP_GESTION'].forEach(function (k) {
+  ['MDP_CREATEUR', 'MDP_CAISSE', 'MDP_GESTION'].forEach(function (k) {
     Logger.log(k + ' : ' + (props.getProperty(k) ? 'défini ✅' : 'MANQUANT ❌'));
   });
   try {
     const d = getCaisseData() || {};
-    Logger.log('getCaisseData().vendeurs : ' + JSON.stringify(d.vendeurs));
+    Logger.log('getCaisseData().createurs: ' + JSON.stringify(d.createurs));
     Logger.log('getCaisseData().remises  : ' + JSON.stringify(d.remises));
     Logger.log('getCaisseData().paiements: ' + JSON.stringify(d.paiements));
   } catch (e) {

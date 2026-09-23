@@ -166,7 +166,7 @@
 
 <div class="wrap hide" id="app">
   <div class="tabs">
-    <div class="tab" data-tab="vendeur" id="tabVendeur">Vendeur</div>
+    <div class="tab" data-tab="createur" id="tabCreateur">Créateur</div>
     <div class="tab" data-tab="gestion" id="tabGestion">Gestion</div>
     <div class="tab" data-tab="caisse"  id="tabCaisse">Caisse</div>
     <div style="flex:1"></div>
@@ -180,9 +180,9 @@
       <div class="card">
         <h2>Nouvel article</h2>
         <div id="caisseInfo" class="muted" style="font-size:12px;margin:6px 0 4px">Panier n° <b id="cPanier">…</b> · prochaine vente n° <b id="cVente">…</b></div>
-        <label style="margin-top:10px">Vendeur</label>
-        <div class="ms cap" id="cVendeur"></div>
-        <input id="cVendeurLibre" class="hide" placeholder="Nom du vendeur" autocomplete="off">
+        <label style="margin-top:10px">Créateur</label>
+        <div class="ms cap" id="cCreateur"></div>
+        <input id="cCreateurLibre" class="hide" placeholder="Nom du créateur" autocomplete="off">
         <label style="margin-top:10px">Référence / produit</label>
         <input id="cRef" placeholder="ex : Sticker, REF 001, Friperie…">
         <div class="row2" style="margin-top:10px">
@@ -224,12 +224,12 @@
     </div>
   </div>
 
-  <!-- ONGLET VENDEUR -->
-  <div id="viewVendeur" class="hide">
+  <!-- ONGLET CRÉATEUR -->
+  <div id="viewCreateur" class="hide">
     <div class="card">
-      <h2>Suivi vendeur</h2>
+      <h2>Suivi créateur</h2>
       <div class="filters" style="margin-top:12px">
-        <div><label>Vendeur</label><div class="ms cap" id="fVendeur"></div></div>
+        <div><label>Créateur</label><div class="ms cap" id="fCreateur"></div></div>
         <div><label>Du</label><input id="fDu" type="date"></div>
         <div><label>Au</label><input id="fAu" type="date"></div>
         <div><label>Regrouper par</label><select id="fDim"><option value="jour">Jour</option><option value="semaine" selected>Semaine</option><option value="mois">Mois</option></select></div>
@@ -239,8 +239,8 @@
     <h3>Monitoring — clique un indicateur pour voir son évolution</h3>
     <div class="kpis" id="vKpis"></div>
     <div class="card" style="margin-top:16px"><div class="chart-head"><h2 id="vChartTitle">Revenus</h2><span class="cur" id="vChartCur"></span></div><div id="vChart"></div></div>
-    <div class="card"><div class="cardhead"><h2>Récapitulatif (par <span id="vDimLabel">semaine</span>)</h2><button class="btn-dl" data-tbl="vRecap" data-name="recap_vendeur">⬇︎ CSV</button></div><div class="tblwrap"><table id="vRecap"></table></div></div>
-    <div class="card"><div class="cardhead"><h2>Détail des ventes</h2><button class="btn-dl" data-type="detail-v" data-name="detail_vendeur">⬇︎ CSV</button></div><div class="tblwrap"><table id="vDetail"></table></div></div>
+    <div class="card"><div class="cardhead"><h2>Récapitulatif (par <span id="vDimLabel">semaine</span>)</h2><button class="btn-dl" data-tbl="vRecap" data-name="recap_createur">⬇︎ CSV</button></div><div class="tblwrap"><table id="vRecap"></table></div></div>
+    <div class="card"><div class="cardhead"><h2>Détail des ventes</h2><button class="btn-dl" data-type="detail-v" data-name="detail_createur">⬇︎ CSV</button></div><div class="tblwrap"><table id="vDetail"></table></div></div>
   </div>
 
   <!-- ONGLET GESTION -->
@@ -251,10 +251,10 @@
         <div><label>Du</label><input id="gDu" type="date"></div>
         <div><label>Au</label><input id="gAu" type="date"></div>
         <div><label>Dimension</label><select id="gDim"><option value="jour">Jour</option><option value="semaine" selected>Semaine</option><option value="mois">Mois</option></select></div>
-        <div><label>Groupement</label><select id="gGroup"><option value="overall" selected>Overall</option><option value="vendeur">Vendeur</option><option value="reduction">Présence de réduction</option><option value="paiement">Type de paiement</option><option value="remise">Type de remise</option></select></div>
+        <div><label>Groupement</label><select id="gGroup"><option value="overall" selected>Overall</option><option value="createur">Créateur</option><option value="reduction">Présence de réduction</option><option value="paiement">Type de paiement</option><option value="remise">Type de remise</option></select></div>
       </div>
       <div class="filters" style="margin-top:12px">
-        <div><label>Filtre vendeur</label><div class="ms cap" id="gVendeur"></div></div>
+        <div><label>Filtre créateur</label><div class="ms cap" id="gCreateur"></div></div>
         <div><label>Filtre réduction</label><div class="ms" id="gReduc"></div></div>
         <div><label>Filtre paiement</label><div class="ms" id="gPaiement"></div></div>
         <div><label>Filtre remise</label><div class="ms" id="gRemise"></div></div>
@@ -276,9 +276,9 @@
 /* ===================== CONFIG ===================== */
 const DEMO_MODE   = false;
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwKx5Wr_N24BPfisZM74sgZcldr-L3TSZHjPJ3WDIGaENIVa3ANVWRn5UgPTOVCeMeObw/exec';
-/* Onglet ouvert par défaut après connexion ('vendeur' | 'gestion' | 'caisse').
+/* Onglet ouvert par défaut après connexion ('createur' | 'gestion' | 'caisse').
    Si le rôle n'y a pas accès, on ouvre le premier onglet autorisé. */
-const ONGLET_DEFAUT = 'vendeur';
+const ONGLET_DEFAUT = 'createur';
 const PALETTE=['#111111','#6f6f6f','#a8977f','#3f6f6a','#9c5f4a','#4a4f6b','#7a8a55','#b08a4a'];
 const MAX_SERIES=8, DETAIL_CAP=300;
 
@@ -309,12 +309,12 @@ const CALC = {
     return            sommePrime>=250?0.15 : sommePrime>=100?0.10 : 0;
   },
   /* ---------------------------------------------------------------------
-     On commissionne sur le MOIS, à la maille vendeur.
+     On commissionne sur le MOIS, à la maille créateur.
 
-     Le taux d'un vendeur pour un mois donné se calcule donc une bonne fois
+     Le taux d'un créateur pour un mois donné se calcule donc une bonne fois
      pour toutes, sur l'INTÉGRALITÉ des données — jamais sur le sous-ensemble
      affiché. Sans ça, deux biais apparaissent :
-       · filtrer du 1er au 15 septembre ferait perdre la tranche au vendeur,
+       · filtrer du 1er au 15 septembre ferait perdre la tranche au créateur,
          puisque sa prime affichée serait deux fois moindre ;
        · afficher par semaine ou par jour évaluerait le seuil des 100 € sur
          une semaine, ramenant presque tout le monde à 0 %.
@@ -328,11 +328,11 @@ const CALC = {
 
   /** À appeler une fois sur la totalité des lignes, juste après le chargement. */
   indexerMois(rows){
-    // clé = 'YYYY-MM|vendeur' — le mois fait toujours 7 caractères, donc un
-    // nom de vendeur contenant « | » ne casse pas le découpage.
+    // clé = 'YYYY-MM|createur' — le mois fait toujours 7 caractères, donc un
+    // nom de créateur contenant « | » ne casse pas le découpage.
     const primeParVM=new Map();
     rows.forEach(l=>{
-      const k=CALC.mois(l.date)+'|'+(l.vendeur||'(vide)');
+      const k=CALC.mois(l.date)+'|'+(l.createur||'(vide)');
       primeParVM.set(k,(primeParVM.get(k)||0)+l.prime);
     });
     const tauxParVM=new Map();
@@ -341,7 +341,7 @@ const CALC = {
       tauxParVM.set(k,CALC.tauxCommission(ancien,prime));
     });
     rows.forEach(l=>{
-      const k=CALC.mois(l.date)+'|'+(l.vendeur||'(vide)');
+      const k=CALC.mois(l.date)+'|'+(l.createur||'(vide)');
       l.primeMois=primeParVM.get(k)||0;
       l.tauxMois=tauxParVM.get(k)||0;
       l.commission=l.prime*l.tauxMois;
@@ -353,14 +353,14 @@ const CALC = {
     return lignes.reduce((s,l)=>s+(l.commission||0),0);
   },
   agrege(lignes, dateRef){
-    let revenus=0,prime=0,remise=0,taxe=0; const paniers=new Set(),vendeurs=new Set();
-    lignes.forEach(l=>{revenus+=l.prixClient;prime+=l.prime;remise+=l.remise;taxe+=l.taxe;if(l.panier!=null)paniers.add(l.panier);vendeurs.add(l.vendeur);});
+    let revenus=0,prime=0,remise=0,taxe=0; const paniers=new Set(),createurs=new Set();
+    lignes.forEach(l=>{revenus+=l.prixClient;prime+=l.prime;remise+=l.remise;taxe+=l.taxe;if(l.panier!=null)paniers.add(l.panier);createurs.add(l.createur);});
     const nbVentes=lignes.length,nbPaniers=paniers.size;
     const commission=CALC.commission(lignes);
     /* taux affiché = taux effectif (commission / prime), moyenne pondérée des
-       paliers individuels. Sur un seul vendeur, il vaut exactement son palier. */
+       paliers individuels. Sur un seul créateur, il vaut exactement son palier. */
     const taux=prime?commission/prime:0;
-    return {nbVendeurs:vendeurs.size,nbVentes,nbPaniers,revenus,remise,taxe,prime,taux,commission,
+    return {nbCreateurs:createurs.size,nbVentes,nbPaniers,revenus,remise,taxe,prime,taux,commission,
       primeNet:prime-commission,
       revParPanier:nbPaniers?revenus/nbPaniers:null,
       artParPanier:nbPaniers?nbVentes/nbPaniers:null,
@@ -370,10 +370,10 @@ const CALC = {
 function totaux(buckets, lignes){
   const t={nbVentes:0,revenus:0,remise:0,taxe:0,prime:0,commission:0};
   buckets.forEach(b=>{t.nbVentes+=b.agg.nbVentes;t.revenus+=b.agg.revenus;t.remise+=b.agg.remise;t.taxe+=b.agg.taxe;t.prime+=b.agg.prime;t.commission+=b.agg.commission;});
-  const paniers=new Set(),vendeurs=new Set();
-  lignes.forEach(l=>{if(l.panier!=null)paniers.add(l.panier);vendeurs.add(l.vendeur);});
+  const paniers=new Set(),createurs=new Set();
+  lignes.forEach(l=>{if(l.panier!=null)paniers.add(l.panier);createurs.add(l.createur);});
   const nbPaniers=paniers.size;
-  return {nbVendeurs:vendeurs.size,nbVentes:t.nbVentes,nbPaniers,revenus:t.revenus,remise:t.remise,taxe:t.taxe,prime:t.prime,commission:t.commission,
+  return {nbCreateurs:createurs.size,nbVentes:t.nbVentes,nbPaniers,revenus:t.revenus,remise:t.remise,taxe:t.taxe,prime:t.prime,commission:t.commission,
     primeNet:t.prime-t.commission,
     revParPanier:nbPaniers?t.revenus/nbPaniers:null,
     artParPanier:nbPaniers?t.nbVentes/nbPaniers:null,
@@ -452,10 +452,10 @@ const CHART = {
 const API = {
   async data(password){
     if(DEMO_MODE){
-      const role=['gestion','caisse','vendeur'].includes(password)?password:null;
-      if(!role) return {ok:false,message:'Mot de passe incorrect (démo : "vendeur", "caisse" ou "gestion").'};
+      const role=['gestion','caisse','createur'].includes(password)?password:null;
+      if(!role) return {ok:false,message:'Mot de passe incorrect (démo : "createur", "caisse" ou "gestion").'};
       const zones=ACCES_LOCAL[role];
-      return {ok:true,role,zones,rows:zones.includes('vendeur')||zones.includes('gestion')?DEMO_ROWS:[]};
+      return {ok:true,role,zones,rows:zones.includes('createur')||zones.includes('gestion')?DEMO_ROWS:[]};
     }
     const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify({action:'data',password})});
     return res.json();
@@ -463,7 +463,7 @@ const API = {
   async caisseData(password){
     if(DEMO_MODE){
       return {ok:true,
-        vendeurs:[...new Set(DEMO_ROWS.map(r=>r.vendeur))].sort((a,b)=>a.localeCompare(b,'fr')),
+        createurs:[...new Set(DEMO_ROWS.map(r=>r.createur))].sort((a,b)=>a.localeCompare(b,'fr')),
         remises:[{nom:'pas_de_remise',valeur:0,estPourcentage:false,magasin:false},{nom:'carte_fidelite_10%',valeur:-0.10,estPourcentage:true,magasin:false},{nom:'machine_cadeau_5€',valeur:-5,estPourcentage:false,magasin:true},{nom:'soldes_20',valeur:-0.20,estPourcentage:true,magasin:false}],
         paiements:['cb','espèces'],prochainPanier:9001,prochaineVente:9001};
     }
@@ -490,18 +490,18 @@ const METRIQUES=[
   {key:'revenus',    label:'Revenus',           get:a=>a.revenus,      fmt:FMT.eur, fmtc:FMT.eur0},
   {key:'ventes',     label:'Ventes',            get:a=>a.nbVentes,     fmt:FMT.num, fmtc:FMT.num},
   {key:'paniers',    label:'Paniers',           get:a=>a.nbPaniers,    fmt:FMT.num, fmtc:FMT.num},
-  {key:'prime',      label:'Prime vendeur',     get:a=>a.prime,        fmt:FMT.eur, fmtc:FMT.eur0},
+  {key:'prime',      label:'Prime créateur',     get:a=>a.prime,        fmt:FMT.eur, fmtc:FMT.eur0},
   {key:'commission', label:'Commission',        get:a=>a.commission,   fmt:FMT.eur, fmtc:FMT.eur0},
   {key:'primeNet',   label:'Prime nette',       get:a=>a.primeNet,     fmt:FMT.eur, fmtc:FMT.eur0},
   {key:'panierMoyen',label:'Panier moyen',      get:a=>a.revParPanier, fmt:FMT.eur, fmtc:FMT.eur0},
   {key:'artPanier',  label:'Articles / panier', get:a=>a.artParPanier, fmt:FMT.dec1,fmtc:FMT.dec1}
 ];
 const GEST_METRIQUES=[
-  {label:'Vendeurs',            grp:'vol',  get:a=>a.nbVendeurs,   fmt:FMT.num},
+  {label:'Créateurs',            grp:'vol',  get:a=>a.nbCreateurs,   fmt:FMT.num},
   {label:'Ventes',              grp:'vol',  get:a=>a.nbVentes,     fmt:FMT.num},
   {label:'Paniers',             grp:'vol',  get:a=>a.nbPaniers,    fmt:FMT.num},
   {label:'Revenus',             grp:'mnt',  get:a=>a.revenus,      fmt:FMT.eur0},
-  {label:'Prime vendeur',       grp:'mnt',  get:a=>a.prime,        fmt:FMT.eur0},
+  {label:'Prime créateur',       grp:'mnt',  get:a=>a.prime,        fmt:FMT.eur0},
   {label:'Commissions',         grp:'mnt',  get:a=>a.commission,   fmt:FMT.eur0},
   {label:'Prime nette',         grp:'mnt',  get:a=>a.primeNet,     fmt:FMT.eur0},
   {label:'Revenus / panier',    grp:'ratio',get:a=>a.revParPanier, fmt:FMT.eur},
@@ -510,11 +510,11 @@ const GEST_METRIQUES=[
 ];
 /* KPIs cliquables de l'onglet Gestion = mêmes 10 métriques que le tableau, même ordre/noms */
 const GEST_KPIS=[
-  {key:'vendeurs',    label:'Vendeurs',             get:a=>a.nbVendeurs,   fmt:FMT.num, fmtc:FMT.num},
+  {key:'createurs',    label:'Créateurs',             get:a=>a.nbCreateurs,   fmt:FMT.num, fmtc:FMT.num},
   {key:'ventes',      label:'Ventes',               get:a=>a.nbVentes,     fmt:FMT.num, fmtc:FMT.num},
   {key:'paniers',     label:'Paniers',              get:a=>a.nbPaniers,    fmt:FMT.num, fmtc:FMT.num},
   {key:'revenus',     label:'Revenus',              get:a=>a.revenus,      fmt:FMT.eur, fmtc:FMT.eur0},
-  {key:'prime',       label:'Prime vendeur',        get:a=>a.prime,        fmt:FMT.eur, fmtc:FMT.eur0},
+  {key:'prime',       label:'Prime créateur',        get:a=>a.prime,        fmt:FMT.eur, fmtc:FMT.eur0},
   {key:'commission',  label:'Commissions',          get:a=>a.commission,   fmt:FMT.eur, fmtc:FMT.eur0},
   {key:'primeNet',    label:'Prime nette',          get:a=>a.primeNet,     fmt:FMT.eur, fmtc:FMT.eur0},
   {key:'revParPanier',label:'Revenus / panier',     get:a=>a.revParPanier, fmt:FMT.eur, fmtc:FMT.eur0},
@@ -524,16 +524,16 @@ const GEST_KPIS=[
 
 /* ===================== ÉTAT / UI ===================== */
 /* Zones accessibles par rôle — doit rester identique à ACCES dans Api.gs */
-const ACCES_LOCAL={gestion:['caisse','vendeur','gestion'],caisse:['caisse'],vendeur:['vendeur']};
+const ACCES_LOCAL={gestion:['caisse','createur','gestion'],caisse:['caisse'],createur:['createur']};
 const S={rows:[],role:null,zones:[],selMetric:'revenus',vLignes:[],pwd:''};
-let vendeurSel=null;
-const G={selMetric:'revenus',gLignes:[],selVendeurs:new Set(),selReduc:new Set(),selPaiement:new Set(),selRemise:new Set()};
+let createurSel=null;
+const G={selMetric:'revenus',gLignes:[],selCreateurs:new Set(),selReduc:new Set(),selPaiement:new Set(),selRemise:new Set()};
 const $=id=>document.getElementById(id);
 function toast(m,err){const t=$('toast');t.textContent=m;t.className='toast show'+(err?' err':'');setTimeout(()=>t.className='toast'+(err?' err':''),err?3800:2200);}
 function warnPanier(lignes,el){const s=lignes.filter(l=>l.panier==null).length;if(s>0){el.classList.remove('hide');el.innerHTML='⚠️ '+s+' vente(s) sans numéro de panier : les indicateurs « par panier » ne les comptent pas tant que la donnée n\'est pas complétée.';}else el.classList.add('hide');}
 
 function groupeur(g){
-  if(g==='vendeur')  return l=>l.vendeur||'(vide)';
+  if(g==='createur')  return l=>l.createur||'(vide)';
   if(g==='reduction')return l=>(l.remiseType&&l.remiseType!=='pas_de_remise')?'Avec réduction':'Sans réduction';
   if(g==='paiement') return l=>l.paiement||'(vide)';
   if(g==='remise')   return l=>l.remiseType||'(vide)';
@@ -571,7 +571,7 @@ function renderMonitoring(cfg){
 
 /* tables */
 /* Le palier étant mensuel, toute période touchant le mois en cours a une
-   commission encore susceptible d'augmenter : le vendeur peut franchir un
+   commission encore susceptible d'augmenter : le créateur peut franchir un
    seuil d'ici la fin du mois. On la montre, mais on la signale. */
 const MOIS_COURANT=(()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');})();
 function estProvisoire(lignes){return (lignes||[]).some(l=>CALC.mois(l.date)===MOIS_COURANT);}
@@ -582,14 +582,14 @@ function recapHTML(buckets,t){
   return `<thead><tr><th>Période</th><th>Ventes</th><th>Paniers</th><th>Revenus</th><th>Remise</th><th>Taxe</th><th>Prime</th><th>Taux</th><th>Commission</th><th>Prime nette</th></tr></thead><tbody>`+
     buckets.map(b=>{const a=b.agg;const p=estProvisoire(b.lignes);return `<tr><td>${FMT.esc(b.label)}${p?' '+BADGE_PROV:''}</td><td>${FMT.num(a.nbVentes)}</td><td>${FMT.num(a.nbPaniers)}</td><td>${FMT.eur(a.revenus)}</td><td>${FMT.eur(a.remise)}</td><td>${FMT.eur(a.taxe)}</td><td>${FMT.eur(a.prime)}</td><td>${p?`<span class="taux-prov" title="Mois en cours : le taux ne peut plus que monter d'ici la fin du mois">≥&nbsp;${FMT.pct(a.taux)}</span>`:FMT.pct(a.taux)}</td><td>${FMT.eur(a.commission)}</td><td>${FMT.eur(a.primeNet)}</td></tr>`;}).join('')+
     `<tr class="tot"><td>Total${provisoire?' '+BADGE_PROV:''}</td><td>${FMT.num(t.nbVentes)}</td><td>${FMT.num(t.nbPaniers)}</td><td>${FMT.eur(t.revenus)}</td><td>${FMT.eur(t.remise)}</td><td>${FMT.eur(t.taxe)}</td><td>${FMT.eur(t.prime)}</td><td>—</td><td>${FMT.eur(t.commission)}</td><td>${FMT.eur(t.primeNet)}</td></tr>`+
-    (provisoire?`<tr class="note"><td colspan="10">« en cours » : le mois n'est pas terminé. Le palier de commission se calcule sur la prime du mois entier, d'où le taux noté <b>≥</b> : il ne peut plus que monter si un vendeur franchit 100 € ou 250 € d'ici la fin du mois — jamais redescendre. La commission affichée est donc un plancher.</td></tr>`:'')+
+    (provisoire?`<tr class="note"><td colspan="10">« en cours » : le mois n'est pas terminé. Le palier de commission se calcule sur la prime du mois entier, d'où le taux noté <b>≥</b> : il ne peut plus que monter si un créateur franchit 100 € ou 250 € d'ici la fin du mois — jamais redescendre. La commission affichée est donc un plancher.</td></tr>`:'')+
     `</tbody>`;
 }
-function detailHTML(lignes,withVendeur,cap){
+function detailHTML(lignes,withCreateur,cap){
   const tri=[...lignes].sort((a,b)=>a.date<b.date?1:-1);
   const shown=cap?tri.slice(0,cap):tri;
-  const head=`<thead><tr><th>Date</th>${withVendeur?'<th>Vendeur</th>':''}<th>Référence</th><th>Paiement</th><th>Remise</th><th>Prix</th><th>Réduction</th><th>Taxe</th><th>Prix client</th><th>Prime</th></tr></thead>`;
-  const body=`<tbody>`+shown.map(l=>`<tr><td>${FMT.esc(l.date)}</td>${withVendeur?`<td>${FMT.esc(l.vendeur)}</td>`:''}<td>${FMT.esc(l.reference)}</td><td><span class="pill">${FMT.esc(l.paiement)}</span></td><td>${l.remiseType==='pas_de_remise'?'—':FMT.esc(l.remiseType)}</td><td>${FMT.eur(l.prix)}</td><td>${FMT.eur(l.remise)}</td><td>${FMT.eur(l.taxe)}</td><td>${FMT.eur(l.prixClient)}</td><td>${FMT.eur(l.prime)}</td></tr>`).join('')+`</tbody>`;
+  const head=`<thead><tr><th>Date</th>${withCreateur?'<th>Créateur</th>':''}<th>Référence</th><th>Paiement</th><th>Remise</th><th>Prix</th><th>Réduction</th><th>Taxe</th><th>Prix client</th><th>Prime</th></tr></thead>`;
+  const body=`<tbody>`+shown.map(l=>`<tr><td>${FMT.esc(l.date)}</td>${withCreateur?`<td>${FMT.esc(l.createur)}</td>`:''}<td>${FMT.esc(l.reference)}</td><td><span class="pill">${FMT.esc(l.paiement)}</span></td><td>${l.remiseType==='pas_de_remise'?'—':FMT.esc(l.remiseType)}</td><td>${FMT.eur(l.prix)}</td><td>${FMT.eur(l.remise)}</td><td>${FMT.eur(l.taxe)}</td><td>${FMT.eur(l.prixClient)}</td><td>${FMT.eur(l.prime)}</td></tr>`).join('')+`</tbody>`;
   return {html:head+body, shown:shown.length, total:tri.length};
 }
 function blocTranspose(lignes,dim,id){
@@ -610,11 +610,11 @@ function csvEsc(t){t=String(t).replace(/\s+/g,' ').trim();return /[";\n]/.test(t
 function csvRow(arr){return arr.map(csvEsc).join(';');}
 function downloadCSV(name,csv){const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name+'.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);}
 function tableToCSV(table){return [...table.querySelectorAll('tr')].map(tr=>csvRow([...tr.children].map(td=>td.innerText))).join('\r\n');}
-function detailToCSV(lignes,withVendeur){
-  const head=['Date',...(withVendeur?['Vendeur']:[]),'Référence','Paiement','Remise','Prix','Réduction','Taxe','Prix client','Prime'];
+function detailToCSV(lignes,withCreateur){
+  const head=['Date',...(withCreateur?['Créateur']:[]),'Référence','Paiement','Remise','Prix','Réduction','Taxe','Prix client','Prime'];
   const nb=x=>(Number(x)||0).toFixed(2).replace('.',',');
   const tri=[...lignes].sort((a,b)=>a.date<b.date?1:-1);
-  return [csvRow(head)].concat(tri.map(l=>csvRow([l.date,...(withVendeur?[l.vendeur]:[]),l.reference,l.paiement,(l.remiseType==='pas_de_remise'?'':l.remiseType),nb(l.prix),nb(l.remise),nb(l.taxe),nb(l.prixClient),nb(l.prime)]))).join('\r\n');
+  return [csvRow(head)].concat(tri.map(l=>csvRow([l.date,...(withCreateur?[l.createur]:[]),l.reference,l.paiement,(l.remiseType==='pas_de_remise'?'':l.remiseType),nb(l.prix),nb(l.remise),nb(l.taxe),nb(l.prixClient),nb(l.prime)]))).join('\r\n');
 }
 document.addEventListener('click',e=>{
   const b=e.target.closest('.btn-dl'); if(!b)return;
@@ -624,7 +624,7 @@ document.addEventListener('click',e=>{
 });
 
 /* ===================== LOGIN ===================== */
-if(DEMO_MODE) $('demoHint').innerHTML='Mode démonstration — mot de passe : <b>vendeur</b>, <b>caisse</b> ou <b>gestion</b>.';
+if(DEMO_MODE) $('demoHint').innerHTML='Mode démonstration — mot de passe : <b>createur</b>, <b>caisse</b> ou <b>gestion</b>.';
 
 /* œil : affiche / masque le mot de passe saisi */
 const ICONE_OEIL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 12S5 5.5 12 5.5 22.5 12 22.5 12 19 18.5 12 18.5 1.5 12 1.5 12Z"/><circle cx="12" cy="12" r="3.2"/></svg>';
@@ -651,13 +651,13 @@ $('btnLogin').addEventListener('click',login);
 $('pwd').addEventListener('keydown',e=>{if(e.key==='Enter')login();});
 
 /* Ordre d'affichage des onglets (= ordre du menu) */
-const TAB_ORDER=['vendeur','gestion','caisse'];
+const TAB_ORDER=['createur','gestion','caisse'];
 function peut(zone){ return S.zones.indexOf(zone)!==-1; }
 function showTab(tab){
   if(!peut(tab)){toast('Accès non autorisé avec ce mot de passe.',true);return;}
   document.querySelectorAll('.tab[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));
   $('viewCaisse').classList.toggle('hide',tab!=='caisse');
-  $('viewVendeur').classList.toggle('hide',tab!=='vendeur');
+  $('viewCreateur').classList.toggle('hide',tab!=='createur');
   $('viewGestion').classList.toggle('hide',tab!=='gestion');
   if(tab==='caisse'&&!caisseLoaded) initCaisse();
 }
@@ -674,10 +674,10 @@ async function login(){
     S.zones=Array.isArray(r.zones)&&r.zones.length?r.zones:(ACCES_LOCAL[r.role]||[]);
     $('login').classList.add('hide');$('app').classList.remove('hide');
     /* on masque simplement les onglets interdits */
-    $('tabVendeur').classList.toggle('hide',!peut('vendeur'));
+    $('tabCreateur').classList.toggle('hide',!peut('createur'));
     $('tabGestion').classList.toggle('hide',!peut('gestion'));
     $('tabCaisse').classList.toggle('hide',!peut('caisse'));
-    if(peut('vendeur')) initVendeur();
+    if(peut('createur')) initCreateur();
     if(peut('gestion')) initGestion();
     const premier=peut(ONGLET_DEFAUT)?ONGLET_DEFAUT:TAB_ORDER.find(peut);
     if(premier) showTab(premier); else toast('Aucun espace accessible avec ce mot de passe.',true);
@@ -687,22 +687,22 @@ async function login(){
 $('btnLogout').addEventListener('click',()=>location.reload());
 document.querySelectorAll('.tab[data-tab]').forEach(t=>t.addEventListener('click',()=>showTab(t.dataset.tab)));
 
-/* ===================== VUE VENDEUR ===================== */
-function initVendeur(){
-  const vendeurs=[...new Set(S.rows.map(r=>r.vendeur))].filter(Boolean).sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
-  vendeurSel=makeSingle($('fVendeur'),{values:vendeurs,onChange:renderVendeur});
+/* ===================== VUE CRÉATEUR ===================== */
+function initCreateur(){
+  const createurs=[...new Set(S.rows.map(r=>r.createur))].filter(Boolean).sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
+  createurSel=makeSingle($('fCreateur'),{values:createurs,onChange:renderCreateur});
   const dates=S.rows.map(r=>r.date).sort();
   if(dates.length){$('fDu').value=dates[0];$('fAu').value=dates[dates.length-1];}
-  ['fDu','fAu','fDim'].forEach(id=>$(id).addEventListener('change',renderVendeur));
-  renderVendeur();
+  ['fDu','fAu','fDim'].forEach(id=>$(id).addEventListener('change',renderCreateur));
+  renderCreateur();
 }
-function renderVendeur(){
+function renderCreateur(){
   const dim=$('fDim').value;$('vDimLabel').textContent=dim;
-  const v=vendeurSel.getVal(),du=$('fDu').value,au=$('fAu').value;
-  const lignes=S.rows.filter(r=>r.vendeur===v&&(!du||r.date>=du)&&(!au||r.date<=au));
+  const v=createurSel.getVal(),du=$('fDu').value,au=$('fAu').value;
+  const lignes=S.rows.filter(r=>r.createur===v&&(!du||r.date>=du)&&(!au||r.date<=au));
   S.vLignes=lignes;
   warnPanier(lignes,$('vWarnPanier'));
-  const {buckets,totAgg}=renderMonitoring({lignes,dim,group:'overall',els:{kpi:$('vKpis'),title:$('vChartTitle'),cur:$('vChartCur'),chart:$('vChart')},sel:{get:()=>S.selMetric,set:x=>S.selMetric=x},rerender:renderVendeur});
+  const {buckets,totAgg}=renderMonitoring({lignes,dim,group:'overall',els:{kpi:$('vKpis'),title:$('vChartTitle'),cur:$('vChartCur'),chart:$('vChart')},sel:{get:()=>S.selMetric,set:x=>S.selMetric=x},rerender:renderCreateur});
   $('vRecap').innerHTML=recapHTML(buckets,totAgg);
   $('vDetail').innerHTML=detailHTML(lignes,false).html;
 }
@@ -768,10 +768,10 @@ function slug(s){return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'_').repla
 function initGestion(){
   const dates=S.rows.map(r=>r.date).sort();
   if(dates.length){$('gDu').value=dates[0];$('gAu').value=dates[dates.length-1];}
-  const vend=[...new Set(S.rows.map(r=>r.vendeur))].filter(Boolean).sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
+  const vend=[...new Set(S.rows.map(r=>r.createur))].filter(Boolean).sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
   const paie=[...new Set(S.rows.map(r=>r.paiement))].filter(Boolean).sort();
   const rem=[...new Set(S.rows.map(r=>r.remiseType))].filter(Boolean).sort();
-  G.selVendeurs=makeMulti($('gVendeur'),{title:'Vendeur',values:vend,onChange:renderGestion}).getSel();
+  G.selCreateurs=makeMulti($('gCreateur'),{title:'Créateur',values:vend,onChange:renderGestion}).getSel();
   G.selReduc  =makeMulti($('gReduc'),{title:'Réduction',values:['oui','non'],labels:{oui:'Avec réduction',non:'Sans réduction'},onChange:renderGestion}).getSel();
   G.selPaiement=makeMulti($('gPaiement'),{title:'Paiement',values:paie,onChange:renderGestion}).getSel();
   G.selRemise =makeMulti($('gRemise'),{title:'Remise',values:rem,onChange:renderGestion}).getSel();
@@ -783,7 +783,7 @@ function gestionLignes(){
   return S.rows.filter(r=>{
     if(du&&r.date<du) return false;
     if(au&&r.date>au) return false;
-    if(G.selVendeurs.size&&!G.selVendeurs.has(r.vendeur)) return false;
+    if(G.selCreateurs.size&&!G.selCreateurs.has(r.createur)) return false;
     if(G.selPaiement.size&&!G.selPaiement.has(r.paiement)) return false;
     if(G.selRemise.size&&!G.selRemise.has(r.remiseType)) return false;
     if(G.selReduc.size){const red=(r.remiseType&&r.remiseType!=='pas_de_remise')?'oui':'non';if(!G.selReduc.has(red))return false;}
@@ -821,7 +821,7 @@ function nouvelIdTx(){
   return Date.now().toString(36)+Math.random().toString(36).slice(2,12)+Math.random().toString(36).slice(2,12);
 }
 function panierModifie(){C.txId=null;}
-let caisseLoaded=false,cVendeurSel=null,cRemiseSel=null;
+let caisseLoaded=false,cCreateurSel=null,cRemiseSel=null;
 const round2=x=>Math.round((Number(x)+1e-9)*100)/100;
 const REMISE_DEFAUT=[{nom:'pas_de_remise',valeur:0,estPourcentage:false,magasin:false}];
 function calcLigneCaisse(prix,typeRemise){
@@ -830,10 +830,10 @@ function calcLigneCaisse(prix,typeRemise){
   const remise=rd.estPourcentage?round2(prix*rd.valeur):round2(rd.valeur);
   return {remise,prixClient:round2(prix+remise),magasin:!!rd.magasin};
 }
-/* nom du vendeur : liste déroulante si dispo, sinon champ libre de secours */
-function vendeurCaisse(){
-  if(cVendeurSel&&cVendeurSel.count()) return cVendeurSel.getVal();
-  return $('cVendeurLibre').value.trim();
+/* nom du créateur : liste déroulante si dispo, sinon champ libre de secours */
+function createurCaisse(){
+  if(cCreateurSel&&cCreateurSel.count()) return cCreateurSel.getVal();
+  return $('cCreateurLibre').value.trim();
 }
 function caisseErr(msg){
   const el=$('cErr');
@@ -850,18 +850,18 @@ async function initCaisse(force){
     if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur.');
     C.data=r;
 
-    /* --- vendeurs --- */
-    const vendeurs=(Array.isArray(r.vendeurs)?r.vendeurs:[])
+    /* --- créateurs --- */
+    const createurs=(Array.isArray(r.createurs)?r.createurs:[])
       .map(v=>String(v==null?'':v).trim()).filter(Boolean)
       .filter((v,i,a)=>a.indexOf(v)===i)
       .sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
-    if(vendeurs.length){
-      $('cVendeur').classList.remove('hide');$('cVendeurLibre').classList.add('hide');
-      cVendeurSel=makeSingle($('cVendeur'),{values:vendeurs,placeholder:'— Choisir un vendeur —',onChange:majApercuCaisse});
+    if(createurs.length){
+      $('cCreateur').classList.remove('hide');$('cCreateurLibre').classList.add('hide');
+      cCreateurSel=makeSingle($('cCreateur'),{values:createurs,placeholder:'— Choisir un créateur —',onChange:majApercuCaisse});
     }else{
-      $('cVendeur').classList.add('hide');$('cVendeurLibre').classList.remove('hide');
-      cVendeurSel=null;
-      caisseErr("Le serveur n'a renvoyé aucun vendeur (vérifie getCaisseData / l'onglet des vendeurs). Saisis le nom à la main en attendant.");
+      $('cCreateur').classList.add('hide');$('cCreateurLibre').classList.remove('hide');
+      cCreateurSel=null;
+      caisseErr("Le serveur n'a renvoyé aucun créateur (vérifie getCaisseData / l'onglet « vendeurs » du Sheet). Saisis le nom à la main en attendant.");
     }
 
     /* --- remises --- */
@@ -908,7 +908,7 @@ function renderCaisse(){
   else{
     box.innerHTML=C.cart.map((l,idx)=>{
       const det=(l.reference?FMT.esc(l.reference)+' · ':'')+FMT.eur(l.prix)+(l.remise!==0?' ('+FMT.esc(l.typeRemise)+')':'');
-      return `<div class="cligne"><div class="info"><div class="nom">${FMT.esc(l.vendeur)}${l.magasin?' <span class="pill">magasin</span>':''}</div><div class="det">${det}</div></div><div class="pc">${FMT.eur(l.prixClient)}</div><button class="del" data-i="${idx}">✕</button></div>`;
+      return `<div class="cligne"><div class="info"><div class="nom">${FMT.esc(l.createur)}${l.magasin?' <span class="pill">magasin</span>':''}</div><div class="det">${det}</div></div><div class="pc">${FMT.eur(l.prixClient)}</div><button class="del" data-i="${idx}">✕</button></div>`;
     }).join('');
     box.querySelectorAll('.del').forEach(b=>b.onclick=()=>{C.cart.splice(+b.dataset.i,1);panierModifie();renderCaisse();});
   }
@@ -921,11 +921,11 @@ $('cPrix').addEventListener('input',majApercuCaisse);
 $('cRecu').addEventListener('input',majEspecesCaisse);
 $('cAdd').addEventListener('click',()=>{
   if(!C.data){toast('Caisse non chargée.',true);return;}
-  const vendeur=vendeurCaisse(),reference=$('cRef').value.trim(),prix=parseFloat($('cPrix').value),typeRemise=cRemiseSel?cRemiseSel.getVal():'pas_de_remise';
-  if(!vendeur){toast('Choisis un vendeur.',true);if(!cVendeurSel)$('cVendeurLibre').focus();return;}
+  const createur=createurCaisse(),reference=$('cRef').value.trim(),prix=parseFloat($('cPrix').value),typeRemise=cRemiseSel?cRemiseSel.getVal():'pas_de_remise';
+  if(!createur){toast('Choisis un créateur.',true);if(!cCreateurSel)$('cCreateurLibre').focus();return;}
   if(isNaN(prix)||prix<=0){toast('Prix invalide.',true);$('cPrix').focus();return;}
   const c=calcLigneCaisse(prix,typeRemise);
-  C.cart.push({vendeur,reference,prix,typeRemise,prixClient:c.prixClient,remise:c.remise,magasin:c.magasin});
+  C.cart.push({createur,reference,prix,typeRemise,prixClient:c.prixClient,remise:c.remise,magasin:c.magasin});
   panierModifie();
   $('cRef').value='';$('cPrix').value='';majApercuCaisse();renderCaisse();$('cRef').focus();
 });
@@ -935,7 +935,7 @@ $('cValider').addEventListener('click',async()=>{
   const btn=$('cValider'),t=btn.textContent;btn.disabled=true;btn.textContent='Enregistrement…';
   if(!C.txId) C.txId=nouvelIdTx();
   try{
-    const payload={idTransaction:C.txId,paiement:C.paiement,lignes:C.cart.map(l=>({vendeur:l.vendeur,reference:l.reference,prix:l.prix,typeRemise:l.typeRemise}))};
+    const payload={idTransaction:C.txId,paiement:C.paiement,lignes:C.cart.map(l=>({createur:l.createur,reference:l.reference,prix:l.prix,typeRemise:l.typeRemise}))};
     const res=await API.caisseSave(S.pwd,payload);
     if(res&&res.ok){
       toast(res.deja
@@ -974,7 +974,7 @@ async function chargerJour(){
 }
 /* Signature d'un panier : son contenu, indépendamment de l'ordre des lignes. */
 function signaturePanier(ls){
-  return ls[0].paiement+'#'+ls.map(l=>[String(l.vendeur).toLowerCase(),String(l.reference).trim().toLowerCase(),l.prix,l.remiseType].join('|')).sort().join('§');
+  return ls[0].paiement+'#'+ls.map(l=>[String(l.createur).toLowerCase(),String(l.reference).trim().toLowerCase(),l.prix,l.remiseType].join('|')).sort().join('§');
 }
 function minutes(h){if(!h)return null;const[a,b]=h.split(':').map(Number);return a*60+b;}
 function renderJour(lignes){
@@ -999,12 +999,12 @@ function renderJour(lignes){
   if(nbSuspects){w.classList.remove('hide');w.innerHTML='⚠️ <b>'+nbSuspects+' panier(s)</b> identique(s) au panier précédent (même contenu, même paiement, moins de 10 min d\'écart). Si ce n\'est pas une vraie vente, supprime ses lignes dans l\'onglet <b>ventes</b> du Sheet.';}
   else w.classList.add('hide');
   if(!lignes.length){$('cJourTbl').innerHTML='<tbody><tr><td class="muted" style="text-align:center;padding:20px">Aucune vente ce jour-là.</td></tr></tbody>';return;}
-  const head='<thead><tr><th>Vendeur</th><th>Référence</th><th>Remise</th><th>Prix</th><th>Prix client</th></tr></thead>';
+  const head='<thead><tr><th>Créateur</th><th>Référence</th><th>Remise</th><th>Prix</th><th>Prix client</th></tr></thead>';
   const body=[...paniers].reverse().map(p=>{
     const t=p.reduce((s,l)=>s+l.prixClient,0),h=p[0];
     const titre=(h.panier!=null?'Panier n°'+h.panier:'Sans n° de panier')+(h.heure?' · '+h.heure:'')+' · '+FMT.esc(String(h.paiement).toUpperCase())+(p.suspect?`<span class="dbl" title="Identique au panier n°${p.suspect}">doublon ?</span>`:'');
     return `<tr class="phead${p.suspect?' suspect':''}"><td colspan="4">${titre}</td><td class="r">${FMT.eur(t)}</td></tr>`+
-      p.map(l=>`<tr><td style="text-transform:capitalize">${FMT.esc(l.vendeur)}</td><td>${FMT.esc(l.reference)}</td><td>${!l.remiseType||l.remiseType==='pas_de_remise'?'—':FMT.esc(l.remiseType)}</td><td>${FMT.eur(l.prix)}</td><td>${FMT.eur(l.prixClient)}</td></tr>`).join('');
+      p.map(l=>`<tr><td style="text-transform:capitalize">${FMT.esc(l.createur)}</td><td>${FMT.esc(l.reference)}</td><td>${!l.remiseType||l.remiseType==='pas_de_remise'?'—':FMT.esc(l.remiseType)}</td><td>${FMT.eur(l.prix)}</td><td>${FMT.eur(l.prixClient)}</td></tr>`).join('');
   }).join('');
   $('cJourTbl').innerHTML=head+'<tbody>'+body+'</tbody>';
 }
@@ -1013,7 +1013,7 @@ $('cJourDate').addEventListener('change',chargerJour);
 
 /* ===================== DONNÉES DÉMO ===================== */
 const DEMO_ROWS=(function(){
-  const vendeurs=['caro','solenne','riri','Jackline','NYU'];
+  const createurs=['caro','solenne','riri','Jackline','NYU'];
   const refs=['Sticker','Illu A5','Friperie','Plante','Cadre','Bracelet','BO','Affiche'];
   const remises=[['pas_de_remise',0],['carte_fidelite_10%',-0.10],['machine_cadeau_5€',-5],['soldes_20',-0.20]];
   const rows=[];let vente=1000,panier=500,seed=42;
@@ -1024,9 +1024,9 @@ const DEMO_ROWS=(function(){
     if(rnd()<0.35)continue;
     const nbPaniers=1+Math.floor(rnd()*4);
     for(let p=0;p<nbPaniers;p++){panier++;const paiement=rnd()<0.6?'cb':'espèces';const nbArt=1+Math.floor(rnd()*3);
-      for(let a=0;a<nbArt;a++){const v=vendeurs[Math.floor(rnd()*vendeurs.length)];const rem=remises[Math.floor(rnd()*remises.length)];const prix=[2,3,5,8,10,12,15,20,25,35,45][Math.floor(rnd()*11)];
+      for(let a=0;a<nbArt;a++){const v=createurs[Math.floor(rnd()*createurs.length)];const rem=remises[Math.floor(rnd()*remises.length)];const prix=[2,3,5,8,10,12,15,20,25,35,45][Math.floor(rnd()*11)];
         const remise=rem[1]===0?0:(Math.abs(rem[1])<1?r2(prix*rem[1]):rem[1]);const prixClient=r2(prix+remise);const taxe=paiement==='cb'?r2(prixClient*0.0175):0;const magasin=rem[0].indexOf('machine_cadeau')===0;const prime=r2((magasin?prix:prixClient)-taxe);
-        rows.push({date:d.toISOString().slice(0,10),vendeur:v,panier,vente:vente++,reference:refs[Math.floor(rnd()*refs.length)],paiement,remiseType:rem[0],prix,remise,prixClient,taxe,prime});
+        rows.push({date:d.toISOString().slice(0,10),createur:v,panier,vente:vente++,reference:refs[Math.floor(rnd()*refs.length)],paiement,remiseType:rem[0],prix,remise,prixClient,taxe,prime});
       }}
   }
   return rows;

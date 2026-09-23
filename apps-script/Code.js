@@ -4,19 +4,25 @@
  *
  *  Principe : la caisse écrit les colonnes de SAISIE dans l'onglet
  *  "ventes" et RECOPIE tes formules existantes vers le bas pour les
- *  colonnes calculées (remise, prix_client, taxe, prime_vendeur).
+ *  colonnes calculées (remise, prix_client, taxe, prime du créateur).
  *  => c'est ta propre logique de calcul qui s'applique.
  *  Un calcul de secours est prévu si une colonne n'est pas une formule.
  *************************************************************/
 
 // ===================== CONFIGURATION =======================
 
-const SHEET_VENTES   = 'ventes';
-const SHEET_VENDEURS = 'vendeurs';
-const SHEET_REMISES  = 'remises';
+const SHEET_VENTES    = 'ventes';
+const SHEET_REMISES   = 'remises';
+
+// Le Google Sheet garde son vocabulaire historique « vendeur » (onglet et colonnes) :
+// on le renommera au passage à Postgres. Le code ne l'utilise qu'à travers ces noms.
+const SHEET_CREATEURS    = 'vendeurs';
+const COL_CREATEUR       = 'vendeur';
+const COL_NOM_CREATEUR   = 'nom_vendeur';
+const COL_PRIME_CREATEUR = 'prime_vendeur';
 
 // Remises PRISES EN CHARGE PAR LE MAGASIN
-// (le vendeur touche sa prime sur le prix PLEIN, pas sur le prix client).
+// (le créateur touche sa prime sur le prix PLEIN, pas sur le prix client).
 // >>> Vérifie / complète cette liste si besoin. <<<
 const REMISES_MAGASIN = ['machine_cadeau_5€', 'machine_cadeau_10%', 'machine_cadeau_20%'];
 
@@ -69,17 +75,17 @@ function _headerMap(sheet) {
 function getCaisseData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // --- Vendeurs actifs ---
-  const shV = ss.getSheetByName(SHEET_VENDEURS);
-  const hV = _headerMap(shV);
-  const cNomV = hV.map['nom_vendeur'];
-  const cStatV = hV.map['status'];
-  const dataV = shV.getRange(2, 1, Math.max(0, shV.getLastRow() - 1), hV.nbCol).getValues();
-  const vendeurs = dataV
-    .filter(function (r) { return _norm(r[cStatV]) === 'actif' && String(r[cNomV]).trim() !== ''; })
-    .map(function (r) { return String(r[cNomV]).trim(); });
+  // --- Créateurs actifs ---
+  const shC = ss.getSheetByName(SHEET_CREATEURS);
+  const hC = _headerMap(shC);
+  const cNomC = hC.map[COL_NOM_CREATEUR];
+  const cStatC = hC.map['status'];
+  const dataC = shC.getRange(2, 1, Math.max(0, shC.getLastRow() - 1), hC.nbCol).getValues();
+  const createurs = dataC
+    .filter(function (r) { return _norm(r[cStatC]) === 'actif' && String(r[cNomC]).trim() !== ''; })
+    .map(function (r) { return String(r[cNomC]).trim(); });
   // dédoublonnage + tri
-  const vendeursUniques = Array.from(new Set(vendeurs)).sort(function (a, b) {
+  const createursUniques = Array.from(new Set(createurs)).sort(function (a, b) {
     return a.localeCompare(b, 'fr', { sensitivity: 'base' });
   });
 
@@ -116,7 +122,7 @@ function getCaisseData() {
   }
 
   return {
-    vendeurs: vendeursUniques,
+    createurs: createursUniques,
     remises: remises,
     paiements: TYPES_PAIEMENT,
     prochainPanier: maxPanier + 1,
@@ -163,7 +169,7 @@ function _transactionDejaEcrite(sh, M, idTx) {
 
 /**
  * Enregistre un panier dans l'onglet "ventes".
- * @param {Object} data  { idTransaction, paiement:'cb'|'espèces', lignes:[{vendeur,reference,prix,typeRemise}] }
+ * @param {Object} data  { idTransaction, paiement:'cb'|'espèces', lignes:[{createur,reference,prix,typeRemise}] }
  *   idTransaction : identifiant unique généré par le site pour CE panier. Si la même
  *   transaction arrive deux fois (clic répété, réponse perdue puis « réessayer »),
  *   la seconde ne réécrit rien et renvoie le résultat de la première (deja:true).
@@ -249,7 +255,8 @@ function enregistrerVente(data) {
       if (M['numero_panier'] != null)     valeurs[M['numero_panier']] = panier;
       if (M['numero_vente'] != null)      valeurs[M['numero_vente']] = vente;
       if (M['date'] != null)              valeurs[M['date']] = maintenant;
-      if (M['vendeur'] != null)           valeurs[M['vendeur']] = ligne.vendeur;
+      // `vendeur` : envoyé par une page de caisse restée ouverte depuis avant le renommage.
+      if (M[COL_CREATEUR] != null)        valeurs[M[COL_CREATEUR]] = ligne.createur != null ? ligne.createur : ligne.vendeur;
       if (M['reference_produit'] != null) valeurs[M['reference_produit']] = String(ligne.reference || '');
       if (M['type_de_remise'] != null)    valeurs[M['type_de_remise']] = typeRemise;
       if (M['type_de_paiement'] != null)  valeurs[M['type_de_paiement']] = data.paiement;
@@ -266,7 +273,7 @@ function enregistrerVente(data) {
       if (M['remise'] != null && !aFormule('remise'))               valeurs[M['remise']] = remise;
       if (M['prix_client'] != null && !aFormule('prix_client'))     valeurs[M['prix_client']] = prixClient;
       if (M['taxe'] != null && !aFormule('taxe'))                   valeurs[M['taxe']] = taxe;
-      if (M['prime_vendeur'] != null && !aFormule('prime_vendeur')) valeurs[M['prime_vendeur']] = prime;
+      if (M[COL_PRIME_CREATEUR] != null && !aFormule(COL_PRIME_CREATEUR)) valeurs[M[COL_PRIME_CREATEUR]] = prime;
 
       if (M['validation'] != null) valeurs[M['validation']] = COCHER_VALIDATION ? true : '';
 
@@ -336,7 +343,7 @@ function getVentesDuJour(jourStr) {
       panier: (p === '' || p == null) ? null : num(p),
       vente: num(get(r, 'numero_vente')),
       heure: heure === '00:00' ? '' : heure,   // 00:00 = saisie manuelle sans heure
-      vendeur: String(get(r, 'vendeur') || ''),
+      createur: String(get(r, COL_CREATEUR) || ''),
       reference: String(get(r, 'reference_produit') || ''),
       remiseType: String(get(r, 'type_de_remise') || '').trim(),
       paiement: String(get(r, 'type_de_paiement') || '').trim(),

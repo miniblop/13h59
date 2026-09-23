@@ -1,12 +1,13 @@
 # Dashboard 13H59 SHOP
 
-Tableau de bord des ventes du magasin (dépôt-vente multi-vendeurs), branché sur le Google Sheet de gestion.
+Tableau de bord des ventes du magasin (dépôt-vente multi-créateurs), branché sur le Google Sheet de gestion.
 Site statique hébergé sur GitHub Pages.
 
 ## Accès
 
-- **Onglet Vendeur** : suivi d'un vendeur (KPIs, graphe, récap par période, détail des ventes). Mot de passe *vendeur*.
-- **Onglet Gestion** : vue multi-vendeurs (tableau transposé par période avec Δ%, groupement, filtres, monitoring, export CSV). Mot de passe *gestion*.
+- **Onglet Créateur** : suivi d'un créateur (KPIs, graphe, récap par période, détail des ventes). Mot de passe *créateur* (`MDP_CREATEUR`).
+- **Onglet Gestion** : vue multi-créateurs (tableau transposé par période avec Δ%, groupement, filtres, monitoring, export CSV). Mot de passe *gestion* (`MDP_GESTION`).
+- **Onglet Caisse** : encaissement et récap du jour. Mot de passe *caisse* (`MDP_CAISSE`).
 
 Les mots de passe ne sont **pas** dans le code : ils sont vérifiés côté serveur par un backend Google Apps Script.
 
@@ -15,7 +16,8 @@ Les mots de passe ne sont **pas** dans le code : ils sont vérifiés côté serv
 - `index.html` — tout le front (HTML + CSS + JS, sans dépendance externe).
   - `DEMO_MODE = true` : données de démonstration, aucun backend requis (utile pour tester le rendu).
   - `DEMO_MODE = false` + `WEB_APP_URL` renseignée : données réelles via le backend.
-- Backend : Web App Apps Script (`Api.gs`, dans le projet Apps Script du Google Sheet), déployé en « Exécuter en tant que moi / Accès : tout le monde ». Le Sheet peut donc rester **privé**.
+- Backend : Web App Apps Script (`apps-script/`, synchronisé avec le projet du Google Sheet via `clasp`), déployé en « Exécuter en tant que moi / Accès : tout le monde ». Le Sheet peut donc rester **privé**.
+- Le Sheet garde son vocabulaire historique (onglet `vendeurs`, colonnes `vendeur`, `nom_vendeur`, `prime_vendeur`) : le code n'y accède qu'à travers les constantes `SHEET_CREATEURS` / `COL_*` de `apps-script/Code.js`.
 
 ## Mettre à jour le site
 
