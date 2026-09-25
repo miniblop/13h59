@@ -20,6 +20,13 @@ const SHEET_EMPLACEMENTS = 'emplacements';
 
 const COLONNES_EMPLACEMENTS = ['id_emplacement', 'id_createur', 'code_stand', 'debut', 'fin', 'preavis_recu_le', 'accueil_par', 'motif_fin', 'remarque'];
 
+const SHEET_CANDIDATURES = 'candidatures';
+const SHEET_EMAILS       = 'emails';
+const COLONNES_CANDIDATURES = [
+  'id_candidature', 'recue_le', 'maj_le', 'prenom', 'nom', 'marque', 'email', 'instagram', 'categorie',
+  'stand_souhaite', 'description', 'statut', 'traitee_le', 'traitee_par', 'id_createur', 'source', 'remarque'
+];
+
 const COLONNES_VENTES = [
   'id_vente', 'id_panier', 'date', 'id_createur', 'reference', 'code_remise', 'code_paiement',
   'prix', 'remise', 'prix_client', 'frais', 'prime', 'id_transaction'
@@ -96,6 +103,10 @@ function _compteInstagram(v) {
   return /^[A-Za-z0-9._]{2,30}$/.test(h) && /[a-z]/i.test(h) ? h.toLowerCase() : null;
 }
 function _lienInstagram(compte) { return 'https://www.instagram.com/' + compte + '/'; }
+/** Clé de rapprochement : casse, espaces et caractères invisibles ignorés. */
+function _cleNom(s) { return _nomPropre(s).toLowerCase(); }
+/** Clé « large » : ignore aussi accents et ponctuation (pour signaler, jamais pour fusionner). */
+function _cleLarge(s) { return _cleNom(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, ''); }
 
 /* ---------- Référentiels ---------- */
 

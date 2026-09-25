@@ -12,6 +12,8 @@
 - Commission recalculée **par mois × créateur, figée sur toutes les données** (logique à préserver).
 - Backoffice v1 : le Google Sheet est structuré comme la future base (un onglet = une table) : `ventes` (clé `id_vente`, clé étrangère `id_createur`), `createurs`, `categories`, `remises`, `paiements`, `journal`. Plus de formules ni d'onglet `All data` : la caisse écrit des valeurs.
 - Caisse : **anti-doublon** par identifiant de transaction (idempotence serveur) + récap « Ventes du jour » (totaux CB / espèces, détection des paniers identiques).
+- Gestion ▸ Créateurs (`apps-script/Gestion.js`) : places par stand, fiche, préavis, changement de stand, création ; tables `stands` et `emplacements`, chaque action signée du prénom dans `journal`.
+- Candidatures (`apps-script/Candidatures.js`) : page publique `candidater.html` (sans mot de passe, anti-robots), table `candidatures` (clé `id_candidature`, une adresse e-mail = une candidature), onglet Gestion ▸ Candidatures (liste d'attente, non retenue, retenir → crée le créateur et son emplacement). E-mails envoyés depuis l'adresse du shop, textes modifiables dans l'onglet `emails`.
 
 ## Palier 1 — Sortir de Google Sheets 🎯 (prochaine étape)
 - [ ] Schéma **Postgres** : createurs, articles (stock par créateur), ventes, paniers, remises, taxes.

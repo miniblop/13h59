@@ -20,7 +20,11 @@ function _gestion(body) {
     gestion_preavis: _gPreavis,
     gestion_preavis_annuler: _gPreavisAnnuler,
     gestion_changer_stand: _gChangerStand,
-    gestion_emplacement_creer: _gEmplacementCreer
+    gestion_emplacement_creer: _gEmplacementCreer,
+    gestion_candidatures: _gCandidatures,
+    gestion_candidature_statut: _gCandidatureStatut,
+    gestion_candidature_retenir: _gCandidatureRetenir,
+    gestion_candidature_remarque: _gCandidatureRemarque
   };
   const f = actions[body.action];
   if (!f) return { ok: false, message: 'Action inconnue.' };
@@ -260,6 +264,7 @@ function _gCreateurCreer(body) {
   const nom = _valeurChamp('nom', body.nom, ctx);
   const email = _valeurChamp('email', body.email, ctx);
   const categorie = _valeurChamp('categorie', body.categorie, ctx);
+  const instagram = body.instagram ? _valeurChamp('instagram', body.instagram, ctx) : '';
   const id = _prochainId(tC, 'id_createur', 'C');
   let statut = 'inactif', detail = '';
   if (body.stand) {
@@ -269,7 +274,8 @@ function _gCreateurCreer(body) {
     if (debut <= _aujourdhui()) statut = 'actif';
     detail = ' · stand ' + body.stand + ' dès le ' + body.debut;
   }
-  _ajouterLigne(tC, { id_createur: id, nom: nom, email: email, statut: statut, categorie: categorie, benevole: false, rc_pro: false, cree_le: new Date(), modifie_le: new Date() });
+  _ajouterLigne(tC, { id_createur: id, nom: nom, email: email, statut: statut, categorie: categorie, instagram: instagram, nom_legal: String(body.nomLegal || ''),
+                      benevole: false, rc_pro: false, cree_le: new Date(), modifie_le: new Date() });
   _journaliser('createur_creer', id + ' ' + nom + detail);
   return { ok: true, id: id };
 }

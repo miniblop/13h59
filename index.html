@@ -192,6 +192,13 @@
   .gc-ev{display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px}
   .gc-ev:last-child{border-bottom:none}
   .gc-ev .d{flex:0 0 58px;background:var(--tot);border-radius:9px;padding:5px 4px;text-align:center;font-weight:800;font-size:13px}
+  .gk-n{display:inline-block;min-width:18px;padding:1px 6px;border-radius:999px;background:var(--band);color:#fff;font-size:11px;text-align:center;margin-left:4px}
+  .gk-desc{background:var(--tot);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.55;white-space:pre-wrap;max-height:260px;overflow:auto}
+  .gk-retenir{border:1px dashed var(--line);border-radius:12px;padding:12px;margin-top:12px}
+  #gkFiche textarea{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:10px;font:inherit;resize:vertical}
+  #gkTbl tbody tr{cursor:pointer}
+  #gkTbl tbody tr:hover td{background:#faf9f7}
+  #gkTbl tbody tr.sel td{background:var(--tot)}
   .btn-danger{background:#fbeceb;color:var(--neg)}
   .btn[disabled]{opacity:.45;cursor:not-allowed}
   @media(max-width:960px){.gc-main{grid-template-columns:minmax(0,1fr)}.gc-places{grid-template-columns:repeat(2,1fr)}}
@@ -304,7 +311,7 @@
 
   <!-- ONGLET GESTION -->
   <div id="viewGestion" class="hide">
-    <div class="subtabs" id="gSubtabs"><div class="subtab active" data-sub="stats">Statistiques</div><div class="subtab" data-sub="createurs">Créateurs</div></div>
+    <div class="subtabs" id="gSubtabs"><div class="subtab active" data-sub="stats">Statistiques</div><div class="subtab" data-sub="createurs">Créateurs</div><div class="subtab" data-sub="candidatures">Candidatures</div></div>
     <div id="gStats">
     <div class="card">
       <h2>Espace gestion</h2>
@@ -359,6 +366,23 @@
           <div class="tblwrap gc-list"><table id="gcTbl"></table></div>
         </div>
         <div class="card" id="gcFiche"><div class="muted">Sélectionne un créateur dans la liste.</div></div>
+      </div>
+    </div>
+    <div id="gCand" class="hide">
+      <div id="gkErr" class="warn hide"></div>
+      <div class="card">
+        <div class="cardhead" style="margin-bottom:0">
+          <div><h2>Candidatures</h2><div class="muted" style="font-size:12px;margin-top:4px">Reçues par la page publique <a href="candidater.html" target="_blank" rel="noopener">candidater</a> · un e-mail de confirmation part automatiquement, depuis l'adresse du shop</div></div>
+          <div class="gc-acts" style="margin-top:0"><button class="btn-dl" id="gkLien">⧉ Copier le lien public</button><button class="btn-dl" id="gkRefresh">↻ Actualiser</button></div>
+        </div>
+      </div>
+      <div class="gc-main">
+        <div class="card">
+          <div id="gkChips"></div>
+          <div class="row2" style="margin:6px 0 10px"><input id="gkSearch" placeholder="Rechercher une marque, un nom, un e-mail…"><select id="gkStand"></select></div>
+          <div class="tblwrap gc-list"><table id="gkTbl"></table></div>
+        </div>
+        <div class="card" id="gkFiche"><div class="muted">Sélectionne une candidature dans la liste.</div></div>
       </div>
     </div>
   </div>
@@ -570,7 +594,7 @@ const API = {
     return res.json();
   },
   async gestion(action,params){
-    if(DEMO_MODE) return DEMO_G(action,params||{});
+    if(DEMO_MODE) return (action.indexOf('gestion_candidature')===0?DEMO_K:DEMO_G)(action,params||{});
     const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify(Object.assign({action,password:S.pwd,qui:gcPrenom()},params||{}))});
     return res.json();
   },
@@ -1329,7 +1353,9 @@ $('gSubtabs').addEventListener('click',e=>{
   $('gSubtabs').querySelectorAll('.subtab').forEach(x=>x.classList.toggle('active',x===t));
   $('gStats').classList.toggle('hide',t.dataset.sub!=='stats');
   $('gCreat').classList.toggle('hide',t.dataset.sub!=='createurs');
+  $('gCand').classList.toggle('hide',t.dataset.sub!=='candidatures');
   if(t.dataset.sub==='createurs'&&!GC.charge)gcCharger();
+  if(t.dataset.sub==='candidatures'&&!GK.charge)gkCharger();
 });
 
 /* démo : même logique que le serveur, en mémoire */
@@ -1367,6 +1393,195 @@ const DEMO_G=(function(){
   };
 })();
 
+/* ===================== GESTION ▸ CANDIDATURES ===================== */
+const GK={data:null,filtre:'a_traiter',stand:'',q:'',sel:null,charge:false,retenir:false};
+const GK_LIB={a_traiter:'À traiter',liste_attente:"Liste d'attente",retenu:'Retenue',non_retenu:'Non retenue',toutes:'Toutes'};
+const GK_CHIP={a_traiter:'À traiter',liste_attente:"Liste d'attente",retenu:'Retenues',non_retenu:'Non retenues',toutes:'Toutes'};
+const GK_SOURCE={site:'Page candidater',formulaire_google:'Formulaire Google',anciens_createurs:'Formulaire Google (anciens créateurs)'};
+const GK_ST={a_traiter:'preavis',liste_attente:'inactif',retenu:'actif',non_retenu:'inactif'};
+function gkStand(code){const s=GK.data.stands.find(x=>x.code===code);return s||null;}
+function gkDate(k){return k.majLe||k.recueLe;}
+
+async function gkCharger(garder){
+  $('gkErr').classList.add('hide');
+  try{
+    const r=await API.gestion('gestion_candidatures');
+    if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
+    GK.data=r;GK.charge=true;
+    if(!garder){GK.sel=null;GK.retenir=false;}
+    $('gkStand').innerHTML='<option value="">Tous les forfaits</option>'+r.stands.map(s=>`<option value="${FMT.esc(s.code)}"${s.code===GK.stand?' selected':''}>${FMT.esc(s.libelle)}</option>`).join('');
+    gkBadge();gkRenderListe();gkRenderFiche();
+  }catch(e){$('gkErr').classList.remove('hide');$('gkErr').textContent='⚠️ Candidatures indisponibles : '+((e&&e.message)||e);}
+}
+function gkBadge(){
+  const n=GK.data.candidatures.filter(k=>k.statut==='a_traiter').length,t=document.querySelector('#gSubtabs [data-sub="candidatures"]');
+  if(t)t.innerHTML='Candidatures'+(n?` <span class="gk-n">${n}</span>`:'');
+}
+function gkRenderListe(){
+  const all=GK.data.candidatures,cnt=f=>f==='toutes'?all.length:all.filter(k=>k.statut===f).length;
+  $('gkChips').innerHTML=['a_traiter','liste_attente','retenu','non_retenu','toutes'].map(f=>`<span class="gc-chip${GK.filtre===f?' on':''}" data-kf="${f}">${GK_CHIP[f]}<span class="c">${cnt(f)}</span></span>`).join('');
+  const q=GK.q.trim().toLowerCase();
+  const rows=all.filter(k=>(GK.filtre==='toutes'||k.statut===GK.filtre)&&(!GK.stand||k.standSouhaite===GK.stand)&&(!q||[k.marque,k.prenom,k.nom,k.email,k.id,k.instagram].join(' ').toLowerCase().includes(q)))
+    .sort((x,y)=>gkDate(y).localeCompare(gkDate(x))||y.id.localeCompare(x.id));
+  $('gkTbl').innerHTML='<thead><tr><th>Reçue</th><th>Candidature</th><th>Forfait</th><th>Catégorie</th><th>Statut</th></tr></thead><tbody>'+
+    (rows.length?rows.map(k=>{
+      const s=gkStand(k.standSouhaite);
+      const marques=(k.createur&&k.statut!=='retenu'?' <span class="gc-st benev">déjà créateur</span>':'')+(k.doublons.length?' <span class="gc-st preavis">doublon ?</span>':'');
+      return `<tr data-k="${FMT.esc(k.id)}" class="${k.id===GK.sel?'sel':''}"><td>${fmtD(gkDate(k))}${k.majLe&&k.majLe!==k.recueLe?'<span class="gc-sub">mise à jour</span>':''}</td>`+
+        `<td><b>${FMT.esc(k.marque)}</b>${marques}<span class="gc-sub">${FMT.esc([k.prenom,k.nom].filter(Boolean).join(' '))}</span></td>`+
+        `<td>${s?'<span class="pill">'+FMT.esc(gcStand(s.code))+'</span>'+(s.libres?'':'<span class="gc-sub">complet</span>'):'—'}</td>`+
+        `<td>${FMT.esc(gkCat(k.categorie))}</td><td><span class="gc-st ${GK_ST[k.statut]}">${GK_LIB[k.statut]}</span></td></tr>`;
+    }).join(''):'<tr><td colspan="5" class="muted" style="text-align:center;padding:24px">Aucune candidature pour ces filtres.</td></tr>')+'</tbody>';
+}
+function gkCat(code){const x=GK.data.categories.find(c=>c.code===code);return x?x.libelle:(code||'—');}
+function gkVars(k,stand,date){const s=gkStand(stand||k.standSouhaite);return {prenom:k.prenom||k.nom||k.marque,marque:k.marque,stand:s?s.libelle:'',date:date?fmtD(date):''};}
+function gkApercu(code,k,stand,date){
+  const m=GK.data.modeles[code];if(!m||!m.actif||!m.texte)return null;
+  const v=gkVars(k,stand,date),r=t=>String(t).replace(/\{(\w+)\}/g,(x,c)=>v[c]!=null?v[c]:x);
+  return {objet:r(m.objet),texte:r(m.texte)};
+}
+function gkRenderFiche(){
+  const F=$('gkFiche'),k=GK.data&&GK.data.candidatures.find(x=>x.id===GK.sel);
+  if(!k){F.innerHTML='<div class="muted">Sélectionne une candidature dans la liste.</div>';return;}
+  const s=gkStand(k.standSouhaite),a=GK.data.aujourdhui;
+  const ig=/instagram\.com\/([A-Za-z0-9._]+)/.exec(k.instagram);
+  const lien=k.instagram?`<a href="${FMT.esc(k.instagram)}" target="_blank" rel="noopener">${ig?'@'+FMT.esc(ig[1]):'site web'}</a>`:'<span class="gc-ko">—</span>';
+  let h=`<div class="gc-head"><div><div class="nm">${FMT.esc(k.marque)}</div><div class="muted" style="font-size:12px;margin-top:3px">${FMT.esc([[k.prenom,k.nom].filter(Boolean).join(' '),k.id].filter(Boolean).join(' · '))}</div></div><span class="gc-st ${GK_ST[k.statut]}">${GK_LIB[k.statut]}</span></div>`+
+    `<div class="gc-docs"><div class="gc-doc"><div class="k">Reçue le</div><div class="v">${fmtD(k.recueLe)||'—'}${k.majLe&&k.majLe!==k.recueLe?' · mise à jour le '+fmtD(k.majLe):''}</div></div>`+
+    `<div class="gc-doc"><div class="k">Forfait souhaité</div><div class="v">${s?FMT.esc(gcStand(s.code))+' · '+s.loyer+' € · '+(s.libres?'<span class="gc-ok">'+s.libres+' place'+(s.libres>1?'s':'')+' libre'+(s.libres>1?'s':'')+'</span>':'<span class="gc-ko">complet</span>'):'—'}</div></div>`+
+    `<div class="gc-doc"><div class="k">Catégorie</div><div class="v">${FMT.esc(gkCat(k.categorie))}</div></div>`+
+    `<div class="gc-doc"><div class="k">Instagram</div><div class="v">${lien}</div></div>`+
+    `<div class="gc-doc" style="grid-column:1/-1"><div class="k">E-mail</div><div class="v">${k.email?`<a href="mailto:${FMT.esc(k.email)}">${FMT.esc(k.email)}</a>`:'<span class="gc-ko">aucune adresse valide</span>'}</div></div></div>`;
+  if(k.createur) h+=`<div class="warn" style="margin:12px 0 0">${k.statut==='retenu'?'Créateur':'Déjà créateur'} : <b>${FMT.esc(k.createur.nom)}</b> (${FMT.esc(k.createur.id)}, ${FMT.esc(k.createur.statut||'?')}) · <a href="#" data-a="voir-createur" data-c="${FMT.esc(k.createur.id)}">ouvrir sa fiche</a></div>`;
+  if(k.doublons.length) h+=`<div class="warn" style="margin:12px 0 0">Candidature${k.doublons.length>1?'s':''} qui se ressemble${k.doublons.length>1?'nt':''} (même e-mail, Instagram ou marque) : ${k.doublons.map(id=>{const o=GK.data.candidatures.find(x=>x.id===id);return `<a href="#" data-a="voir" data-k="${FMT.esc(id)}">${FMT.esc(id)} ${FMT.esc(o?o.marque:'')}</a>`;}).join(', ')}</div>`;
+  h+=`<div class="gc-h4">Ses créations</div><div class="gk-desc">${FMT.esc(k.description||'—')}</div>`;
+  h+=`<div class="gc-why">Source : ${FMT.esc(GK_SOURCE[k.source]||k.source||'—')}${k.traiteeLe?' · traitée le '+fmtD(k.traiteeLe)+(k.traiteePar?' par '+FMT.esc(k.traiteePar):''):''}</div>`;
+
+  /* décision */
+  if(k.statut!=='retenu'){
+    h+='<div class="gc-h4">Décision</div>'+
+      `<label class="gc-check"><input type="checkbox" id="gkMail"${k.email?' checked':' disabled'}> Prévenir ${k.email?FMT.esc(k.prenom||k.marque):'(pas d\'adresse e-mail)'} par e-mail · tu verras le texte avant l'envoi</label>`+
+      '<div class="gc-acts">'+
+      (k.statut!=='liste_attente'?`<button class="btn btn-ghost" data-a="statut" data-s="liste_attente">Liste d'attente</button>`:'')+
+      (k.statut!=='non_retenu'?`<button class="btn btn-danger" data-a="statut" data-s="non_retenu">Non retenue</button>`:'')+
+      (k.statut!=='a_traiter'?`<button class="btn btn-ghost" data-a="statut" data-s="a_traiter">↺ Remettre à traiter</button>`:'')+
+      `<button class="btn btn-accent" data-a="retenir-ouvrir">Retenir…</button></div>`;
+    if(GK.retenir){
+      const opt=GK.data.stands.map(x=>`<option value="${FMT.esc(x.code)}"${x.code===k.standSouhaite?' selected':''}>${FMT.esc(x.libelle)} · ${x.libres?x.libres+' libre'+(x.libres>1?'s':''):'complet'}</option>`).join('');
+      const cats=GK.data.categories.filter(c=>c.code!=='shop').map(c=>`<option value="${FMT.esc(c.code)}"${c.code===k.categorie?' selected':''}>${FMT.esc(c.libelle)}</option>`).join('');
+      const reint=k.createur&&k.createur.statut!=='actif';
+      h+=`<div class="gk-retenir"><div class="gc-form"><div><label>Stand</label><select id="gkRStand">${opt}</select></div><div><label>Arrivée en boutique le</label><input type="date" id="gkRDebut" value="${a}"></div>`+
+        `<div><label>Accueil par</label><input id="gkRAccueil" placeholder="Caro" value="${FMT.esc(S.prenom||'')}"></div>`+
+        `<div><label>Catégorie</label><select id="gkRCat"${reint?' disabled':''}><option value="">—</option>${cats}</select></div></div>`+
+        (reint?`<label class="gc-check" style="margin-top:10px"><input type="checkbox" id="gkRReint" checked> Réintégrer la fiche existante ${FMT.esc(k.createur.id)} ${FMT.esc(k.createur.nom)} (sinon une nouvelle fiche est créée)</label>`:'')+
+        (k.createur&&!reint?`<div class="warn" style="margin:10px 0 0">${FMT.esc(k.createur.nom)} est déjà actif en boutique : vérifie avant de créer une deuxième fiche.</div>`:'')+
+        `<div class="gc-acts"><button class="btn btn-accent" data-a="retenir">Retenir et créer le créateur</button><button class="btn btn-ghost" data-a="retenir-fermer">Annuler</button></div>`+
+        `<div class="gc-why">Crée la fiche dans Gestion ▸ Créateurs avec son emplacement (${FMT.esc(k.marque)}, e-mail et Instagram repris). Le créateur apparaît dans la caisse à partir de sa date d'arrivée.</div></div>`;
+    }
+  }else if(k.idCreateur){
+    h+=`<div class="gc-acts"><button class="btn btn-ghost" data-a="voir-createur" data-c="${FMT.esc(k.idCreateur)}">Ouvrir la fiche créateur ${FMT.esc(k.idCreateur)}</button></div>`;
+  }
+  h+=`<div class="gc-h4">Remarque de l'équipe</div><textarea id="gkRemarque" rows="3" maxlength="1000" placeholder="Vue au marché de Wazemmes, à recontacter en janvier…">${FMT.esc(k.remarque)}</textarea>`+
+    `<div class="gc-acts"><button class="btn btn-ghost" data-a="remarque">Enregistrer la remarque</button></div>`;
+  F.innerHTML=h;
+}
+async function gkAppel(btn,action,params,msg){
+  const t=btn.textContent;btn.disabled=true;btn.textContent='…';
+  try{
+    const r=await API.gestion(action,params);
+    if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
+    if(r.emailErreur) toast(msg(r)+' · e-mail NON envoyé : '+r.emailErreur,true); else toast(msg(r)+(r.email?' · e-mail envoyé':''));
+    await gkCharger(true);return r;
+  }catch(e){toast((e&&e.message)||String(e),true);}
+  finally{if(btn.isConnected){btn.disabled=false;btn.textContent=t;}}
+}
+function gkConfirmer(k,code,stand,date,action){
+  const mail=$('gkMail')&&$('gkMail').checked;
+  if(!mail) return confirm(action+' ?\n\nAucun e-mail ne sera envoyé.')?{email:false}:null;
+  const ap=gkApercu(code,k,stand,date);
+  if(!ap) return confirm(action+' ?\n\nLe modèle d\'e-mail « '+code+' » est désactivé dans l\'onglet emails du Sheet : aucun e-mail ne partira.')?{email:false}:null;
+  return confirm(action+' et envoyer cet e-mail à '+k.email+' ?\n\nObjet : '+ap.objet+'\n\n'+ap.texte)?{email:true}:null;
+}
+function gkOuvrirCreateur(id){
+  GC.sel=id;GC.filtre='tous';
+  GC.charge=true;   /* le clic ne relance pas un chargement qui oublierait la sélection */
+  document.querySelector('#gSubtabs [data-sub="createurs"]').click();
+  gcCharger(true);
+}
+$('gCand').addEventListener('click',e=>{
+  const f=e.target.closest('[data-kf]');if(f){GK.filtre=f.dataset.kf;gkRenderListe();return;}
+  const tr=e.target.closest('#gkTbl tbody tr[data-k]');if(tr){GK.sel=tr.dataset.k;GK.retenir=false;gkRenderListe();gkRenderFiche();return;}
+  const b=e.target.closest('#gkFiche [data-a]');if(!b||b.disabled)return;
+  e.preventDefault();
+  const k=GK.data.candidatures.find(x=>x.id===GK.sel);if(!k)return;
+  const a=b.dataset.a;
+  if(a==='voir'){GK.sel=b.dataset.k;GK.retenir=false;GK.filtre='toutes';gkRenderListe();gkRenderFiche();return;}
+  if(a==='voir-createur'){gkOuvrirCreateur(b.dataset.c);return;}
+  if(a==='retenir-ouvrir'){GK.retenir=true;gkRenderFiche();$('gkRStand').focus();return;}
+  if(a==='retenir-fermer'){GK.retenir=false;gkRenderFiche();return;}
+  if(a==='statut'){
+    const st=b.dataset.s;
+    if(st==='a_traiter'){gkAppel(b,'gestion_candidature_statut',{id:k.id,statut:st},()=>k.marque+' remise à traiter');return;}
+    const ok=gkConfirmer(k,st,'','',st==='non_retenu'?'Marquer « '+k.marque+' » non retenue':'Mettre « '+k.marque+' » en liste d\'attente');if(!ok)return;
+    gkAppel(b,'gestion_candidature_statut',{id:k.id,statut:st,email:ok.email},()=>k.marque+' : '+GK_LIB[st].toLowerCase());
+  }else if(a==='retenir'){
+    const stand=$('gkRStand').value,debut=$('gkRDebut').value;if(!stand||!debut){toast('Choisis le stand et la date d\'arrivée.',true);return;}
+    const reint=$('gkRReint')&&$('gkRReint').checked;
+    const ok=gkConfirmer(k,'retenu',stand,debut,'Retenir « '+k.marque+' » en '+gcStand(stand)+' dès le '+fmtD(debut));if(!ok)return;
+    gkAppel(b,'gestion_candidature_retenir',{id:k.id,stand,debut,accueilPar:$('gkRAccueil').value.trim(),categorie:$('gkRCat').value,idCreateur:reint?k.createur.id:'',email:ok.email},
+      r=>k.marque+' retenue → '+r.idCreateur).then(r=>{if(r){GK.retenir=false;GC.charge=false;gkRenderFiche();}});
+  }else if(a==='remarque'){
+    gkAppel(b,'gestion_candidature_remarque',{id:k.id,remarque:$('gkRemarque').value},()=>'Remarque enregistrée');
+  }
+});
+$('gkSearch').addEventListener('input',e=>{GK.q=e.target.value;gkRenderListe();});
+$('gkStand').addEventListener('change',e=>{GK.stand=e.target.value;gkRenderListe();});
+$('gkRefresh').addEventListener('click',()=>gkCharger(true));
+$('gkLien').addEventListener('click',async()=>{
+  const url=new URL('candidater.html',location.href).href;
+  try{await navigator.clipboard.writeText(url);toast('Lien copié : '+url);}catch(e){prompt('Lien de la page de candidature :',url);}
+});
+
+/* démo : candidatures en mémoire (la création du créateur passe par la démo de Gestion ▸ Créateurs) */
+const DEMO_K=(function(){
+  let st=null;
+  const init=()=>{
+    const j=n=>isoJour(new Date(Date.now()-n*864e5));
+    const k=(id,recueLe,prenom,nom,marque,email,instagram,categorie,standSouhaite,statut,source,description,extra)=>Object.assign({id,recueLe,majLe:'',prenom,nom,marque,email,instagram,categorie,standSouhaite,description,statut,traiteeLe:'',traiteePar:'',idCreateur:'',source,remarque:'',doublons:[],createur:null},extra||{});
+    st={candidatures:[
+      k('CA001',j(400),'','Bollingh Lou-Anne','LAB ART','lab@exemple.fr','https://www.instagram.com/lab.art.design/','illustration','grand','retenu','anciens_createurs','Illustrations numériques et porte-clés, magnets.',{idCreateur:'C004',createur:{id:'C004',nom:'Jackline',statut:'actif',lie:true}}),
+      k('CA002',j(200),'','Martin Zoé','Brume céramique','brume@exemple.fr','https://www.instagram.com/brume.ceramique/','','unique','liste_attente','formulaire_google','Céramiques tournées, émaux maison.',{remarque:'Formulaire Google : mess envoyé juillet 26'}),
+      k('CA003',j(9),'Hugo','Leroy','Papier Hugo','hugo@exemple.fr','https://www.instagram.com/papier.hugo/','papeterie','illu','a_traiter','site','Carnets reliés à la main, papier recyclé, linogravures en petites séries.'),
+      k('CA004',j(4),'Inès','Benali','NYU bijoux','nyu@exemple.fr','https://www.instagram.com/nyu.bijoux/','bijoux','grand','a_traiter','site','Bijoux en laiton et pierres, fabriqués à Lille.',{createur:{id:'C005',nom:'NYU',statut:'actif',lie:false}}),
+      k('CA005',j(2),'Léa','Marin','Studio Looleï','lea@exemple.fr','https://www.instagram.com/_lea.marin_/','illustration','illu','a_traiter','site','Affiches et cartes illustrées, univers doux et fleuri.',{doublons:['CA006']}),
+      k('CA006',j(1),'Léa','Marin','Studio Loolei','lea.marin@exemple.fr','https://www.instagram.com/_lea.marin_/','illustration','unique','a_traiter','site','Affiches, cartes et stickers.',{doublons:['CA005']})
+    ],modeles:{
+      accuse_reception:{objet:'Ta candidature au 13H59 Shop est bien reçue',texte:"Bonjour {prenom},\n\nMerci pour ta candidature {marque} ! On l'a bien reçue.",actif:true},
+      liste_attente:{objet:'Ta candidature {marque} au 13H59 Shop',texte:"Bonjour {prenom},\n\nMerci encore pour ta candidature {marque}. Ton univers nous plaît, mais on ne peut pas t'accueillir tout de suite sur le forfait « {stand} ».\n\nOn garde ta candidature et on te recontacte dès qu'une place se libère.\n\nÀ bientôt,\nL'équipe du 13H59 Shop",actif:true},
+      non_retenu:{objet:'Ta candidature {marque} au 13H59 Shop',texte:"Bonjour {prenom},\n\nMerci pour ta candidature {marque} et pour le temps que tu y as consacré.\n\nAprès l'avoir étudiée avec attention, on ne peut pas te proposer de place au 13H59 Shop pour le moment.\n\nBelle continuation,\nL'équipe du 13H59 Shop",actif:true},
+      retenu:{objet:'Bienvenue au 13H59 Shop, {marque} !',texte:"Bonjour {prenom},\n\nBonne nouvelle : ta candidature {marque} est retenue ! On t'accueille en boutique à partir du {date}, sur le forfait « {stand} ».\n\nÀ très vite,\nL'équipe du 13H59 Shop",actif:true}
+    }};
+  };
+  const lire=async()=>{const g=await DEMO_G('gestion_createurs',{});return {g,stands:g.stands.map(s=>Object.assign({},s,{libres:Math.max(0,s.places-g.emplacements.filter(e=>e.stand===s.code&&gcActifLe(e,g.aujourdhui)).length)}))};};
+  return async function(action,p){
+    if(!st)init();
+    const k=st.candidatures.find(x=>x.id===p.id),auj=aujourdhui();
+    switch(action){
+      case 'gestion_candidatures':{const {g,stands}=await lire();return JSON.parse(JSON.stringify({ok:true,aujourdhui:g.aujourdhui,candidatures:st.candidatures,stands,categories:g.categories.concat([{code:'papeterie',libelle:'Papeterie'}]),modeles:st.modeles}));}
+      case 'gestion_candidature_statut':{if(k.statut==='retenu')return {ok:false,message:'Candidature déjà retenue.'};k.statut=p.statut;k.traiteeLe=p.statut==='a_traiter'?'':auj;k.traiteePar=p.statut==='a_traiter'?'':(S.prenom||'');return {ok:true,email:!!p.email,emailErreur:''};}
+      case 'gestion_candidature_remarque':{k.remarque=p.remarque;return {ok:true};}
+      case 'gestion_candidature_retenir':{
+        if(k.statut==='retenu')return {ok:false,message:'Cette candidature est déjà retenue.'};
+        let id=p.idCreateur;
+        const r=id?await DEMO_G('gestion_emplacement_creer',{idCreateur:id,stand:p.stand,debut:p.debut,accueilPar:p.accueilPar})
+                  :await DEMO_G('gestion_createur_creer',{nom:k.marque,email:k.email,categorie:p.categorie,stand:p.stand,debut:p.debut,accueilPar:p.accueilPar});
+        if(!r.ok)return r;id=id||r.id;
+        Object.assign(k,{statut:'retenu',traiteeLe:auj,traiteePar:S.prenom||'',idCreateur:id,createur:{id,nom:k.marque,statut:p.debut<=auj?'actif':'inactif',lie:true}});
+        return {ok:true,idCreateur:id,email:!!p.email,emailErreur:''};}
+    }
+    return {ok:false,message:'Action inconnue (démo).'};
+  };
+})();
 /* ===================== DONNÉES DÉMO ===================== */
 const DEMO_ROWS=(function(){
   const createurs=['caro','solenne','riri','Jackline','NYU'];

@@ -33,7 +33,7 @@ function _acces() {
 }
 
 /** Numéro de version du code — sert à vérifier ce qui est réellement DÉPLOYÉ. */
-function _version() { return '2026-09-journal-prenom'; }
+function _version() { return '2026-09-candidatures'; }
 
 /** Point d'entrée des appels POST du site. */
 function doPost(e) {
@@ -44,6 +44,8 @@ function doPost(e) {
     if (body.action === 'caisse_data') return _caisseData(body);
     if (body.action === 'caisse_save') return _caisseSave(body);
     if (body.action === 'caisse_jour') return _caisseJour(body);
+    if (body.action === 'candidature_infos')   return _json(_candidatureInfos());
+    if (body.action === 'candidature_envoyer') return _json(_candidatureEnvoyer(body));
     if (String(body.action).indexOf('gestion_') === 0) return _json(_gestion(body));
     return _json({ ok: false, message: 'Action inconnue.' });
   } catch (err) {

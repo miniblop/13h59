@@ -48,10 +48,6 @@ const COLONNES_CORRESPONDANCE = [
 function apercuEtape2() { _etape2(true); }
 function etape2Createurs() { _etape2(false); }
 
-/** Clé de rapprochement : casse, espaces et caractères invisibles ignorés. */
-function _cleNom(s) { return _nomPropre(s).toLowerCase(); }
-/** Clé « large » : ignore aussi accents et ponctuation (pour signaler, jamais pour fusionner). */
-function _cleLarge(s) { return _cleNom(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, ''); }
 
 function _levenshtein(a, b) {
   const d = [];

@@ -314,3 +314,113 @@ function _instagram(apercu) {
     (sansCompte.length ? 'Aucune valeur trouvée :\n  - ' + sansCompte.join('\n  - ') + '\n' : '') +
     (apercu && lignes.length ? 'Exemples :\n  - ' + lignes.slice(0, 8).join('\n  - ') : ''));
 }
+
+/*************************************************************
+ *  BACKOFFICE — étape 7 : candidatures
+ *   apercuCandidatures()  : liste ce qui serait fait, n'écrit RIEN
+ *   etape7Candidatures()  : crée `candidatures` et `emails`, puis importe les
+ *                           réponses des formulaires Google (LISTE CREATEURS)
+ *  Relançable : une adresse déjà présente dans `candidatures` est ignorée, ce qui
+ *  permet de rattraper les réponses arrivées entre-temps sur le formulaire Google.
+ *  Statut importé : déjà créateur → retenu ; réponse récente → a_traiter ;
+ *  onglet « anciens créateurs » → liste_attente. Les notes de l'équipe vont en remarque.
+ *************************************************************/
+
+const STAND_PAR_FORFAIT = { 28: 'illu', 45: 'unique', 48: 'unique', 60: 'friperie', 65: 'grand', 68: 'grand', 70: 'friperie' };
+const ONGLETS_FORMULAIRES = [
+  { nom: 'Réponses au formulaire 2', source: 'formulaire_google', statut: 'a_traiter' },
+  { nom: 'anciens créateurs',        source: 'anciens_createurs', statut: 'liste_attente' }
+];
+
+function apercuCandidatures() { _etape7(true); }
+function etape7Candidatures() { _etape7(false); }
+
+function _etape7(apercu) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const liste = SpreadsheetApp.openById(ID_FICHIER_LISTE);
+  const tC = _tableau(ss, SHEET_CREATEURS);
+  const createurs = tC.lignes.filter(function (r) { return _val(tC, r, 'id_createur'); }).map(function (r) {
+    return { id: String(_val(tC, r, 'id_createur')), nom: _nomPropre(_val(tC, r, 'nom')), email: _norm(_val(tC, r, 'email')), categorie: String(_val(tC, r, 'categorie') || '') };
+  });
+  const trouver = _rapprocheur(createurs);
+
+  // 1) Réponses des deux onglets (la ligne d'en-tête éventuelle n'a pas de date en colonne A).
+  const reponses = [], sansHorodatage = [];
+  ONGLETS_FORMULAIRES.forEach(function (o) {
+    const sh = liste.getSheetByName(o.nom);
+    if (!sh) { Logger.log('⚠️ Onglet « ' + o.nom + ' » introuvable dans LISTE CREATEURS.'); return; }
+    sh.getDataRange().getValues().forEach(function (r) {
+      if (!(r[0] instanceof Date)) {
+        const texte = r.slice(0, 4).map(function (x) { return String(x == null ? '' : x).trim(); }).filter(String);
+        if (texte.length >= 2 && _norm(r[0]) !== 'horodateur') sansHorodatage.push(o.nom + ' : ' + texte.join(' · '));
+        return;
+      }
+      const f = /(\d+)\s*€/.exec(String(r[6] || ''));
+      reponses.push({
+        date: r[0], o: o, nom: _nomPropre(r[1]), marque: _nomPropre(r[2]), email: _email(r[3]), emailBrut: String(r[3] || '').trim(),
+        instagram: _lienCandidat(r[4]), description: String(r[5] || '').trim(), stand: f ? (STAND_PAR_FORFAIT[+f[1]] || '') : '',
+        notes: r.slice(7, 10).map(function (x) { return String(x == null ? '' : x).trim(); }).filter(function (x) { return x && !/^\[object/.test(x); })
+      });
+    });
+  });
+  reponses.sort(function (a, b) { return a.date - b.date; });
+
+  // 2) Une candidature par personne (e-mail, sinon marque) : la réponse la plus récente fait foi.
+  const groupes = {}, ordre = [];
+  reponses.forEach(function (x) {
+    const cle = x.email || ('m:' + _cleLarge(x.marque || x.nom));
+    if (!groupes[cle]) { groupes[cle] = []; ordre.push(cle); }
+    groupes[cle].push(x);
+  });
+
+  const sh = ss.getSheetByName(SHEET_CANDIDATURES);
+  const tK = sh ? _tableau(ss, SHEET_CANDIDATURES) : null;
+  const dejaLa = {};
+  if (tK) tK.lignes.forEach(function (r) { const e = _norm(_val(tK, r, 'email')); if (e) dejaLa[e] = true; });
+  let prochain = tK ? +_prochainId(tK, 'id_candidature', 'CA').slice(2) : 1;
+
+  const lignes = [], bilan = { retenu: 0, a_traiter: 0, liste_attente: 0 }, aVerifier = [], ignores = [];
+  ordre.forEach(function (cle) {
+    const g = groupes[cle], der = g[g.length - 1];
+    if (der.email && dejaLa[der.email]) { ignores.push(der.marque || der.nom); return; }
+    const t = trouver(der.marque, der.email) || trouver(String(der.marque || '').split(/ [\/-] /)[0], '');
+    const statut = t ? 'retenu' : der.o.statut;
+    bilan[statut]++;
+    const notes = [];
+    g.forEach(function (x) { x.notes.forEach(function (n) { const s = x.o.nom + ' : ' + n; if (notes.indexOf(s) === -1) notes.push(s); }); });
+    if (g.length > 1) notes.push(g.length + ' réponses (' + g.map(function (x) { return Utilities.formatDate(x.date, _tz(), 'dd/MM/yyyy'); }).join(', ') + ')');
+    if (!der.email) notes.push('⚠️ adresse e-mail absente ou invalide : « ' + der.emailBrut + ' »');
+    if (t && t.par !== 'e-mail') { notes.push('⚠️ rapprochée de ' + t.c.id + ' ' + t.c.nom + ' par le ' + t.par + ' : à vérifier'); aVerifier.push((der.marque || der.nom) + ' → ' + t.c.nom + ' (' + t.par + ')'); }
+    const ligne = {
+      id_candidature: 'CA' + String(prochain++).padStart(3, '0'), recue_le: g[0].date, maj_le: g.length > 1 ? der.date : '',
+      prenom: '', nom: _textePublic(der.nom, 120), marque: _textePublic(der.marque || der.nom, 80), email: der.email,
+      instagram: der.instagram, categorie: t ? t.c.categorie : '', stand_souhaite: der.stand,
+      description: _textePublic(der.description, 3000), statut: statut, traitee_le: '', traitee_par: '',
+      id_createur: t ? t.c.id : '', source: der.o.source, remarque: _textePublic(notes.join(' · '), 1000)
+    };
+    lignes.push(COLONNES_CANDIDATURES.map(function (k) { return ligne[k] == null ? '' : ligne[k]; }));
+  });
+
+  const resume = [
+    reponses.length + ' réponses lues (' + ONGLETS_FORMULAIRES.map(function (o) { return o.nom; }).join(' + ') + '), ' + ordre.length + ' personnes différentes.',
+    (ignores.length ? ignores.length + ' déjà présente(s) dans « candidatures », ignorée(s). ' : '') + lignes.length + ' candidature(s) à importer : ' +
+      bilan.retenu + ' retenue(s) (déjà créateurs), ' + bilan.a_traiter + ' à traiter, ' + bilan.liste_attente + " en liste d'attente."
+  ];
+  if (!apercu) {
+    const creeEmails = _creerOngletEmails(ss);
+    if (!sh) {
+      const s = _nouvelOnglet(ss, SHEET_CANDIDATURES, COLONNES_CANDIDATURES, lignes);
+      s.getRange(2, COLONNES_CANDIDATURES.indexOf('statut') + 1, 999, 1).setDataValidation(
+        SpreadsheetApp.newDataValidation().requireValueInList(STATUTS_CANDIDATURE, true).setAllowInvalid(false).build());
+      s.getRange(1, 1, 1000, COLONNES_CANDIDATURES.length).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+      [['description', 360], ['remarque', 320], ['instagram', 220]].forEach(function (c) { s.setColumnWidth(COLONNES_CANDIDATURES.indexOf(c[0]) + 1, c[1]); });
+    } else if (lignes.length) {
+      sh.getRange(sh.getLastRow() + 1, 1, lignes.length, COLONNES_CANDIDATURES.length).setValues(lignes);
+    }
+    if (creeEmails) resume.push('Onglet « emails » créé avec les 4 textes par défaut (modifiables dans le Sheet).');
+    _onglet(ss, SHEET_JOURNAL).appendRow([new Date(), Session.getEffectiveUser().getEmail(), 'etape7_candidatures', resume.join(' | ')]);
+  }
+  Logger.log((apercu ? "APERÇU — rien n'a été écrit.\n" : '✅ Candidatures importées.\n') + resume.map(function (l) { return '• ' + l; }).join('\n') +
+    (sansHorodatage.length ? '\nLignes sans horodatage ignorées (saisies à la main, pas des réponses au formulaire) :\n  - ' + sansHorodatage.join('\n  - ') : '') +
+    (aVerifier.length ? '\nRapprochements par le nom, à vérifier :\n  - ' + aVerifier.join('\n  - ') : ''));
+}
