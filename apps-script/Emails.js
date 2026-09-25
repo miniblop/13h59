@@ -1,7 +1,8 @@
 /*************************************************************
  *  E-MAILS — envoi au nom du shop
  *  Tous les e-mails automatiques partent de l'alias du shop, avec
- *  le shop en « Répondre à » et en copie cachée (trace dans sa boîte).
+ *  le shop en « Répondre à » : les réponses arrivent dans sa boîte. Pas de copie
+ *  cachée (elle remplissait la boîte du shop) : la trace est dans `journal`.
  *  L'alias doit être configuré dans le Gmail du compte qui exécute le
  *  script (Paramètres ▸ Comptes ▸ « Envoyer des e-mails en tant que »).
  *************************************************************/
@@ -26,7 +27,6 @@ function envoyerEmailShop(m) {
     from: EMAIL_SHOP,
     name: NOM_EXPEDITEUR,
     replyTo: EMAIL_SHOP,
-    bcc: EMAIL_SHOP,
     htmlBody: m.html,
     attachments: m.pieces || []
   });
@@ -180,10 +180,9 @@ function testEnvoiAlias() {
           '<ol style="padding-left:18px;margin:0">' +
             '<li>l’expéditeur affiché est <b>' + NOM_EXPEDITEUR + ' &lt;' + EMAIL_SHOP + '&gt;</b> ;</li>' +
             '<li>en cliquant sur « Répondre », le destinataire proposé est <b>' + EMAIL_SHOP + '</b> ;</li>' +
-            '<li>une copie de ce message est arrivée dans la boîte du shop.</li>' +
           '</ol>' +
         '</div>' +
       '</div>'
   });
-  Logger.log('✅ E-mail de test envoyé à ' + moi + ' (copie cachée : ' + EMAIL_SHOP + ').');
+  Logger.log('✅ E-mail de test envoyé à ' + moi + '.');
 }

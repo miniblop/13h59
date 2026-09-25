@@ -63,7 +63,8 @@ function _gReglages() {
     }),
     paiements: _lireTable(_onglet(ss, SHEET_PAIEMENTS)).filter(function (p) { return p['code']; }).map(function (p) {
       return { code: String(p['code']), taux_frais: pct(p['taux_frais']), statut: _norm(p['statut']) === 'actif' ? 'actif' : 'inactif', utilise: parPaiement[String(p['code'])] || 0 };
-    })
+    }),
+    modeles: _modelesEmails(ss), modelesDefaut: _emailsParDefaut()
   };
 }
 

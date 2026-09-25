@@ -194,6 +194,13 @@
   .gc-ev .d{flex:0 0 58px;background:var(--tot);border-radius:9px;padding:5px 4px;text-align:center;font-weight:800;font-size:13px}
   .gk-n{display:inline-block;min-width:18px;padding:1px 6px;border-radius:999px;background:var(--band);color:#fff;font-size:11px;text-align:center;margin-left:4px}
   .gk-desc{background:var(--tot);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.55;white-space:pre-wrap;max-height:260px;overflow:auto}
+  .gr-sec>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;user-select:none}
+  .gr-sec>summary::-webkit-details-marker{display:none}
+  .gr-sec>summary::after{content:'Afficher ▾';color:var(--muted);font-size:12px;font-weight:700;white-space:nowrap}
+  .gr-sec[open]>summary::after{content:'Masquer ▴'}
+  .gr-sec[open]>summary{margin-bottom:12px}
+  .gr-titre{font-size:15px}
+  .gr-resume{display:block;font-size:12px;color:var(--muted);font-weight:400;margin-top:3px}
   .gr-tbl th,.gr-tbl td{text-align:left;vertical-align:middle}
   .gr-tbl input[type=text],.gr-tbl input[type=number],.gr-tbl select{padding:7px 9px;font-size:13px}
   .gr-tbl input[type=checkbox]{width:17px;height:17px;accent-color:#111}
@@ -390,13 +397,16 @@
         </div>
       </div>
       <div id="grTables"></div>
-      <div class="card"><div class="cardhead"><h2>E-mails types</h2></div><div class="gc-why" style="margin:0">Ils se modifient dans <a href="#" id="grVersEmails">Gestion ▸ Candidatures</a>, sous la liste, avec un aperçu sur une vraie candidature.</div></div>
+      <details class="card gr-sec" data-sec="emails"><summary><span><b class="gr-titre">E-mails types</b><span class="gr-resume" id="grResumeEmails"></span></span></summary>
+        <div class="gc-why" style="margin:0 0 10px">Envoyés depuis 13h59shop@gmail.com ; les réponses arrivent dans la boîte du shop. Champs remplacés à l'envoi : <b>{prenom}</b> <b>{marque}</b> <b>{stand}</b>, et <b>{date}</b> (date d'arrivée) dans l'e-mail de bienvenue. Un modèle désactivé n'est jamais envoyé.</div>
+        <div id="gkModeles"></div>
+      </details>
     </div>
     <div id="gCand" class="hide">
       <div id="gkErr" class="warn hide"></div>
       <div class="card">
         <div class="cardhead" style="margin-bottom:0">
-          <div><h2>Candidatures</h2><div class="muted" style="font-size:12px;margin-top:4px">Reçues par la page publique <a href="candidater.html" target="_blank" rel="noopener">candidater</a> · un e-mail de confirmation part automatiquement, depuis l'adresse du shop</div></div>
+          <div><h2>Candidatures</h2><div class="muted" style="font-size:12px;margin-top:4px">Reçues par la page publique <a href="candidater.html" target="_blank" rel="noopener">candidater</a> · un e-mail de confirmation part automatiquement, depuis l'adresse du shop · textes modifiables dans <a href="#" data-vers-reglages="emails">Réglages ▸ E-mails types</a></div></div>
           <div class="gc-acts" style="margin-top:0"><button class="btn-dl" id="gkLien">⧉ Copier le lien public</button><button class="btn-dl" id="gkRefresh">↻ Actualiser</button></div>
         </div>
       </div>
@@ -407,11 +417,6 @@
           <div class="tblwrap gc-list"><table id="gkTbl"></table></div>
         </div>
         <div class="card" id="gkFiche"><div class="muted">Sélectionne une candidature dans la liste.</div></div>
-      </div>
-      <div class="card">
-        <div class="cardhead"><h2>E-mails types</h2><span class="muted" style="font-size:12px">envoyés depuis 13h59shop@gmail.com, avec copie cachée au shop</span></div>
-        <div class="gc-why" style="margin:0 0 10px">Champs remplacés à l'envoi : <b>{prenom}</b> <b>{marque}</b> <b>{stand}</b>, et <b>{date}</b> (date d'arrivée) dans l'e-mail de bienvenue. Un modèle désactivé n'est jamais envoyé.</div>
-        <div id="gkModeles"></div>
       </div>
     </div>
   </div>
@@ -1441,7 +1446,7 @@ async function gkCharger(garder){
     GK.data=r;GK.charge=true;
     if(!garder){GK.sel=null;GK.retenir=false;}
     $('gkStand').innerHTML='<option value="">Tous les forfaits</option>'+r.stands.map(s=>`<option value="${FMT.esc(s.code)}"${s.code===GK.stand?' selected':''}>${FMT.esc(s.libelle)}</option>`).join('');
-    gkBadge();gkRenderListe();gkRenderFiche();gkRenderModeles();
+    gkBadge();gkRenderListe();gkRenderFiche();
   }catch(e){$('gkErr').classList.remove('hide');$('gkErr').textContent='⚠️ Candidatures indisponibles : '+((e&&e.message)||e);}
 }
 function gkBadge(){
@@ -1492,6 +1497,7 @@ function gkRenderFiche(){
   if(k.statut!=='retenu'){
     h+='<div class="gc-h4">Décision</div>'+
       `<label class="gc-check"><input type="checkbox" id="gkMail"${k.email?' checked':' disabled'}> Prévenir ${k.email?FMT.esc(k.prenom||k.marque):'(pas d\'adresse e-mail)'} par e-mail · tu verras le texte avant l'envoi</label>`+
+      `<div class="gc-why" style="margin-top:-4px">Textes des e-mails : <a href="#" data-vers-reglages="emails">Réglages ▸ E-mails types</a></div>`+
       '<div class="gc-acts">'+
       (k.statut!=='liste_attente'?`<button class="btn btn-ghost" data-a="statut" data-s="liste_attente">Liste d'attente</button>`:'')+
       (k.statut!=='non_retenu'?`<button class="btn btn-danger" data-a="statut" data-s="non_retenu">Non retenue</button>`:'')+
@@ -1577,9 +1583,12 @@ $('gkLien').addEventListener('click',async()=>{
 const GK_MODELES=[['accuse_reception','Confirmation de candidature','envoyé automatiquement à chaque candidature reçue'],['liste_attente',"Liste d'attente",'bouton « Liste d\'attente »'],
   ['non_retenu','Candidature non retenue','bouton « Non retenue »'],['retenu','Candidature retenue (bienvenue)','bouton « Retenir »']];
 GK.brouillons={};
+/* aperçu : la candidature ouverte dans Gestion ▸ Candidatures, sinon un exemple */
+function gkCandidatureOuverte(){return GK.data&&GK.data.candidatures.find(x=>x.id===GK.sel);}
 function gkExemple(code){
-  const k=GK.data.candidatures.find(x=>x.id===GK.sel)||{prenom:'Lucie',nom:'Vasseur',marque:'Atelier Lune',standSouhaite:(GK.data.stands[0]||{}).code};
-  return gkVars(k,k.standSouhaite,code==='retenu'?GK.data.aujourdhui:'');
+  const k=gkCandidatureOuverte()||{prenom:'Lucie',nom:'Vasseur',marque:'Atelier Lune',standSouhaite:(GR.data.stands[0]||{}).code};
+  const st=GR.data.stands.find(x=>x.code===k.standSouhaite);
+  return {prenom:k.prenom||k.nom||k.marque,marque:k.marque,stand:st?st.libelle:'',date:code==='retenu'?fmtD(isoJour(new Date())):''};
 }
 function gkRemplir(t,v){return String(t).replace(/\{(\w+)\}/g,(x,c)=>v[c]!=null&&v[c]!==''?v[c]:x);}
 function gkRenderModeles(){
@@ -1587,17 +1596,19 @@ function gkRenderModeles(){
   const el=$('gkModeles'),ouverts={};
   el.querySelectorAll('details[data-m]').forEach(d=>{ouverts[d.dataset.m]=d.open;});
   el.innerHTML=GK_MODELES.map(([code,titre,usage])=>{
-    const m=GK.brouillons[code]||GK.data.modeles[code]||{objet:'',texte:'',actif:false};
+    const m=GK.brouillons[code]||GR.data.modeles[code]||{objet:'',texte:'',actif:false};
     const v=gkExemple(code);
     return `<details class="gk-mod" data-m="${code}"${ouverts[code]?' open':''}><summary><span>${titre} <span class="muted" style="font-weight:400;font-size:12px">· ${usage}</span></span>`+
       `<span>${GK.brouillons[code]?'<span class="gk-modifie">non enregistré · </span>':''}<span class="gc-st ${m.actif?'actif':'inactif'}">${m.actif?'Actif':'Désactivé'}</span></span></summary><div class="corps">`+
       `<div class="f" style="margin-top:12px"><label>Objet</label><input data-mc="objet" maxlength="200" value="${FMT.esc(m.objet)}"></div>`+
       `<div class="f"><label>Texte</label><textarea data-mc="texte" maxlength="5000">${FMT.esc(m.texte)}</textarea></div>`+
       `<label class="gc-check"><input type="checkbox" data-mc="actif"${m.actif?' checked':''}> Modèle actif (décoché : cet e-mail n'est jamais envoyé)</label>`+
-      `<div class="gc-h4">Aperçu${GK.sel?' pour '+FMT.esc(v.marque):' (exemple)'}</div><div class="gk-apercu" data-mc="apercu"><b>${FMT.esc(gkRemplir(m.objet,v))}</b>\n\n${FMT.esc(gkRemplir(m.texte,v))}</div>`+
+      `<div class="gc-h4">Aperçu${gkCandidatureOuverte()?' pour '+FMT.esc(v.marque):' (exemple)'}</div><div class="gk-apercu" data-mc="apercu"><b>${FMT.esc(gkRemplir(m.objet,v))}</b>\n\n${FMT.esc(gkRemplir(m.texte,v))}</div>`+
       `<div class="gc-acts"><button class="btn btn-accent" data-ma="enregistrer">Enregistrer</button><button class="btn btn-ghost" data-ma="annuler">Annuler les modifications</button>`+
       `<button class="btn btn-ghost" data-ma="defaut">Rétablir le texte d'origine</button></div></div></details>`;
   }).join('');
+  const actifs=GK_MODELES.filter(([c])=>(GR.data.modeles[c]||{}).actif).length,br=Object.keys(GK.brouillons).length;
+  $('grResumeEmails').textContent=GK_MODELES.length+' modèles · '+actifs+' actif'+(actifs>1?'s':'')+(br?' · modifications non enregistrées':'');
 }
 function gkLireModele(d){
   const q=k=>d.querySelector(`[data-mc="${k}"]`);
@@ -1616,7 +1627,7 @@ $('gkModeles').addEventListener('click',async e=>{
   const d=b.closest('details[data-m]'),code=d.dataset.m,a=b.dataset.ma;
   if(a==='annuler'){delete GK.brouillons[code];gkRenderModeles();return;}
   if(a==='defaut'){
-    const o=GK.data.modelesDefaut&&GK.data.modelesDefaut[code];if(!o)return;
+    const o=GR.data.modelesDefaut&&GR.data.modelesDefaut[code];if(!o)return;
     GK.brouillons[code]=Object.assign(gkLireModele(d),{objet:o.objet,texte:o.texte});gkRenderModeles();
     toast("Texte d'origine remis : clique sur « Enregistrer » pour le garder.");return;
   }
@@ -1625,7 +1636,8 @@ $('gkModeles').addEventListener('click',async e=>{
   try{
     const r=await API.gestion('gestion_email_maj',Object.assign({code},m));
     if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
-    GK.data.modeles[code]=Object.assign({},GK.data.modeles[code],m);delete GK.brouillons[code];
+    GR.data.modeles[code]=Object.assign({},GR.data.modeles[code],m);delete GK.brouillons[code];
+    if(GK.data)GK.data.modeles[code]=Object.assign({},GK.data.modeles[code],m);
     gkRenderModeles();toast('E-mail « '+GK_MODELES.find(x=>x[0]===code)[1]+' » enregistré'+(m.actif?'':' (désactivé)'));
   }catch(err){toast((err&&err.message)||String(err),true);}
   finally{if(b.isConnected){b.disabled=false;b.textContent=t;}}
@@ -1676,7 +1688,13 @@ const DEMO_K=(function(){
   };
 })();
 /* ===================== GESTION ▸ RÉGLAGES ===================== */
-const GR={data:null,charge:false,brouillons:{}};
+const GR={data:null,charge:false,brouillons:{},ouverts:{}};
+const GR_RESUME={
+  categories:l=>l.length+' catégories · '+l.filter(x=>x.actif).length+' actives',
+  stands:l=>l.length+' stands · '+l.reduce((n,x)=>n+(Number(x.places)||0),0)+' places · loyers '+l.map(x=>x.loyer+' €').join(' / '),
+  remises:l=>l.length+' remises · '+l.filter(x=>x.statut==='actif').length+' actives',
+  paiements:l=>l.map(x=>x.code+(x.statut==='actif'?' '+String(x.taux_frais).replace('.',',')+' %':' (inactif)')).join(' · ')
+};
 const GR_T={
   categories:{titre:'Catégories',code:'auto',aide:"Proposées sur la page de candidature et dans les fiches créateurs, dans l'ordre indiqué. Désactivée, elle disparaît des listes mais reste sur les créateurs qui l'ont déjà.",
     cols:[['libelle','Nom','text',180],['exemples','Exemples','text',240],['ordre','Ordre','num',64],['actif','Active','bool']],utilise:n=>n+' créateur'+(n>1?'s':'')},
@@ -1716,10 +1734,25 @@ function grRender(){
     const nouvelle=`<tr data-t="${table}" data-c="" class="gr-new"><td>${T.code==='saisi'?`<input data-f="code" placeholder="${table==='remises'?'soldes_30':'virement'}" style="width:150px">`:'<span class="gc-sub">créé depuis le nom</span>'}</td>`+
       T.cols.map(c=>`<td>${grChamp(table,c,c[2]==='bool'?true:c[2]==='statut'?'actif':c[2]==='type'?'pourcentage':'',false)}</td>`).join('')+
       `<td><button class="btn btn-ghost gr-btn" data-ga="ajouter">＋ Ajouter</button></td></tr>`;
-    return `<div class="card"><div class="cardhead"><h2>${T.titre}</h2></div><div class="gc-why" style="margin:0 0 10px">${T.aide}</div>`+
-      `<div class="tblwrap"><table class="gr-tbl"><thead>${tete}</thead><tbody>${corps}${nouvelle}</tbody></table></div></div>`;
+    const nbBrouillons=lignes.filter(l=>GR.brouillons[table+'|'+l.code]).length;
+    return `<details class="card gr-sec" data-sec="${table}"${GR.ouverts[table]?' open':''}><summary><span><b class="gr-titre">${T.titre}</b>`+
+      `<span class="gr-resume">${FMT.esc(GR_RESUME[table](lignes))}${nbBrouillons?' · <b style="color:#8a6d3b">modifications non enregistrées</b>':''}</span></span></summary>`+
+      `<div class="gc-why" style="margin:0 0 10px">${T.aide}</div>`+
+      `<div class="tblwrap"><table class="gr-tbl"><thead>${tete}</thead><tbody>${corps}${nouvelle}</tbody></table></div></details>`;
   }).join('');
+  gkRenderModeles();
 }
+/* on retient les sections ouvertes (l'événement toggle ne remonte pas : capture) */
+$('gRegl').addEventListener('toggle',e=>{const d=e.target;if(d.dataset&&d.dataset.sec)GR.ouverts[d.dataset.sec]=d.open;},true);
+/* liens « Réglages ▸ … » depuis les autres écrans */
+document.addEventListener('click',e=>{
+  const a=e.target.closest('[data-vers-reglages]');if(!a)return;
+  e.preventDefault();
+  const sec=a.dataset.versReglages;GR.ouverts[sec]=true;
+  document.querySelector('#gSubtabs [data-sub="reglages"]').click();
+  const d=document.querySelector(`#gRegl details[data-sec="${sec}"]`);
+  if(d){d.open=true;setTimeout(()=>d.scrollIntoView({behavior:'smooth',block:'start'}),GR.charge?0:900);}
+});
 function grLire(tr){
   const o={};
   tr.querySelectorAll('[data-f]').forEach(el=>{o[el.dataset.f]=el.type==='checkbox'?(el.dataset.f==='statut'?(el.checked?'actif':'inactif'):el.checked):el.value.trim();});
@@ -1770,7 +1803,7 @@ const DEMO_R=(function(){
   const slug=s=>String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
   return async function(action,p){
     if(!st)init();
-    if(action==='gestion_reglages')return JSON.parse(JSON.stringify(Object.assign({ok:true},st)));
+    if(action==='gestion_reglages'){const k=await DEMO_K('gestion_candidatures',{});return JSON.parse(JSON.stringify(Object.assign({ok:true,modeles:k.modeles,modelesDefaut:k.modelesDefaut},st)));}
     const l=st[p.table];
     if(action==='gestion_reglage_maj'){
       const x=l.find(y=>y.code===p.code);if(x.verrouille)return {ok:false,message:'« pas_de_remise » est la remise par défaut de la caisse : elle ne se modifie pas.'};
@@ -1787,10 +1820,6 @@ const DEMO_R=(function(){
     return {ok:false,message:'Action inconnue (démo).'};
   };
 })();
-$('grVersEmails').addEventListener('click',e=>{
-  e.preventDefault();document.querySelector('#gSubtabs [data-sub="candidatures"]').click();
-  setTimeout(()=>$('gkModeles').scrollIntoView({behavior:'smooth',block:'start'}),GK.charge?0:900);
-});
 /* ===================== DONNÉES DÉMO ===================== */
 const DEMO_ROWS=(function(){
   const createurs=['caro','solenne','riri','Jackline','NYU'];
