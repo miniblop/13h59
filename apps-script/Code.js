@@ -21,6 +21,11 @@ const COL_CREATEUR       = 'vendeur';
 const COL_NOM_CREATEUR   = 'nom_vendeur';
 const COL_PRIME_CREATEUR = 'prime_vendeur';
 
+// Onglets du backoffice (une future table chacun).
+const SHEET_STANDS       = 'stands';
+const SHEET_EMPLACEMENTS = 'emplacements';
+const SHEET_JOURNAL      = 'journal';
+
 // Remises PRISES EN CHARGE PAR LE MAGASIN
 // (le créateur touche sa prime sur le prix PLEIN, pas sur le prix client).
 // >>> Vérifie / complète cette liste si besoin. <<<
