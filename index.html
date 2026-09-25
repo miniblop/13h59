@@ -146,8 +146,11 @@
   }
   @media(max-width:420px){ .filters{grid-template-columns:1fr} }
   /* --- gestion : sous-onglets et créateurs --- */
-  .subtabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:0 0 16px}
-  .subtab{padding:10px 14px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+  /* liens : noir, soulignement discret (pas de bleu par défaut) */
+  a{color:var(--ink);font-weight:600;text-decoration:underline;text-decoration-color:#cfccc5;text-decoration-thickness:1px;text-underline-offset:3px;transition:text-decoration-color .12s}
+  a:hover{text-decoration-color:var(--ink)}
+  .subtabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:0 0 16px;overflow-x:auto;scrollbar-width:none}
+  .subtab{white-space:nowrap;padding:10px 14px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
   .subtab.active{color:var(--ink);border-bottom-color:var(--ink)}
   .gc-places{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
   .gc-place{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
@@ -194,6 +197,16 @@
   .gc-ev .d{flex:0 0 58px;background:var(--tot);border-radius:9px;padding:5px 4px;text-align:center;font-weight:800;font-size:13px}
   .gk-n{display:inline-block;min-width:18px;padding:1px 6px;border-radius:999px;background:var(--band);color:#fff;font-size:11px;text-align:center;margin-left:4px}
   .gk-desc{background:var(--tot);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.55;white-space:pre-wrap;max-height:260px;overflow:auto}
+  .gv-filtres{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
+  #gvTbl tbody tr{cursor:pointer}
+  #gvTbl tbody tr:hover td{background:#faf9f7}
+  #gvTbl tbody tr.sel td{background:var(--tot)}
+  #gvTbl tr.gv-barre td{color:var(--muted);text-decoration:line-through}
+  #gvTbl tr.gv-barre td:last-child{text-decoration:none}
+  .gc-st.gv-neg{background:#fbeceb;color:var(--neg)}
+  #gjTbl th,#gjTbl td{text-align:left;vertical-align:top}
+  .gj-detail{white-space:normal!important;min-width:280px;font-size:12px;color:#4a4843;line-height:1.5}
+  @media(max-width:560px){.gv-filtres{grid-template-columns:1fr 1fr}}
   .gr-sec>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;user-select:none}
   .gr-sec>summary::-webkit-details-marker{display:none}
   .gr-sec>summary::after{content:'Afficher ▾';color:var(--muted);font-size:12px;font-weight:700;white-space:nowrap}
@@ -331,7 +344,7 @@
 
   <!-- ONGLET GESTION -->
   <div id="viewGestion" class="hide">
-    <div class="subtabs" id="gSubtabs"><div class="subtab active" data-sub="stats">Statistiques</div><div class="subtab" data-sub="createurs">Créateurs</div><div class="subtab" data-sub="candidatures">Candidatures</div><div class="subtab" data-sub="reglages">Réglages</div></div>
+    <div class="subtabs" id="gSubtabs"><div class="subtab active" data-sub="stats">Statistiques</div><div class="subtab" data-sub="createurs">Créateurs</div><div class="subtab" data-sub="candidatures">Candidatures</div><div class="subtab" data-sub="ventes">Ventes</div><div class="subtab" data-sub="journal">Journal</div><div class="subtab" data-sub="reglages">Réglages</div></div>
     <div id="gStats">
     <div class="card">
       <h2>Espace gestion</h2>
@@ -387,6 +400,40 @@
         </div>
         <div class="card" id="gcFiche"><div class="muted">Sélectionne un créateur dans la liste.</div></div>
       </div>
+    </div>
+    <div id="gVentes" class="hide">
+      <div id="gvErr" class="warn hide"></div>
+      <div class="card">
+        <div class="cardhead" style="margin-bottom:0">
+          <div><h2>Ventes</h2><div class="muted" style="font-size:12px;margin-top:4px;line-height:1.5">Corriger ou supprimer une erreur de caisse. Mois en cours : la vente est modifiée ou supprimée. Mois passé (déjà facturé) : elle est annulée par une ligne de régularisation. Tout est noté dans le journal.</div></div>
+          <div class="gc-acts" style="margin-top:0"><button class="btn-dl" id="gvRefresh">↻ Actualiser</button></div>
+        </div>
+        <div class="gv-filtres">
+          <div><label>Du</label><input type="date" id="gvDu"></div>
+          <div><label>Au</label><input type="date" id="gvAu"></div>
+          <div><label>Créateur</label><select id="gvCreateur"><option value="">Tous les créateurs</option></select></div>
+          <div><label>Recherche</label><input id="gvQ" placeholder="n° de vente ou de panier, référence…"></div>
+        </div>
+      </div>
+      <div class="gc-main">
+        <div class="card"><div id="gvResume" class="muted" style="font-size:12px;margin-bottom:8px;line-height:1.5"></div><div class="tblwrap gc-list"><table id="gvTbl"></table></div></div>
+        <div class="card" id="gvFiche"><div class="muted">Sélectionne une vente dans la liste.</div></div>
+      </div>
+    </div>
+    <div id="gJournal" class="hide">
+      <div id="gjErr" class="warn hide"></div>
+      <div class="card">
+        <div class="cardhead" style="margin-bottom:0">
+          <div><h2>Journal</h2><div class="muted" style="font-size:12px;margin-top:4px">Tout ce qui a été modifié, par qui et quand, les plus récents en premier.</div></div>
+          <div class="gc-acts" style="margin-top:0"><button class="btn-dl" id="gjRefresh">↻ Actualiser</button></div>
+        </div>
+        <div class="gv-filtres">
+          <div><label>Qui</label><select id="gjQui"></select></div>
+          <div><label>Action</label><select id="gjAction"></select></div>
+          <div style="grid-column:span 2"><label>Recherche</label><input id="gjQ" placeholder="créateur, n° de vente, texte…"></div>
+        </div>
+      </div>
+      <div class="card"><div id="gjResume" class="muted" style="font-size:12px;margin-bottom:8px"></div><div class="tblwrap gc-list"><table id="gjTbl"></table></div></div>
     </div>
     <div id="gRegl" class="hide">
       <div id="grErr" class="warn hide"></div>
@@ -504,10 +551,17 @@ const CALC = {
   commission(lignes){
     return lignes.reduce((s,l)=>s+(l.commission||0),0);
   },
+  nbVentes(lignes){return lignes.reduce((n,l)=>n+(l.sens||1),0);},
+  nbPaniers(lignes){
+    const net=new Map();
+    lignes.forEach(l=>{if(l.panier!=null)net.set(l.panier,(net.get(l.panier)||0)+(l.sens||1));});
+    let n=0;net.forEach(v=>{if(v>0)n++;});return n;
+  },
   agrege(lignes, dateRef){
-    let revenus=0,prime=0,remise=0,taxe=0; const paniers=new Set(),createurs=new Set();
-    lignes.forEach(l=>{revenus+=l.prixClient;prime+=l.prime;remise+=l.remise;taxe+=l.taxe;if(l.panier!=null)paniers.add(l.panier);createurs.add(l.createur);});
-    const nbVentes=lignes.length,nbPaniers=paniers.size;
+    let revenus=0,prime=0,remise=0,taxe=0; const createurs=new Set();
+    lignes.forEach(l=>{revenus+=l.prixClient;prime+=l.prime;remise+=l.remise;taxe+=l.taxe;createurs.add(l.createur);});
+    /* une ligne d'annulation compte −1 vente ; un panier entièrement annulé ne compte plus */
+    const nbVentes=CALC.nbVentes(lignes),nbPaniers=CALC.nbPaniers(lignes);
     const commission=CALC.commission(lignes);
     /* taux affiché = taux effectif (commission / prime), moyenne pondérée des
        paliers individuels. Sur un seul créateur, il vaut exactement son palier. */
@@ -522,9 +576,9 @@ const CALC = {
 function totaux(buckets, lignes){
   const t={nbVentes:0,revenus:0,remise:0,taxe:0,prime:0,commission:0};
   buckets.forEach(b=>{t.nbVentes+=b.agg.nbVentes;t.revenus+=b.agg.revenus;t.remise+=b.agg.remise;t.taxe+=b.agg.taxe;t.prime+=b.agg.prime;t.commission+=b.agg.commission;});
-  const paniers=new Set(),createurs=new Set();
-  lignes.forEach(l=>{if(l.panier!=null)paniers.add(l.panier);createurs.add(l.createur);});
-  const nbPaniers=paniers.size;
+  const createurs=new Set();
+  lignes.forEach(l=>createurs.add(l.createur));
+  const nbPaniers=CALC.nbPaniers(lignes);
   return {nbCreateurs:createurs.size,nbVentes:t.nbVentes,nbPaniers,revenus:t.revenus,remise:t.remise,taxe:t.taxe,prime:t.prime,commission:t.commission,
     primeNet:t.prime-t.commission,
     revParPanier:nbPaniers?t.revenus/nbPaniers:null,
@@ -628,7 +682,7 @@ const API = {
     return res.json();
   },
   async gestion(action,params){
-    if(DEMO_MODE) return (action.indexOf('gestion_reglage')===0?DEMO_R:action.indexOf('gestion_candidature')===0||action==='gestion_email_maj'?DEMO_K:DEMO_G)(action,params||{});
+    if(DEMO_MODE) return (/^gestion_(ventes?|panier|journal)/.test(action)?DEMO_V:action.indexOf('gestion_reglage')===0?DEMO_R:action.indexOf('gestion_candidature')===0||action==='gestion_email_maj'?DEMO_K:DEMO_G)(action,params||{});
     const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify(Object.assign({action,password:S.pwd,qui:gcPrenom()},params||{}))});
     return res.json();
   },
@@ -1172,10 +1226,11 @@ function renderJour(lignes){
     const proche=ta==null||tb==null||Math.abs(tb-ta)<=10;
     if(proche&&signaturePanier(p)===signaturePanier(q)){p.suspect=q[0].panier;nbSuspects++;}
   });
-  const kp=[['Paniers',FMT.num(paniers.length)],['Articles',FMT.num(lignes.length)],['CB',FMT.eur(totCb)],['Espèces',FMT.eur(totEsp)],['Total',FMT.eur(tot)]];
+  /* les lignes d'annulation retirent un article ; un panier entièrement annulé ne compte plus */
+  const kp=[['Paniers',FMT.num(CALC.nbPaniers(lignes))],['Articles',FMT.num(CALC.nbVentes(lignes))],['CB',FMT.eur(totCb)],['Espèces',FMT.eur(totEsp)],['Total',FMT.eur(tot)]];
   $('cJourKpis').innerHTML=kp.map(([k,v])=>`<div class="kpi static"><div class="k"><span class="dot"></span>${k}</div><div class="v">${v}</div></div>`).join('');
   const w=$('cJourWarn');
-  if(nbSuspects){w.classList.remove('hide');w.innerHTML='⚠️ <b>'+nbSuspects+' panier(s)</b> identique(s) au panier précédent (même contenu, même paiement, moins de 10 min d\'écart). Si ce n\'est pas une vraie vente, supprime ses lignes dans l\'onglet <b>ventes</b> du Sheet.';}
+  if(nbSuspects){w.classList.remove('hide');w.innerHTML='⚠️ <b>'+nbSuspects+' panier(s)</b> identique(s) au panier précédent (même contenu, même paiement, moins de 10 min d\'écart). Si ce n\'est pas une vraie vente, annule-le dans <b>Gestion ▸ Ventes</b> (bouton « Annuler tout le panier »).';}
   else w.classList.add('hide');
   if(!lignes.length){$('cJourTbl').innerHTML='<tbody><tr><td class="muted" style="text-align:center;padding:20px">Aucune vente ce jour-là.</td></tr></tbody>';return;}
   const head='<thead><tr><th>Créateur</th><th>Référence</th><th>Remise</th><th>Prix</th><th>Prix client</th></tr></thead>';
@@ -1389,9 +1444,13 @@ $('gSubtabs').addEventListener('click',e=>{
   $('gCreat').classList.toggle('hide',t.dataset.sub!=='createurs');
   $('gCand').classList.toggle('hide',t.dataset.sub!=='candidatures');
   $('gRegl').classList.toggle('hide',t.dataset.sub!=='reglages');
+  $('gVentes').classList.toggle('hide',t.dataset.sub!=='ventes');
+  $('gJournal').classList.toggle('hide',t.dataset.sub!=='journal');
   if(t.dataset.sub==='createurs'&&!GC.charge)gcCharger();
   if(t.dataset.sub==='candidatures'&&!GK.charge)gkCharger();
   if(t.dataset.sub==='reglages')grCharger();
+  if(t.dataset.sub==='ventes'&&!GV.charge)gvCharger();
+  if(t.dataset.sub==='journal')gjCharger();
 });
 
 /* démo : même logique que le serveur, en mémoire */
@@ -1816,6 +1875,202 @@ const DEMO_R=(function(){
       if(!code)return {ok:false,message:p.table==='remises'||p.table==='paiements'?'Indique le nom affiché en caisse.':'Le nom est obligatoire.'};
       if(l.some(y=>y.code.toLowerCase()===code.toLowerCase()))return {ok:false,message:'« '+code+' » existe déjà : modifie-le ou réactive-le plutôt.'};
       l.push(Object.assign({utilise:0},c,{code}));return {ok:true,code};
+    }
+    return {ok:false,message:'Action inconnue (démo).'};
+  };
+})();
+/* ===================== GESTION ▸ VENTES ===================== */
+const GV={data:null,charge:false,sel:null,minuterie:null};
+function gvParams(){return {du:$('gvDu').value,au:$('gvAu').value,idCreateur:$('gvCreateur').value,q:$('gvQ').value.trim()};}
+async function gvCharger(){
+  $('gvErr').classList.add('hide');
+  if(!$('gvAu').value){const a=isoJour(new Date());$('gvAu').value=a;$('gvDu').value=isoJour(new Date(Date.now()-6*864e5));}
+  try{
+    const r=await API.gestion('gestion_ventes',gvParams());
+    if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
+    GV.data=r;GV.charge=true;
+    const v=$('gvCreateur').value;
+    $('gvCreateur').innerHTML='<option value="">Tous les créateurs</option>'+r.createurs.map(c=>`<option value="${FMT.esc(c.id)}"${c.id===v?' selected':''}>${FMT.esc(c.nom)}${c.actif?'':' (inactif)'}</option>`).join('');
+    gvRenderListe();gvRenderFiche();
+  }catch(e){$('gvErr').classList.remove('hide');$('gvErr').textContent='⚠️ Ventes indisponibles : '+((e&&e.message)||e);}
+}
+function gvEtat(l){
+  if(l.type==='annulation')return `<span class="gc-st gv-neg">annulation de n°${l.origine}</span>`;
+  if(l.annuleePar)return `<span class="gc-st inactif">annulée${l.corrigeePar?' · corrigée':''}</span>`;
+  if(l.type==='correction')return `<span class="gc-st actif">correction de n°${l.origine}</span>`;
+  return '';
+}
+function gvRenderListe(){
+  const L=GV.data.lignes;
+  const ca=L.reduce((s,l)=>s+l.prixClient,0),pr=L.reduce((s,l)=>s+l.prime,0),nb=CALC.nbVentes(L);
+  const q=$('gvQ').value.trim();
+  $('gvResume').innerHTML=(/^#?\d+$/.test(q)?`Recherche du n°${FMT.esc(q.replace('#',''))} (vente ou panier, sur tout l'historique) · `:`Du ${fmtD(GV.data.du)} au ${fmtD(GV.data.au)} · `)+
+    `<b>${FMT.num(nb)}</b> vente${nb>1?'s':''} · prix client <b>${FMT.eur(ca)}</b> · primes <b>${FMT.eur(pr)}</b>`+(GV.data.tronque?' · <b>1 500 premières lignes</b> : resserre les dates':'');
+  $('gvTbl').innerHTML='<thead><tr><th>Date</th><th>N°</th><th>Panier</th><th>Créateur</th><th>Référence</th><th>Paiement</th><th>Prix client</th><th>Prime</th><th></th></tr></thead><tbody>'+
+    (L.length?L.map(l=>`<tr data-v="${l.vente}" class="${l.vente===GV.sel?'sel ':''}${l.annuleePar?'gv-barre':''}"><td>${fmtD(l.date).slice(0,5)}${l.heure?' <span class="gc-sub" style="display:inline">'+l.heure+'</span>':''}</td><td>${l.vente}</td><td>${l.panier==null?'—':l.panier}</td>`+
+      `<td>${FMT.esc(l.createur)}</td><td>${FMT.esc(l.reference)}</td><td>${FMT.esc(l.paiement)}</td><td class="r">${FMT.eur(l.prixClient)}</td><td class="r">${FMT.eur(l.prime)}</td><td>${gvEtat(l)}</td></tr>`).join('')
+      :'<tr><td colspan="9" class="muted" style="text-align:center;padding:24px">Aucune vente pour ces filtres.</td></tr>')+'</tbody>';
+}
+function gvMontants(prix,codeRemise,codePaiement){
+  const r=GV.data.remises.find(x=>x.code===codeRemise)||{valeur:0,estPourcentage:false},p=GV.data.paiements.find(x=>x.code===codePaiement)||{taux:0};
+  const remise=r.estPourcentage?round2(prix*r.valeur):round2(r.valeur),prixClient=round2(prix-Math.abs(remise)),frais=round2(prixClient*p.taux);
+  return {remise,prixClient,frais,prime:round2(prixClient-frais)};
+}
+function gvRenderFiche(){
+  const F=$('gvFiche'),l=GV.data&&GV.data.lignes.find(x=>x.vente===GV.sel);
+  if(!l){F.innerHTML='<div class="muted">Sélectionne une vente dans la liste.</div>';return;}
+  const lien=n=>`<a href="#" data-gv-voir="${n}">n°${n}</a>`;
+  const memePanier=GV.data.lignes.filter(x=>x.panier!=null&&x.panier===l.panier&&x.type!=='annulation'&&!x.annuleePar);
+  /* mois en cours : on supprime et on corrige sur place ; mois passé (déjà facturé) : on régularise */
+  const ouvert=l.moisOuvert,panierOuvert=ouvert&&GV.data.lignes.filter(x=>x.panier===l.panier).every(x=>x.moisOuvert&&x.origine==null&&!x.annuleePar);
+  let h=`<div class="gc-head"><div><div class="nm">Vente n°${l.vente}</div><div class="muted" style="font-size:12px;margin-top:3px">${fmtD(l.date)}${l.heure?' à '+l.heure:''}${l.panier!=null?' · panier '+lien(l.panier):''}</div></div>${gvEtat(l)}</div>`+
+    `<div class="gc-docs"><div class="gc-doc"><div class="k">Créateur</div><div class="v">${FMT.esc(l.createur)}</div></div>`+
+    `<div class="gc-doc"><div class="k">Référence</div><div class="v">${FMT.esc(l.reference||'—')}</div></div>`+
+    `<div class="gc-doc"><div class="k">Prix · remise</div><div class="v">${FMT.eur(l.prix)}${l.montantRemise?' · '+FMT.eur(l.montantRemise)+' ('+FMT.esc(l.remise)+')':''}</div></div>`+
+    `<div class="gc-doc"><div class="k">Paiement</div><div class="v">${FMT.esc(l.paiement)} · frais ${FMT.eur(l.frais)}</div></div>`+
+    `<div class="gc-doc"><div class="k">Prix client</div><div class="v">${FMT.eur(l.prixClient)}</div></div>`+
+    `<div class="gc-doc"><div class="k">Prime créateur</div><div class="v">${FMT.eur(l.prime)}</div></div></div>`;
+  if(l.origine!=null)h+=`<div class="warn" style="margin:12px 0 0">${l.type==='annulation'?'Annule':'Remplace'} la vente ${lien(l.origine)} · motif : ${FMT.esc(l.motif||'—')}</div>`;
+  if(l.annuleePar)h+=`<div class="warn" style="margin:12px 0 0">Annulée par la ligne ${lien(l.annuleePar)}${l.corrigeePar?', remplacée par '+lien(l.corrigeePar):''}.</div>`;
+  if(l.type!=='annulation'&&!l.annuleePar){
+    const rem=GV.data.remises.filter(r=>r.actif||r.code===l.remise),pai=GV.data.paiements.filter(p=>p.actif||p.code===l.paiement);
+    h+='<div class="gc-h4">Corriger</div><div class="gc-form">'+
+      `<div class="full"><label>Créateur</label><select id="gvCCreateur">${GV.data.createurs.map(c=>`<option value="${FMT.esc(c.id)}"${c.id===l.idCreateur?' selected':''}>${FMT.esc(c.nom)}${c.actif?'':' (inactif)'}</option>`).join('')}</select></div>`+
+      `<div><label>Prix (€)</label><input id="gvCPrix" type="number" step="0.01" min="0" value="${l.prix}"></div>`+
+      `<div><label>Référence</label><input id="gvCRef" value="${FMT.esc(l.reference)}"></div>`+
+      `<div><label>Remise</label><select id="gvCRemise">${rem.map(r=>`<option value="${FMT.esc(r.code)}"${r.code===l.remise?' selected':''}>${FMT.esc(r.code)}</option>`).join('')}</select></div>`+
+      `<div><label>Paiement</label><select id="gvCPaiement">${pai.map(p=>`<option value="${FMT.esc(p.code)}"${p.code===l.paiement?' selected':''}>${FMT.esc(p.code)}</option>`).join('')}</select></div></div>`+
+      `<div class="gc-why" id="gvCApercu"></div>`+
+      `<div class="f" style="margin-top:10px"><label>Motif (obligatoire)</label><input id="gvMotif" maxlength="300" placeholder="mauvais créateur, vente saisie deux fois, erreur de prix…"></div>`+
+      `<div class="gc-acts"><button class="btn btn-accent" data-gva="corriger">Enregistrer la correction</button>`+
+      (ouvert?`<button class="btn btn-danger" data-gva="supprimer">Supprimer cette vente</button>`:`<button class="btn btn-danger" data-gva="annuler">Annuler cette vente</button>`)+
+      (l.panier!=null&&memePanier.length>1?(panierOuvert?`<button class="btn btn-ghost" data-gva="panier-supprimer">Supprimer tout le panier n°${l.panier} (${memePanier.length} ventes)</button>`
+        :`<button class="btn btn-ghost" data-gva="panier">Annuler tout le panier n°${l.panier} (${memePanier.length} ventes)</button>`):'')+`</div>`+
+      `<div class="gc-why">${ouvert?'Vente du mois en cours (pas encore facturée) : la correction modifie la ligne et la suppression l\'efface. Le journal garde une copie complète de l\'avant.'
+        :'Vente d\'un mois passé, déjà facturé : rien n\'est effacé. Une ligne d\'annulation (montants opposés) est ajoutée aujourd\'hui, puis la vente corrigée, et l\'écart compte sur le mois en cours.'}</div>`;
+  }
+  F.innerHTML=h;
+  gvApercu();
+}
+function gvApercu(){
+  const el=$('gvCApercu'),l=GV.data&&GV.data.lignes.find(x=>x.vente===GV.sel);if(!el||!l)return;
+  const prix=Number($('gvCPrix').value);
+  if(!(prix>0)){el.textContent='Prix invalide.';return;}
+  const m=gvMontants(prix,$('gvCRemise').value,$('gvCPaiement').value);
+  const c=GV.data.createurs.find(x=>x.id===$('gvCCreateur').value);
+  el.innerHTML=`Après correction : prix client <b>${FMT.eur(m.prixClient)}</b> · prime <b>${FMT.eur(m.prime)}</b> pour <b>${FMT.esc(c?c.nom:'?')}</b> (avant : ${FMT.eur(l.prixClient)} · ${FMT.eur(l.prime)} pour ${FMT.esc(l.createur)})`;
+}
+$('gVentes').addEventListener('input',e=>{if(e.target.closest('#gvFiche'))gvApercu();});
+$('gVentes').addEventListener('click',async e=>{
+  const voir=e.target.closest('[data-gv-voir]');
+  if(voir){e.preventDefault();$('gvQ').value=voir.dataset.gvVoir;GV.sel=Number(voir.dataset.gvVoir);await gvCharger();return;}
+  const tr=e.target.closest('#gvTbl tbody tr[data-v]');if(tr){GV.sel=Number(tr.dataset.v);gvRenderListe();gvRenderFiche();return;}
+  const b=e.target.closest('[data-gva]');if(!b||b.disabled)return;
+  const l=GV.data.lignes.find(x=>x.vente===GV.sel);if(!l)return;
+  const motif=$('gvMotif').value.trim();
+  if(motif.length<3){toast('Indique le motif de la correction.',true);$('gvMotif').focus();return;}
+  let action,params,question,msg;
+  if(b.dataset.gva==='supprimer'){
+    action='gestion_vente_supprimer';params={idVente:l.vente,motif};
+    question=`Supprimer définitivement la vente n°${l.vente} (${l.createur}, ${FMT.eur(l.prixClient)}) ?\n\nLa ligne est effacée du Sheet ; le journal en garde une copie.`;msg=()=>`Vente n°${l.vente} supprimée`;
+  }else if(b.dataset.gva==='panier-supprimer'){
+    action='gestion_panier_supprimer';params={idPanier:l.panier,motif};
+    question=`Supprimer définitivement tout le panier n°${l.panier} ?\n\nToutes ses lignes sont effacées du Sheet ; le journal en garde une copie.`;msg=r=>`Panier n°${l.panier} supprimé (${r.nb} vente${r.nb>1?'s':''})`;
+  }else if(b.dataset.gva==='annuler'){
+    action='gestion_vente_annuler';params={idVente:l.vente,motif};
+    question=`Annuler la vente n°${l.vente} (${l.createur}, ${FMT.eur(l.prixClient)}) ?\n\nUne ligne de ${FMT.eur(-l.prixClient)} sera ajoutée aujourd'hui.`;msg=()=>`Vente n°${l.vente} annulée`;
+  }else if(b.dataset.gva==='panier'){
+    action='gestion_panier_annuler';params={idPanier:l.panier,motif};
+    question=`Annuler tout le panier n°${l.panier} ?\n\nChaque vente encore valable du panier recevra une ligne d'annulation datée d'aujourd'hui.`;msg=r=>`Panier n°${l.panier} annulé (${r.nb} vente${r.nb>1?'s':''})`;
+  }else{
+    const prix=Number($('gvCPrix').value);if(!(prix>0)){toast('Prix invalide.',true);return;}
+    const m=gvMontants(prix,$('gvCRemise').value,$('gvCPaiement').value),c=GV.data.createurs.find(x=>x.id===$('gvCCreateur').value);
+    action='gestion_vente_corriger';params={idVente:l.vente,idCreateur:$('gvCCreateur').value,prix,reference:$('gvCRef').value.trim(),codeRemise:$('gvCRemise').value,codePaiement:$('gvCPaiement').value,motif};
+    question=`Corriger la vente n°${l.vente} ?\n\nAvant : ${l.createur} · ${FMT.eur(l.prixClient)}\nAprès : ${c?c.nom:'?'} · ${FMT.eur(m.prixClient)}`;msg=r=>r.surPlace?`Vente n°${l.vente} corrigée`:`Vente n°${l.vente} régularisée → n°${r.correction}`;
+  }
+  if(!confirm(question))return;
+  const t=b.textContent;b.disabled=true;b.textContent='…';
+  try{
+    const r=await API.gestion(action,params);
+    if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
+    toast(msg(r));if(/supprimer/.test(action))GV.sel=null;await gvCharger();
+  }catch(err){toast((err&&err.message)||String(err),true);if(b.isConnected){b.disabled=false;b.textContent=t;}}
+});
+['gvDu','gvAu','gvCreateur'].forEach(id=>$(id).addEventListener('change',()=>{GV.sel=null;gvCharger();}));
+$('gvQ').addEventListener('input',()=>{clearTimeout(GV.minuterie);GV.minuterie=setTimeout(()=>{GV.sel=null;gvCharger();},450);});
+$('gvRefresh').addEventListener('click',()=>gvCharger());
+
+/* ===================== GESTION ▸ JOURNAL ===================== */
+const GJ={data:null};
+const GJ_ACTIONS={createur_maj:'Fiche créateur modifiée',createur_creer:'Créateur ajouté',preavis:'Préavis enregistré',preavis_annule:'Préavis annulé',changement_stand:'Changement de stand',
+  emplacement_creer:'Emplacement créé',statut_automatique:'Statut mis à jour',candidature_recue:'Candidature reçue',candidature_maj:'Candidature mise à jour',candidature_statut:'Candidature : décision',
+  candidature_retenue:'Candidature retenue',candidature_remarque:'Candidature : remarque',email_envoye:'E-mail envoyé',email_echec:'E-mail non envoyé',email_modele_maj:'E-mail type modifié',
+  reglage_categories:'Réglage : catégorie',reglage_stands:'Réglage : stand',reglage_remises:'Réglage : remise',reglage_paiements:'Réglage : paiement',
+  reglage_categories_creation:'Catégorie ajoutée',reglage_stands_creation:'Stand ajouté',reglage_remises_creation:'Remise ajoutée',reglage_paiements_creation:'Moyen de paiement ajouté',
+  vente_annulee:'Vente annulée',vente_corrigee:'Vente corrigée',panier_annule:'Panier annulé',vente_supprimee:'Vente supprimée',panier_supprime:'Panier supprimé'};
+function gjLibelle(a){return GJ_ACTIONS[a]||(/^(migration|etape|liens_)/.test(a)?'Migration du Sheet':a);}
+async function gjCharger(){
+  $('gjErr').classList.add('hide');
+  try{
+    const r=await API.gestion('gestion_journal',{limite:2000});
+    if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
+    GJ.data=r;
+    const opts=(sel,vals,tous)=>{const v=$(sel).value;$(sel).innerHTML=`<option value="">${tous}</option>`+vals.map(x=>`<option${x===v?' selected':''}>${FMT.esc(x)}</option>`).join('');};
+    opts('gjQui',[...new Set(r.lignes.map(l=>l.qui))].sort(),'Tout le monde');
+    opts('gjAction',[...new Set(r.lignes.map(l=>gjLibelle(l.action)))].sort(),'Toutes les actions');
+    gjRender();
+  }catch(e){$('gjErr').classList.remove('hide');$('gjErr').textContent='⚠️ Journal indisponible : '+((e&&e.message)||e);}
+}
+function gjRender(){
+  const qui=$('gjQui').value,act=$('gjAction').value,q=$('gjQ').value.trim().toLowerCase();
+  const L=GJ.data.lignes.filter(l=>(!qui||l.qui===qui)&&(!act||gjLibelle(l.action)===act)&&(!q||(l.detail+' '+l.qui+' '+gjLibelle(l.action)).toLowerCase().includes(q)));
+  $('gjResume').textContent=L.length+' ligne'+(L.length>1?'s':'')+(L.length>500?' (500 affichées)':'')+' · '+GJ.data.total+' au total dans le journal';
+  $('gjTbl').innerHTML='<thead><tr><th>Date</th><th>Qui</th><th>Action</th><th>Détail</th></tr></thead><tbody>'+
+    (L.length?L.slice(0,500).map(l=>`<tr><td>${FMT.esc(fmtD(l.date.slice(0,10))+l.date.slice(10))}</td><td>${FMT.esc(l.qui)}</td><td>${FMT.esc(gjLibelle(l.action))}</td><td class="gj-detail">${FMT.esc(l.detail)}</td></tr>`).join('')
+      :'<tr><td colspan="4" class="muted" style="text-align:center;padding:24px">Rien pour ces filtres.</td></tr>')+'</tbody>';
+}
+['gjQui','gjAction'].forEach(id=>$(id).addEventListener('change',gjRender));
+$('gjQ').addEventListener('input',gjRender);
+$('gjRefresh').addEventListener('click',gjCharger);
+
+/* démo : ventes et journal en mémoire */
+const DEMO_V=(function(){
+  let st=null;
+  const init=()=>{
+    const ids={};let n=0;
+    /* les ventes de démo sont décalées pour finir aujourd'hui (mois en cours + mois passés) */
+    const fin=DEMO_ROWS[DEMO_ROWS.length-1].date,ecart=new Date(aujourdhui()+'T12:00')-new Date(fin+'T12:00'),decale=d=>isoJour(new Date(new Date(d+'T12:00').getTime()+ecart));
+    st={lignes:DEMO_ROWS.slice(-400).map(r=>{if(!ids[r.createur])ids[r.createur]='D'+String(++n).padStart(3,'0');const date=decale(r.date);return {vente:r.vente,panier:r.panier,date,heure:'',idCreateur:ids[r.createur],createur:r.createur,reference:r.reference,remise:r.remiseType,paiement:r.paiement,
+      prix:r.prix,montantRemise:r.remise,prixClient:r.prixClient,frais:r.taxe,prime:r.prime,type:'vente',origine:null,motif:'',moisOuvert:date.slice(0,7)===aujourdhui().slice(0,7)};}),
+      createurs:Object.keys(ids).sort().map(nom=>({id:ids[nom],nom,actif:true})),
+      remises:[{code:'pas_de_remise',valeur:0,estPourcentage:false,actif:true},{code:'carte_fidelite_10%',valeur:-0.1,estPourcentage:true,actif:true},{code:'machine_cadeau_5€',valeur:-5,estPourcentage:false,actif:true},{code:'soldes_20',valeur:-0.2,estPourcentage:true,actif:true}],
+      paiements:[{code:'cb',taux:0.0175,actif:true},{code:'espèces',taux:0,actif:true}],
+      journal:[{date:aujourdhui()+' 10:02',qui:'Caro (site)',action:'createur_maj',detail:'C004 Jackline : telephone'},{date:aujourdhui()+' 09:40',qui:'automatique',action:'statut_automatique',detail:'riri → inactif'},{date:aujourdhui()+' 09:12',qui:'site public',action:'candidature_recue',detail:'CA124 Atelier Lune · unique'}]};
+  };
+  const max=()=>st.lignes.reduce((m,l)=>Math.max(m,l.vente),0);
+  const journal=(action,detail)=>st.journal.unshift({date:aujourdhui()+' '+new Date().toTimeString().slice(0,5),qui:(S.prenom||'?')+' (site)',action,detail});
+  const annuler=(l,motif)=>{const a=Object.assign({},l,{vente:max()+1,date:aujourdhui(),moisOuvert:true,reference:'Annulation de la vente n°'+l.vente,prix:-l.prix,montantRemise:-l.montantRemise,prixClient:-l.prixClient,frais:-l.frais,prime:-l.prime,type:'annulation',origine:l.vente,motif});st.lignes.push(a);l.annuleePar=a.vente;return a;};
+  return async function(action,p){
+    if(!st)init();
+    if(action==='gestion_journal')return {ok:true,lignes:JSON.parse(JSON.stringify(st.journal)),total:st.journal.length};
+    const l=st.lignes.find(x=>x.vente===Number(p.idVente)),motif=(p.motif||'')+' ('+(S.prenom||'?')+')';
+    switch(action){
+      case 'gestion_ventes':{
+        const num=/^#?\d+$/.test(p.q||'')?Number(String(p.q).replace('#','')):null,du=p.du,au=p.au;
+        const L=st.lignes.filter(x=>num!=null?(x.vente===num||x.panier===num||x.origine===num):(x.date>=du&&x.date<=au&&(!p.idCreateur||x.idCreateur===p.idCreateur)&&(!p.q||(x.reference+' '+x.createur).toLowerCase().includes(p.q.toLowerCase())))).sort((a,b)=>b.vente-a.vente);
+        return JSON.parse(JSON.stringify({ok:true,du,au,lignes:L,tronque:false,createurs:st.createurs,remises:st.remises,paiements:st.paiements}));}
+      case 'gestion_vente_supprimer':{if(!l.moisOuvert)return {ok:false,message:'La vente n°'+l.vente+' date d\'un mois passé (déjà facturé) : annule-la plutôt.'};st.lignes=st.lignes.filter(x=>x!==l);journal('vente_supprimee','n°'+l.vente+' : '+motif);return {ok:true};}
+      case 'gestion_panier_supprimer':{const L=st.lignes.filter(x=>x.panier===p.idPanier);if(!L.every(x=>x.moisOuvert))return {ok:false,message:'Le panier contient des ventes d\'un mois passé : annule-le plutôt.'};st.lignes=st.lignes.filter(x=>x.panier!==p.idPanier);journal('panier_supprime','panier n°'+p.idPanier+' : '+motif);return {ok:true,nb:L.length};}
+      case 'gestion_vente_annuler':{if(l.annuleePar)return {ok:false,message:'La vente n°'+l.vente+' est déjà annulée.'};const a=annuler(l,motif);journal('vente_annulee','n°'+l.vente+' : '+motif);return {ok:true,annulation:a.vente};}
+      case 'gestion_panier_annuler':{const L=st.lignes.filter(x=>x.panier===p.idPanier&&x.type!=='annulation'&&!x.annuleePar);L.forEach(x=>annuler(x,motif));journal('panier_annule','panier n°'+p.idPanier+' : '+L.length+' vente(s)');return {ok:true,nb:L.length};}
+      case 'gestion_vente_corriger':{
+        if(l.annuleePar)return {ok:false,message:'La vente n°'+l.vente+' est déjà annulée.'};
+        const c=st.createurs.find(x=>x.id===p.idCreateur);
+        if(l.moisOuvert){GV.data=st;const m=gvMontants(Number(p.prix),p.codeRemise,p.codePaiement);Object.assign(l,{idCreateur:c.id,createur:c.nom,reference:p.reference,remise:p.codeRemise,paiement:p.codePaiement,prix:Number(p.prix),montantRemise:m.remise,prixClient:m.prixClient,frais:m.frais,prime:m.prime});journal('vente_corrigee','sur place n°'+l.vente+' : '+motif);return {ok:true,surPlace:true,correction:l.vente};}
+        annuler(l,motif);
+        GV.data=st;const m=gvMontants(Number(p.prix),p.codeRemise,p.codePaiement);
+        const n=Object.assign({},l,{vente:max()+1,date:aujourdhui(),idCreateur:c.id,createur:c.nom,reference:p.reference,remise:p.codeRemise,paiement:p.codePaiement,prix:Number(p.prix),montantRemise:m.remise,prixClient:m.prixClient,frais:m.frais,prime:m.prime,type:'correction',origine:l.vente,motif,annuleePar:undefined});
+        st.lignes.push(n);l.corrigeePar=n.vente;journal('vente_corrigee','n°'+l.vente+' → n°'+n.vente+' : '+motif);return {ok:true,correction:n.vente};}
     }
     return {ok:false,message:'Action inconnue (démo).'};
   };

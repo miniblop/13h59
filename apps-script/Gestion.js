@@ -28,7 +28,14 @@ function _gestion(body) {
     gestion_email_maj: _gEmailMaj,
     gestion_reglages: _gReglages,
     gestion_reglage_maj: _gReglageMaj,
-    gestion_reglage_creer: _gReglageCreer
+    gestion_reglage_creer: _gReglageCreer,
+    gestion_ventes: _gVentes,
+    gestion_vente_annuler: _gVenteAnnuler,
+    gestion_vente_corriger: _gVenteCorriger,
+    gestion_panier_annuler: _gPanierAnnuler,
+    gestion_vente_supprimer: _gVenteSupprimer,
+    gestion_panier_supprimer: _gPanierSupprimer,
+    gestion_journal: _gJournal
   };
   const f = actions[body.action];
   if (!f) return { ok: false, message: 'Action inconnue.' };

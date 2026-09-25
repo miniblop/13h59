@@ -33,7 +33,7 @@ function _acces() {
 }
 
 /** Numéro de version du code — sert à vérifier ce qui est réellement DÉPLOYÉ. */
-function _version() { return '2026-09-reglages-2'; }
+function _version() { return '2026-09-ventes-journal'; }
 
 /** Point d'entrée des appels POST du site. */
 function doPost(e) {
@@ -177,7 +177,8 @@ function _lireDonnees() {
       remise: num(v['remise']),
       prixClient: num(v['prix_client']),
       taxe: num(v['frais']),
-      prime: num(v['prime'])
+      prime: num(v['prime']),
+      sens: _norm(v['type_ligne']) === 'annulation' ? -1 : 1
     });
   });
   return out;

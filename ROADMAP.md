@@ -14,6 +14,8 @@
 - Caisse : **anti-doublon** par identifiant de transaction (idempotence serveur) + récap « Ventes du jour » (totaux CB / espèces, détection des paniers identiques).
 - Gestion ▸ Créateurs (`apps-script/Gestion.js`) : places par stand, fiche, préavis, changement de stand, création ; tables `stands` et `emplacements`, chaque action signée du prénom dans `journal`.
 - Candidatures (`apps-script/Candidatures.js`) : page publique `candidater.html` (sans mot de passe, anti-robots), table `candidatures` (clé `id_candidature`, une adresse e-mail = une candidature), onglet Gestion ▸ Candidatures (liste d'attente, non retenue, retenir → crée le créateur et son emplacement). E-mails envoyés depuis l'adresse du shop, textes modifiables dans l'onglet `emails`.
+- Gestion ▸ Réglages (`apps-script/Reglages.js`) : catégories, stands, remises, moyens de paiement et e-mails types se gèrent depuis le site ; le Sheet ne sert plus que de stockage.
+- Gestion ▸ Ventes (`apps-script/Ventes.js`) : vente du mois en cours supprimée ou corrigée sur place (copie complète dans `journal`) ; vente d'un mois passé annulée ou régularisée par une ligne négative (`type_ligne`, `vente_origine`, `motif`). Un numéro supprimé n'est jamais réattribué. Gestion ▸ Journal : consultation filtrable.
 
 ## Palier 1 — Sortir de Google Sheets 🎯 (prochaine étape)
 - [ ] Schéma **Postgres** : createurs, articles (stock par créateur), ventes, paniers, remises, taxes.

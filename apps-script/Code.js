@@ -182,8 +182,9 @@ function getCaisseData() {
     createurs: createurs,
     remises: remises,
     paiements: Object.keys(_paiements(ss)),
-    prochainPanier: max('id_panier') + 1,
-    prochaineVente: max('id_vente') + 1
+    // un numéro supprimé depuis Gestion ▸ Ventes n'est jamais réattribué
+    prochainPanier: Math.max(max('id_panier'), _dernierId('DERNIER_ID_PANIER')) + 1,
+    prochaineVente: Math.max(max('id_vente'), _dernierId('DERNIER_ID_VENTE')) + 1
   };
 }
 
@@ -327,7 +328,8 @@ function getVentesDuJour(jourStr) {
       paiement: String(v['code_paiement'] || '').trim(),
       prix: num(v['prix']),
       remise: num(v['remise']),
-      prixClient: num(v['prix_client'])
+      prixClient: num(v['prix_client']),
+      sens: _norm(v['type_ligne']) === 'annulation' ? -1 : 1
     });
   });
   return { jour: jour, lignes: lignes };
