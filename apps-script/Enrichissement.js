@@ -415,6 +415,7 @@ function _etape7(apercu) {
       s.getRange(1, 1, 1000, COLONNES_CANDIDATURES.length).setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
       [['description', 360], ['remarque', 320], ['instagram', 220]].forEach(function (c) { s.setColumnWidth(COLONNES_CANDIDATURES.indexOf(c[0]) + 1, c[1]); });
     } else if (lignes.length) {
+      _assurerTaille(sh, sh.getLastRow() + lignes.length, COLONNES_CANDIDATURES.length);
       sh.getRange(sh.getLastRow() + 1, 1, lignes.length, COLONNES_CANDIDATURES.length).setValues(lignes);
     }
     if (creeEmails) resume.push('Onglet « emails » créé avec les 4 textes par défaut (modifiables dans le Sheet).');

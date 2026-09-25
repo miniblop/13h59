@@ -74,6 +74,14 @@ function _lireTable(sh) {
   });
 }
 
+/** Agrandit l'onglet si besoin : écrire au-delà de sa dernière ligne ou colonne physique est refusé par Sheets.
+ *  On ajoute une réserve pour ne pas le refaire à chaque vente. */
+function _assurerTaille(sh, derniereLigne, derniereColonne) {
+  const maxL = sh.getMaxRows(), maxC = sh.getMaxColumns();
+  if (derniereLigne > maxL) sh.insertRowsAfter(maxL, derniereLigne - maxL + 500);
+  if (derniereColonne && derniereColonne > maxC) sh.insertColumnsAfter(maxC, derniereColonne - maxC);
+}
+
 function _onglet(ss, nom) {
   const sh = ss.getSheetByName(nom);
   if (!sh) throw new Error("Onglet « " + nom + " » introuvable.");
@@ -281,6 +289,7 @@ function enregistrerVente(data) {
     });
 
     const derniere = sh.getLastRow();
+    _assurerTaille(sh, derniere + lignes.length, h.nbCol);
     const bloc = sh.getRange(derniere + 1, 1, lignes.length, h.nbCol);
     if (derniere >= 2) sh.getRange(derniere, 1, 1, h.nbCol).copyTo(bloc, SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
     // Référence en texte brut : sinon Sheets convertit « 20-2 » ou « 3/4 » en date.

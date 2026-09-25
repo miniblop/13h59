@@ -19,6 +19,7 @@ function _colonnesCorrection(sh) {
   const h = _headerMap(sh);
   const manquantes = COLONNES_CORRECTION.filter(function (c) { return h.map[c] == null; });
   if (!manquantes.length) return h;
+  _assurerTaille(sh, 1, h.nbCol + manquantes.length);
   sh.getRange(1, h.nbCol + 1, 1, manquantes.length).setValues([manquantes]).setFontWeight('bold');
   return _headerMap(sh);
 }
@@ -108,6 +109,7 @@ function _ajouterVentes(sh, h, objets) {
     return l;
   });
   const derniere = sh.getLastRow();
+  _assurerTaille(sh, derniere + lignes.length, h.nbCol);
   const bloc = sh.getRange(derniere + 1, 1, lignes.length, h.nbCol);
   if (derniere >= 2) sh.getRange(derniere, 1, 1, h.nbCol).copyTo(bloc, SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
   sh.getRange(derniere + 1, h.map['reference'] + 1, lignes.length, 1).setNumberFormat('@');

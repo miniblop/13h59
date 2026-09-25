@@ -33,7 +33,7 @@ function _acces() {
 }
 
 /** Numéro de version du code — sert à vérifier ce qui est réellement DÉPLOYÉ. */
-function _version() { return '2026-09-ventes-journal'; }
+function _version() { return '2026-09-ventes-taille'; }
 
 /** Point d'entrée des appels POST du site. */
 function doPost(e) {
