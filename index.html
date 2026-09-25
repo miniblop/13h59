@@ -187,6 +187,8 @@
   .gc-check{display:flex;gap:9px;align-items:center;font-size:13px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--ink);font-weight:400}
   .gc-check input{width:17px;height:17px;margin:0;accent-color:#111}
   .gc-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  .gc-qui{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--muted);text-transform:none;letter-spacing:0;margin:0}
+  .gc-qui input{width:130px;padding:7px 10px}
   .gc-why{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
   .gc-h4{margin:18px 0 8px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:800}
   .gc-ev{display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px}
@@ -326,7 +328,7 @@
       <div class="card">
         <div class="cardhead" style="margin-bottom:0">
           <div><h2>Créateurs</h2><div class="muted" style="font-size:12px;margin-top:4px">Un créateur = un seul stand · préavis d'un mois, reçu par e-mail</div></div>
-          <div class="gc-acts" style="margin-top:0"><button class="btn-dl" id="gcRefresh">↻ Actualiser</button><button class="btn btn-ghost" id="gcAjout">＋ Ajouter un créateur</button></div>
+          <div class="gc-acts" style="margin-top:0"><label class="gc-qui">Tu es<input id="gcQui" placeholder="Ton prénom" maxlength="30" autocomplete="given-name"></label><button class="btn-dl" id="gcRefresh">↻ Actualiser</button><button class="btn btn-ghost" id="gcAjout">＋ Ajouter un créateur</button></div>
         </div>
         <div id="gcAjoutForm" class="hide" style="margin-top:14px;border-top:1px dashed var(--line);padding-top:14px">
           <div class="gc-form">
@@ -563,7 +565,7 @@ const API = {
   },
   async gestion(action,params){
     if(DEMO_MODE) return DEMO_G(action,params||{});
-    const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify(Object.assign({action,password:S.pwd},params||{}))});
+    const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify(Object.assign({action,password:S.pwd,qui:gcPrenom()},params||{}))});
     return res.json();
   },
   async caisseJour(password,date){
@@ -1105,6 +1107,10 @@ $('cJourDate').addEventListener('change',chargerJour);
 
 /* ===================== GESTION ▸ CRÉATEURS ===================== */
 const GC={data:null,filtre:'actif',cat:'',q:'',sel:null,charge:false};
+/* prénom de la personne connectée : signe chaque ligne du journal, mémorisé dans ce navigateur */
+function gcPrenom(){return $('gcQui').value.trim();}
+try{$('gcQui').value=localStorage.getItem('13h59_prenom')||'';}catch(e){}
+$('gcQui').addEventListener('change',()=>{try{localStorage.setItem('13h59_prenom',gcPrenom());}catch(e){}});
 const STAND_COURT={illu:'Illu',unique:'Unique',grand:'Grand',friperie:'Friperie'};
 const GC_LIB={actif:'Actif',preavis:'En préavis',inactif:'Inactif',tous:'Tous'};
 /* champs de la fiche : clé côté site, libellé, type, nom de la colonne du Sheet */
@@ -1248,6 +1254,7 @@ function gcChampsModifies(c){
   return champs;
 }
 async function gcAppel(btn,action,params,msg){
+  if(!gcPrenom()){toast('Indique ton prénom en haut de la page : il signe le journal.',true);$('gcQui').focus();return;}
   const t=btn.textContent;btn.disabled=true;btn.textContent='…';
   try{
     const r=await API.gestion(action,params);

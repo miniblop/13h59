@@ -24,6 +24,7 @@ function _gestion(body) {
   };
   const f = actions[body.action];
   if (!f) return { ok: false, message: 'Action inconnue.' };
+  _auteurJournal = _auteur(body.qui);
   const lock = LockService.getScriptLock();
   lock.waitLock(15000);
   try {
@@ -73,8 +74,14 @@ function _prochainId(t, champ, prefixe) {
   const max = t.lignes.reduce(function (m, r) { const x = new RegExp('^' + prefixe + '(\\d+)$').exec(String(_val(t, r, champ))); return x ? Math.max(m, +x[1]) : m; }, 0);
   return prefixe + String(max + 1).padStart(3, '0');
 }
-function _journaliser(action, detail) {
-  _onglet(SpreadsheetApp.getActiveSpreadsheet(), SHEET_JOURNAL).appendRow([new Date(), 'gestion (site)', action, detail]);
+/** Auteur des lignes du journal : prénom saisi sur le site (nettoyé pour ne jamais être lu comme une formule). */
+let _auteurJournal = 'gestion (site)';
+function _auteur(qui) {
+  const p = String(qui || '').replace(/[\u0000-\u001f<>"]/g, '').replace(/^[=+\-@\s]+/, '').trim().slice(0, 30);
+  return p ? p + ' (site)' : 'gestion (site)';
+}
+function _journaliser(action, detail, qui) {
+  _onglet(SpreadsheetApp.getActiveSpreadsheet(), SHEET_JOURNAL).appendRow([new Date(), qui || _auteurJournal, action, detail]);
 }
 
 /** Emplacement actif à une date donnée (début passé, fin absente ou à venir). */
@@ -111,7 +118,7 @@ function _synchroniserStatuts(ss) {
     _ecrireLigne(tC, i, r);
     changements.push(_val(tC, r, 'nom') + ' → ' + voulu);
   });
-  if (changements.length) _journaliser('statut_automatique', changements.join(', '));
+  if (changements.length) _journaliser('statut_automatique', changements.join(', '), 'automatique');
 }
 
 function _gCreateurs() {
