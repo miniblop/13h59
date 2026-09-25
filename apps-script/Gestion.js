@@ -9,6 +9,9 @@ const CHAMPS_CREATEUR_MODIFIABLES = [
   'siret', 'iban', 'benevole', 'perms_prevues', 'rc_pro', 'adhesion_payee_le', 'instagram'
 ];
 
+/** Actions qui ne font que lire (pas de verrou). gestion_createurs écrit les statuts : elle garde le verrou. */
+const LECTURES_SEULES = ['gestion_candidatures', 'gestion_ventes', 'gestion_reglages', 'gestion_journal'];
+
 /** Point d'entrée des actions « gestion_* ». */
 function _gestion(body) {
   const role = _role(body.password);
@@ -40,6 +43,10 @@ function _gestion(body) {
   const f = actions[body.action];
   if (!f) return { ok: false, message: 'Action inconnue.' };
   _auteurJournal = _auteur(body.qui);
+  // Les écrans en lecture seule n'attendent pas derrière une vente en cours d'écriture.
+  if (LECTURES_SEULES.indexOf(body.action) !== -1) {
+    try { return _lecturePure(function () { return f(body); }); } catch (e) { return { ok: false, message: String(e && e.message ? e.message : e) }; }
+  }
   const lock = LockService.getScriptLock();
   lock.waitLock(15000);
   try {
@@ -55,8 +62,7 @@ function _gestion(body) {
 
 /* ---------- Outils ---------- */
 
-function _tz() { return SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(); }
-function _iso(d) { return d instanceof Date ? Utilities.formatDate(d, _tz(), 'yyyy-MM-dd') : ''; }
+function _iso(d) { return _jourIso(d); }
 function _dateIso(s) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ''));
   if (!m) throw new Error('Date invalide : « ' + s + ' ».');
@@ -73,9 +79,9 @@ function _veille(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()
 /** Un onglet sous forme {sh, M: {entête: index}, lignes: [[…]]}. */
 function _tableau(ss, nom) {
   const sh = _onglet(ss, nom);
-  const h = _headerMap(sh);
-  const n = sh.getLastRow() - 1;
-  return { sh: sh, M: h.map, nbCol: h.nbCol, lignes: n > 0 ? sh.getRange(2, 1, n, h.nbCol).getValues() : [] };
+  const v = _valeurs(sh), M = {}, entetes = v[0] || [];
+  entetes.forEach(function (h, i) { M[_norm(h)] = i; });
+  return { sh: sh, M: M, nbCol: entetes.length, lignes: v.slice(1) };
 }
 function _val(t, r, champ) { return t.M[champ] != null ? r[t.M[champ]] : ''; }
 function _ecrireLigne(t, index, ligne) { t.sh.getRange(index + 2, 1, 1, ligne.length).setValues([ligne]); }
@@ -97,6 +103,7 @@ function _auteur(qui) {
 }
 function _journaliser(action, detail, qui) {
   _onglet(SpreadsheetApp.getActiveSpreadsheet(), SHEET_JOURNAL).appendRow([new Date(), qui || _auteurJournal, action, detail]);
+  _invaliderCacheCaisse();   // créateurs, remises ou paiements ont pu changer
 }
 
 /** Emplacement actif à une date donnée (début passé, fin absente ou à venir). */
@@ -138,8 +145,11 @@ function _synchroniserStatuts(ss) {
 
 function _gCreateurs() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-
   _synchroniserStatuts(ss);
+  SpreadsheetApp.flush();
+  return _lecturePure(function () { return _gCreateursLecture(ss); });
+}
+function _gCreateursLecture(ss) {
   const tC = _tableau(ss, SHEET_CREATEURS), tE = _tableau(ss, SHEET_EMPLACEMENTS);
   const auj = _aujourdhui();
 

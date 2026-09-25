@@ -663,7 +663,7 @@ const API = {
       const zones=ACCES_LOCAL[role];
       return {ok:true,role,zones,rows:zones.includes('createur')||zones.includes('gestion')?DEMO_ROWS:[]};
     }
-    const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify({action:'data',password})});
+    const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify({action:'data',password,compact:true})});
     return res.json();
   },
   async caisseData(password){
@@ -881,6 +881,8 @@ async function login(){
   try{
     const r=await API.data(pwd);
     if(!r.ok){toast(r.message||'Erreur',true);return;}
+    /* format compact : une ligne = un tableau, noms des créateurs à part */
+    if(r.compact){const c=r.compact;r.rows=c.lignes.map(l=>{const o={};c.colonnes.forEach((k,i)=>o[k]=l[i]);o.createur=c.noms[o.idCreateur]||o.idCreateur;return o;});}
     S.rows=r.rows||[];S.role=r.role;S.pwd=pwd;
     /* taux mensuel figé sur chaque ligne, calculé sur TOUTES les données :
        les filtres de date et la granularité d'affichage ne peuvent plus le fausser */
@@ -915,6 +917,8 @@ function ouvrirApp(){
     if(peut('gestion')) initGestion();
     const premier=peut(ONGLET_DEFAUT)?ONGLET_DEFAUT:TAB_ORDER.find(peut);
     if(premier) showTab(premier); else toast('Aucun espace accessible avec ce mot de passe.',true);
+    /* gestion : les onglets les plus utilisés se chargent en arrière-plan, ils s'ouvrent ensuite sans attente */
+    if(peut('gestion')&&!DEMO_MODE) setTimeout(()=>{if(!GC.charge)gcCharger();if(!GK.charge)gkCharger();},300);
 }
 $('btnLogout').addEventListener('click',()=>location.reload());
 document.querySelectorAll('.tab[data-tab]').forEach(t=>t.addEventListener('click',()=>showTab(t.dataset.tab)));
@@ -1175,7 +1179,8 @@ $('cValider').addEventListener('click',async()=>{
         ? 'Déjà enregistrée (panier n°'+res.panier+') — aucun doublon créé'
         : 'Vente enregistrée · panier n°'+res.panier+' · '+res.nbLignes+' ligne(s)');
       C.cart=[];C.txId=null;$('cRecu').value='';renderCaisse();
-      const d=await API.caisseData(S.pwd);if(d&&d.ok){C.data=d;$('cPanier').textContent=d.prochainPanier;$('cVente').textContent=d.prochaineVente;}
+      if(res.prochainPanier!=null){$('cPanier').textContent=res.prochainPanier;$('cVente').textContent=res.prochaineVente;}
+      else API.caisseData(S.pwd).then(d=>{if(d&&d.ok){C.data=d;$('cPanier').textContent=d.prochainPanier;$('cVente').textContent=d.prochaineVente;}}).catch(()=>{});
     }else toast('Échec : '+((res&&res.message)||'inconnu'),true);
   }catch(e){
     /* Réponse perdue : le serveur a PEUT-ÊTRE écrit la vente. Le panier et son

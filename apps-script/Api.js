@@ -33,18 +33,18 @@ function _acces() {
 }
 
 /** Numéro de version du code — sert à vérifier ce qui est réellement DÉPLOYÉ. */
-function _version() { return '2026-09-ventes-taille'; }
+function _version() { return '2026-09-vitesse-2'; }
 
 /** Point d'entrée des appels POST du site. */
 function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents);
     if (body.action === 'ping')        return _json(_ping());
-    if (body.action === 'data')        return _json(_apiDataObj(body.password));
+    if (body.action === 'data')        return _json(_apiDataObj(body.password, body.compact === true));
     if (body.action === 'caisse_data') return _caisseData(body);
     if (body.action === 'caisse_save') return _caisseSave(body);
     if (body.action === 'caisse_jour') return _caisseJour(body);
-    if (body.action === 'candidature_infos')   return _json(_candidatureInfos());
+    if (body.action === 'candidature_infos')   return _json(_lecturePure(_candidatureInfos));
     if (body.action === 'candidature_envoyer') return _json(_candidatureEnvoyer(body));
     if (String(body.action).indexOf('gestion_') === 0) return _json(_gestion(body));
     return _json({ ok: false, message: 'Action inconnue.' });
@@ -100,8 +100,12 @@ function _caisseData(body) {
   const refus = _refusCaisse(body);
   if (refus) return _json({ ok: false, message: refus });
   // À l'ouverture de la caisse, les créateurs qui arrivent ou partent aujourd'hui sont mis à jour.
-  const lock = LockService.getScriptLock();
-  if (lock.tryLock(5000)) { try { _synchroniserStatuts(SpreadsheetApp.getActiveSpreadsheet()); SpreadsheetApp.flush(); } finally { lock.releaseLock(); } }
+  // (une fois par jour : la gestion le refait de toute façon à chaque ouverture de Créateurs)
+  const cache = CacheService.getScriptCache(), cle = 'statuts_' + _jourIso(new Date());
+  if (!cache.get(cle)) {
+    const lock = LockService.getScriptLock();
+    if (lock.tryLock(5000)) { try { _synchroniserStatuts(SpreadsheetApp.getActiveSpreadsheet()); SpreadsheetApp.flush(); cache.put(cle, '1', 21600); } finally { lock.releaseLock(); } }
+  }
   const d = getCaisseData();
   d.ok = true;
   d.role = _role(body.password);
@@ -145,19 +149,26 @@ function _ping() {
   };
 }
 
-function _apiDataObj(password) {
+function _apiDataObj(password, compact) {
   const role = _role(password);
   if (!role) return { ok: false, message: 'Mot de passe incorrect.' };
   const zones = _acces()[role] || [];
   // Le rôle "caisse" n'a pas besoin des données de reporting : on ne les envoie pas.
-  const rows = (zones.indexOf('createur') !== -1 || zones.indexOf('gestion') !== -1) ? _lireDonnees() : [];
-  return { ok: true, role: role, zones: zones, rows: rows };
+  const rows = (zones.indexOf('createur') !== -1 || zones.indexOf('gestion') !== -1) ? _lecturePure(_lireDonnees) : [];
+  if (!compact) return { ok: true, role: role, zones: zones, rows: rows };
+  return { ok: true, role: role, zones: zones, compact: _compacter(rows) };
 }
+/** Format compact (2 à 3 fois plus léger) : une ligne = un tableau, les noms des créateurs une seule fois. */
+function _compacter(rows) {
+  const noms = {};
+  rows.forEach(function (r) { noms[r.idCreateur] = r.createur; });
+  return { colonnes: COLONNES_DONNEES, noms: noms, lignes: rows.map(function (r) { return COLONNES_DONNEES.map(function (k) { return r[k]; }); }) };
+}
+const COLONNES_DONNEES = ['date', 'idCreateur', 'panier', 'vente', 'reference', 'paiement', 'remiseType', 'prix', 'remise', 'prixClient', 'taxe', 'prime', 'sens'];
 
 /** Toutes les ventes, avec le nom du créateur (clés courtes attendues par le site). */
 function _lireDonnees() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const tz = ss.getSpreadsheetTimeZone();
   const noms = _createurs(ss).parId;
   const num = function (v) { const n = Number(v); return isNaN(n) ? 0 : n; };
   const out = [];
@@ -165,7 +176,7 @@ function _lireDonnees() {
     if (!(v['date'] instanceof Date)) return;
     const id = String(v['id_createur'] || '');
     out.push({
-      date: Utilities.formatDate(v['date'], tz, 'yyyy-MM-dd'),
+      date: _jourIso(v['date']),
       idCreateur: id,
       createur: noms[id] ? noms[id].nom : id,
       panier: (v['id_panier'] === '' || v['id_panier'] == null) ? null : num(v['id_panier']),

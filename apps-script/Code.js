@@ -66,12 +66,54 @@ function _headerMap(sheet) {
 
 /** Lit un onglet en objets {entête: valeur}. */
 function _lireTable(sh) {
-  const n = sh.getLastRow() - 1;
-  if (n < 1) return [];
-  const h = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(_norm);
-  return sh.getRange(2, 1, n, h.length).getValues().map(function (r) {
+  const v = _valeurs(sh);
+  if (v.length < 2) return [];
+  const h = v[0].map(_norm);
+  return v.slice(1).map(function (r) {
     const o = {}; h.forEach(function (k, i) { if (k) o[k] = r[i]; }); return o;
   });
+}
+
+/* ---------- Lectures ----------
+ * Chaque appel au Sheet coûte 100 à 300 ms. Un onglet se lit donc en UNE fois (getDataRange),
+ * et pendant une requête qui ne fait que lire (_lecturePure), chaque onglet n'est lu
+ * qu'une seule fois : les lectures suivantes réutilisent les mêmes valeurs. */
+let _memoValeurs = null, _memoFeuilles = null;
+function _valeurs(sh) {
+  if (!_memoValeurs) return sh.getDataRange().getValues();
+  if (!_memoValeurs.has(sh)) _memoValeurs.set(sh, sh.getDataRange().getValues());
+  return _memoValeurs.get(sh);
+}
+/** Exécute f en mode lecture seule (valeurs mémorisées), puis revient au mode normal. */
+function _lecturePure(f) {
+  if (_memoValeurs) return f();
+  _memoValeurs = new Map(); _memoFeuilles = {};
+  try { return f(); } finally { _memoValeurs = null; _memoFeuilles = null; }
+}
+
+/* ---------- Dates ----------
+ * Utilities.formatDate coûte 0,5 à 5 ms par appel : sur 5 000 ventes, des dizaines de secondes.
+ * Les méthodes JavaScript (getFullYear…) donnent la date dans le fuseau du SCRIPT
+ * (appsscript.json : Europe/Paris) : on les utilise quand il est celui du classeur,
+ * sinon on retombe sur formatDate. Le fuseau n'est lu qu'une fois par exécution. */
+let _fuseau = null, _fuseauxIdentiques = null;
+function _tz() { return _fuseau || (_fuseau = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone()); }
+function _datesRapides() {
+  if (_fuseauxIdentiques === null) _fuseauxIdentiques = _tz() === Session.getScriptTimeZone();
+  return _fuseauxIdentiques;
+}
+function _deux(n) { return n < 10 ? '0' + n : String(n); }
+/** 'yyyy-MM-dd' ('' si ce n'est pas une date). */
+function _jourIso(d) {
+  if (!(d instanceof Date)) return '';
+  if (!_datesRapides()) return Utilities.formatDate(d, _tz(), 'yyyy-MM-dd');
+  return d.getFullYear() + '-' + _deux(d.getMonth() + 1) + '-' + _deux(d.getDate());
+}
+/** 'HH:mm'. */
+function _heure(d) {
+  if (!(d instanceof Date)) return '';
+  if (!_datesRapides()) return Utilities.formatDate(d, _tz(), 'HH:mm');
+  return _deux(d.getHours()) + ':' + _deux(d.getMinutes());
 }
 
 /** Agrandit l'onglet si besoin : écrire au-delà de sa dernière ligne ou colonne physique est refusé par Sheets.
@@ -83,8 +125,10 @@ function _assurerTaille(sh, derniereLigne, derniereColonne) {
 }
 
 function _onglet(ss, nom) {
+  if (_memoFeuilles && _memoFeuilles[nom]) return _memoFeuilles[nom];
   const sh = ss.getSheetByName(nom);
   if (!sh) throw new Error("Onglet « " + nom + " » introuvable.");
+  if (_memoFeuilles) _memoFeuilles[nom] = sh;
   return sh;
 }
 
@@ -167,33 +211,47 @@ function _montants(prix, remise, tauxFrais) {
 
 /* ---------- Données pour l'interface ---------- */
 
-/** Renvoie tout ce dont l'interface caisse a besoin au chargement. */
-function getCaisseData() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+/* Référentiels de la caisse (créateurs actifs, remises, paiements) : ils changent rarement,
+ * on les garde 10 minutes en cache. Toute modification faite dans la gestion passe par
+ * _journaliser, qui vide ce cache : la caisse voit le changement à son prochain chargement. */
+const CLE_CACHE_CAISSE = 'caisse_referentiels';
+function _invaliderCacheCaisse() { try { CacheService.getScriptCache().remove(CLE_CACHE_CAISSE); } catch (e) { /* cache indisponible : sans effet */ } }
+function _referentielsCaisse(ss) {
+  const cache = CacheService.getScriptCache(), deja = cache.get(CLE_CACHE_CAISSE);
+  if (deja) return JSON.parse(deja);
   const cr = _createurs(ss);
   const createurs = Object.keys(cr.parId).map(function (id) { return cr.parId[id]; })
     .filter(function (c) { return c.actif; })
     .map(function (c) { return { id: c.id, nom: c.nom }; })
     .sort(function (a, b) { return a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }); });
   const rem = _remises(ss);
-  const remises = Object.keys(rem).map(function (k) { return rem[k]; });
+  const ref = { createurs: createurs, remises: Object.keys(rem).map(function (k) { return rem[k]; }), paiements: Object.keys(_paiements(ss)) };
+  cache.put(CLE_CACHE_CAISSE, JSON.stringify(ref), 600);
+  return ref;
+}
 
-  const sh = _onglet(ss, SHEET_VENTES);
-  const M = _headerMap(sh).map;
-  const n = Math.max(0, sh.getLastRow() - 1);
-  const max = function (col) {
-    if (!n || M[col] == null) return 0;
-    return sh.getRange(2, M[col] + 1, n, 1).getValues().reduce(function (m, r) { const x = Number(r[0]); return isNaN(x) ? m : Math.max(m, x); }, 0);
-  };
-
+/** Prochains numéros de panier et de vente, en une seule lecture (un numéro supprimé n'est jamais réattribué). */
+function _prochainsIds(sh, M) {
+  const n = Math.max(0, sh.getLastRow() - 1), a = Math.min(M['id_vente'], M['id_panier']), b = Math.max(M['id_vente'], M['id_panier']);
+  let maxVente = 0, maxPanier = 0;
+  if (n) sh.getRange(2, a + 1, n, b - a + 1).getValues().forEach(function (r) {
+    const v = Number(r[M['id_vente'] - a]), p = Number(r[M['id_panier'] - a]);
+    if (!isNaN(v)) maxVente = Math.max(maxVente, v);
+    if (!isNaN(p)) maxPanier = Math.max(maxPanier, p);
+  });
   return {
-    createurs: createurs,
-    remises: remises,
-    paiements: Object.keys(_paiements(ss)),
-    // un numéro supprimé depuis Gestion ▸ Ventes n'est jamais réattribué
-    prochainPanier: Math.max(max('id_panier'), _dernierId('DERNIER_ID_PANIER')) + 1,
-    prochaineVente: Math.max(max('id_vente'), _dernierId('DERNIER_ID_VENTE')) + 1
+    panier: Math.max(maxPanier, _dernierId('DERNIER_ID_PANIER')) + 1,
+    vente: Math.max(maxVente, _dernierId('DERNIER_ID_VENTE')) + 1
   };
+}
+
+/** Renvoie tout ce dont l'interface caisse a besoin au chargement. */
+function getCaisseData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ref = _referentielsCaisse(ss);
+  const sh = _onglet(ss, SHEET_VENTES);
+  const ids = _prochainsIds(sh, _headerMap(sh).map);
+  return { createurs: ref.createurs, remises: ref.remises, paiements: ref.paiements, prochainPanier: ids.panier, prochaineVente: ids.vente };
 }
 
 /* ---------- Anti-doublon (idempotence) ---------- */
@@ -261,9 +319,9 @@ function enregistrerVente(data) {
     const paiement = _norm(data.paiement);
     if (!(paiement in paiements)) throw new Error('Moyen de paiement inconnu : « ' + data.paiement + ' ».');
 
-    const info = getCaisseData();
-    const panier = info.prochainPanier;
-    let vente = info.prochaineVente;
+    const ids = _prochainsIds(sh, M);
+    const panier = ids.panier;
+    let vente = ids.vente;
     const maintenant = new Date();
 
     const lignes = data.lignes.map(function (l) {
@@ -297,7 +355,9 @@ function enregistrerVente(data) {
     bloc.setValues(lignes);
     SpreadsheetApp.flush();
 
-    const res = { ok: true, panier: panier, ventes: lignes.map(function (l) { return l[M['id_vente']]; }), nbLignes: lignes.length, deja: false };
+    // prochains numéros renvoyés tout de suite : la caisse n'a pas à tout recharger après une vente
+    const res = { ok: true, panier: panier, ventes: lignes.map(function (l) { return l[M['id_vente']]; }), nbLignes: lignes.length, deja: false,
+                  prochainPanier: panier + 1, prochaineVente: vente };
     if (idTx) CacheService.getScriptCache().put('tx_' + idTx, JSON.stringify(res), ANTI_DOUBLON_TTL);
     return res;
 
@@ -316,15 +376,14 @@ function enregistrerVente(data) {
  */
 function getVentesDuJour(jourStr) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const tz = ss.getSpreadsheetTimeZone();
-  const jour = /^\d{4}-\d{2}-\d{2}$/.test(String(jourStr || '')) ? jourStr : Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  const jour = /^\d{4}-\d{2}-\d{2}$/.test(String(jourStr || '')) ? jourStr : _jourIso(new Date());
   const noms = _createurs(ss).parId;
   const num = function (v) { const n = Number(v); return isNaN(n) ? 0 : n; };
   const lignes = [];
   _lireTable(_onglet(ss, SHEET_VENTES)).forEach(function (v) {
     const d = v['date'];
-    if (!(d instanceof Date) || Utilities.formatDate(d, tz, 'yyyy-MM-dd') !== jour) return;
-    const heure = Utilities.formatDate(d, tz, 'HH:mm');
+    if (!(d instanceof Date) || _jourIso(d) !== jour) return;
+    const heure = _heure(d);
     const id = String(v['id_createur'] || '');
     lignes.push({
       panier: v['id_panier'] === '' || v['id_panier'] == null ? null : num(v['id_panier']),

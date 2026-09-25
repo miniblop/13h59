@@ -28,21 +28,21 @@ function _typeLigne(v) { const t = _norm(v); return t === 'annulation' || t === 
 
 /** Toutes les ventes, en objets lisibles par le site. */
 function _ventesDetaillees(ss) {
-  const tz = ss.getSpreadsheetTimeZone(), noms = _createurs(ss).parId;
+  const noms = _createurs(ss).parId, moisCourant = _jourIso(new Date()).slice(0, 7);
   const num = function (v) { const n = Number(v); return isNaN(n) ? 0 : n; };
   const lignes = [];
   _lireTable(_onglet(ss, SHEET_VENTES)).forEach(function (v) {
     if (!(v['date'] instanceof Date) || v['id_vente'] === '' || v['id_vente'] == null) return;
-    const id = String(v['id_createur'] || ''), heure = Utilities.formatDate(v['date'], tz, 'HH:mm');
+    const id = String(v['id_createur'] || ''), heure = _heure(v['date']), jour = _jourIso(v['date']);
     lignes.push({
       vente: num(v['id_vente']), panier: v['id_panier'] === '' ? null : num(v['id_panier']),
-      date: Utilities.formatDate(v['date'], tz, 'yyyy-MM-dd'), heure: heure === '00:00' ? '' : heure,
+      date: jour, heure: heure === '00:00' ? '' : heure,
       idCreateur: id, createur: noms[id] ? noms[id].nom : id,
       reference: String(v['reference'] || ''), remise: String(v['code_remise'] || ''), paiement: String(v['code_paiement'] || ''),
       prix: num(v['prix']), montantRemise: num(v['remise']), prixClient: num(v['prix_client']), frais: num(v['frais']), prime: num(v['prime']),
       type: _typeLigne(v['type_ligne']), origine: v['vente_origine'] === '' || v['vente_origine'] == null ? null : num(v['vente_origine']),
       motif: String(v['motif'] || ''),
-      moisOuvert: _moisOuvert(ss, v['date'])
+      moisOuvert: jour.slice(0, 7) === moisCourant
     });
   });
   // Qui a annulé / corrigé quoi.
@@ -142,8 +142,7 @@ function _retenirDerniersIds(ctx) {
 
 /** Le mois de cette date est-il le mois en cours (pas encore facturé) ? */
 function _moisOuvert(ss, d) {
-  const tz = ss.getSpreadsheetTimeZone();
-  return d instanceof Date && Utilities.formatDate(d, tz, 'yyyy-MM') === Utilities.formatDate(new Date(), tz, 'yyyy-MM');
+  return d instanceof Date && _jourIso(d).slice(0, 7) === _jourIso(new Date()).slice(0, 7);
 }
 /** Modifiable sur place : mois en cours, pas une annulation, pas déjà annulée. */
 function _modifiableSurPlace(ctx, r) {
@@ -282,13 +281,13 @@ function _gVenteCorriger(body) {
 /* ---------- Journal ---------- */
 
 function _gJournal(body) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet(), tz = ss.getSpreadsheetTimeZone();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sh = _onglet(ss, SHEET_JOURNAL), n = sh.getLastRow() - 1;
   const limite = Math.min(Math.max(Number(body.limite) || 1000, 50), 5000);
   if (n < 1) return { ok: true, lignes: [], total: 0 };
   const debut = Math.max(2, n + 2 - limite);
   const lignes = sh.getRange(debut, 1, n + 2 - debut, 4).getValues().map(function (r) {
-    return { date: r[0] instanceof Date ? Utilities.formatDate(r[0], tz, 'yyyy-MM-dd HH:mm') : String(r[0]), qui: String(r[1] || ''), action: String(r[2] || ''), detail: String(r[3] || '') };
+    return { date: r[0] instanceof Date ? _jourIso(r[0]) + ' ' + _heure(r[0]) : String(r[0]), qui: String(r[1] || ''), action: String(r[2] || ''), detail: String(r[3] || '') };
   }).reverse();
   return { ok: true, lignes: lignes, total: n };
 }
