@@ -8,6 +8,16 @@
  *  si besoin, AVANT l'étape 3 (construction de la nouvelle table ventes).
  *************************************************************/
 
+// Noms d'AVANT la bascule (l'ancien Sheet) : utilisés uniquement par la migration.
+const ANCIEN_VENDEURS       = 'vendeurs';
+const ANCIEN_ALL_DATA       = 'All data';
+const ANCIEN_VENTES         = 'ventes';
+const ANCIEN_VENTES_ARCHIVE = '_ancien_ventes';
+const ANCIEN_PAIEMENTS      = 'taxe_par_type_de_paiement';
+const ANCIEN_COL_VENDEUR    = 'vendeur';
+const ANCIEN_COL_NOM        = 'nom_vendeur';
+const ANCIEN_COL_PRIME      = 'prime_vendeur';
+
 const SHEET_CREATEURS_V1  = 'createurs';
 const SHEET_CATEGORIES    = 'categories';
 const SHEET_CORRESPONDANCE = '_correspondance_noms';
@@ -54,16 +64,6 @@ function _levenshtein(a, b) {
   return d[a.length][b.length];
 }
 
-/** Lit un onglet en objets {entête: valeur}. */
-function _lireOnglet(sh) {
-  const n = sh.getLastRow() - 1;
-  if (n < 1) return [];
-  const h = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(_norm);
-  return sh.getRange(2, 1, n, h.length).getValues().map(function (r) {
-    const o = {}; h.forEach(function (k, i) { if (k) o[k] = r[i]; }); return o;
-  });
-}
-
 function _etape2(apercu) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const bilan = [];
@@ -74,14 +74,14 @@ function _etape2(apercu) {
   });
 
   // --- 1) Créateurs connus : onglet vendeurs ---
-  const vendeurs = _lireOnglet(ss.getSheetByName(SHEET_CREATEURS));
+  const vendeurs = _lireTable(ss.getSheetByName(ANCIEN_VENDEURS));
   const createurs = [];                 // {id, nom, email, statut, cree_le, cles:Set}
   const parCle = {};
   let n = 0;
   const nouvelId = function () { return 'C' + String(++n).padStart(3, '0'); };
   let doublonsVendeurs = 0;
   vendeurs.forEach(function (v) {
-    const nom = _nomPropre(v[COL_NOM_CREATEUR]);
+    const nom = _nomPropre(v[ANCIEN_COL_NOM]);
     if (!nom) return;
     const cle = _cleNom(nom);
     const statut = _norm(v['status']) === 'actif' ? 'actif' : 'inactif';
@@ -96,13 +96,13 @@ function _etape2(apercu) {
                 cree_le: v['date_de_modifcation'] instanceof Date ? v['date_de_modifcation'] : '' };
     createurs.push(c); parCle[cle] = c;
   });
-  dire('createurs : ' + createurs.length + " créateurs repris de l'onglet « " + SHEET_CREATEURS + ' »' + (doublonsVendeurs ? ' (' + doublonsVendeurs + ' ligne(s) en double fusionnée(s))' : '') + '.');
+  dire('createurs : ' + createurs.length + " créateurs repris de l'onglet « " + ANCIEN_VENDEURS + ' »' + (doublonsVendeurs ? ' (' + doublonsVendeurs + ' ligne(s) en double fusionnée(s))' : '') + '.');
 
   // --- 2) Tous les noms présents dans les ventes (historique + ventes actuelles) ---
-  const toutes = _lireOnglet(ss.getSheetByName(_sheetData()));
+  const toutes = _lireTable(ss.getSheetByName(ANCIEN_ALL_DATA));
   const noms = {};                      // nom brut → {n, premiere, derniere}
   toutes.forEach(function (l) {
-    const brut = String(l[COL_CREATEUR] == null ? '' : l[COL_CREATEUR]);
+    const brut = String(l[ANCIEN_COL_VENDEUR] == null ? '' : l[ANCIEN_COL_VENDEUR]);
     if (!brut.trim() || !(l['date'] instanceof Date)) return;
     const s = noms[brut] || (noms[brut] = { n: 0, premiere: l['date'], derniere: l['date'] });
     s.n++;
@@ -217,17 +217,13 @@ function _nouvelOnglet(ss, nom, entetes, lignes) {
 
 const SHEET_VENTES_V1 = 'ventes_v1';
 const SHEET_CONTROLE  = '_controle_migration';
-const SHEET_PAIEMENTS_ANCIEN = 'taxe_par_type_de_paiement';
-const COLONNES_VENTES_V1 = [
-  'id_vente', 'id_panier', 'date', 'id_createur', 'reference', 'code_remise', 'code_paiement',
-  'prix', 'remise', 'prix_client', 'frais', 'prime', 'id_transaction'
-];
 
 function apercuEtape3() { _etape3(true); }
 function etape3Ventes() { _etape3(false); }
 
 function _etape3(apercu) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName(ANCIEN_VENTES_ARCHIVE)) throw new Error('La bascule a déjà été faite : l\'étape 3 ne sert plus.');
   const bilan = [], alertes = [];
   const dire = function (s) { bilan.push(s); };
 
@@ -235,32 +231,32 @@ function _etape3(apercu) {
   const shM = ss.getSheetByName(SHEET_CORRESPONDANCE);
   if (!shM) throw new Error("Onglet « " + SHEET_CORRESPONDANCE + " » introuvable : lance d'abord l'étape 2.");
   const idParNom = {}, idParCle = {};
-  _lireOnglet(shM).forEach(function (m) {
+  _lireTable(shM).forEach(function (m) {
     const id = String(m['id_createur'] || '').trim();
     if (!id) return;
     idParNom[String(m['nom_dans_les_ventes'])] = id;
     idParCle[_cleNom(m['nom_dans_les_ventes'])] = id;
   });
   const idsCreateurs = {};
-  _lireOnglet(ss.getSheetByName(SHEET_CREATEURS_V1)).forEach(function (c) { idsCreateurs[String(c['id_createur'])] = true; });
+  _lireTable(ss.getSheetByName(SHEET_CREATEURS_V1)).forEach(function (c) { idsCreateurs[String(c['id_createur'])] = true; });
   const codesRemise = {}, codesPaiement = {};
-  _lireOnglet(ss.getSheetByName(SHEET_REMISES)).forEach(function (r) { if (r['type_de_remise']) codesRemise[String(r['type_de_remise']).trim()] = true; });
-  _lireOnglet(ss.getSheetByName(SHEET_PAIEMENTS_ANCIEN)).forEach(function (r) { if (r['type_de_paiement']) codesPaiement[_norm(r['type_de_paiement'])] = true; });
+  _lireTable(ss.getSheetByName(SHEET_REMISES)).forEach(function (r) { if (r['type_de_remise']) codesRemise[String(r['type_de_remise']).trim()] = true; });
+  _lireTable(ss.getSheetByName(ANCIEN_PAIEMENTS)).forEach(function (r) { if (r['type_de_paiement']) codesPaiement[_norm(r['type_de_paiement'])] = true; });
 
   // --- Source 1 : historique figé de All data (avant la formule FILTER) ---
-  const shA = ss.getSheetByName(_sheetData());
+  const shA = ss.getSheetByName(ANCIEN_ALL_DATA);
   const nA = shA.getLastRow() - 1;
   const formulesA = shA.getRange(2, 1, nA, 1).getFormulas();
   const idxFormule = formulesA.findIndex(function (f) { return /FILTER\s*\(/i.test(f[0]); });
-  if (idxFormule < 0) throw new Error("Formule FILTER introuvable dans la colonne A de « " + _sheetData() + " ».");
-  const toutesA = _lireOnglet(shA);
+  if (idxFormule < 0) throw new Error("Formule FILTER introuvable dans la colonne A de « " + ANCIEN_ALL_DATA + " ».");
+  const toutesA = _lireTable(shA);
   const historique = toutesA.slice(0, idxFormule).filter(function (l) { return l['date'] instanceof Date; });
   const recopieA = toutesA.slice(idxFormule).filter(function (l) { return l['date'] instanceof Date; });
 
   // --- Source 2 : onglet ventes actuel ---
-  const actuelles = _lireOnglet(ss.getSheetByName(SHEET_VENTES)).filter(function (l) { return l['date'] instanceof Date; });
-  dire('Sources : ' + historique.length + " ventes dans l'historique de « " + _sheetData() + ' » + ' + actuelles.length + ' dans « ' + SHEET_VENTES + ' » = ' + (historique.length + actuelles.length) + '.');
-  if (recopieA.length !== actuelles.length) alertes.push('« ' + _sheetData() + ' » ne recopie que ' + recopieA.length + ' des ' + actuelles.length + ' ventes actuelles (plage de la formule FILTER trop courte).');
+  const actuelles = _lireTable(ss.getSheetByName(ANCIEN_VENTES)).filter(function (l) { return l['date'] instanceof Date; });
+  dire('Sources : ' + historique.length + " ventes dans l'historique de « " + ANCIEN_ALL_DATA + ' » + ' + actuelles.length + ' dans « ' + ANCIEN_VENTES + ' » = ' + (historique.length + actuelles.length) + '.');
+  if (recopieA.length !== actuelles.length) alertes.push('« ' + ANCIEN_ALL_DATA + ' » ne recopie que ' + recopieA.length + ' des ' + actuelles.length + ' ventes actuelles (plage de la formule FILTER trop courte).');
 
   // --- Construction, dans l'ordre chronologique ---
   const num = function (v) { const x = Number(v); return isNaN(x) ? 0 : x; };
@@ -269,7 +265,7 @@ function _etape3(apercu) {
     .sort(function (a, b) { return (a.l['date'] - b.l['date']) || (a.ordre - b.ordre); });
   const inconnus = {}, remisesInconnues = {}, paiementsInconnus = {};
   const sortie = lignes.map(function (x, i) {
-    const l = x.l, nom = String(l[COL_CREATEUR] == null ? '' : l[COL_CREATEUR]);
+    const l = x.l, nom = String(l[ANCIEN_COL_VENDEUR] == null ? '' : l[ANCIEN_COL_VENDEUR]);
     const id = idParNom[nom] || idParCle[_cleNom(nom)] || '';
     if (!id || !idsCreateurs[id]) inconnus[nom] = (inconnus[nom] || 0) + 1;
     const remise = String(l['type_de_remise'] || '').trim() || 'pas_de_remise';
@@ -278,13 +274,13 @@ function _etape3(apercu) {
     if (!codesPaiement[paiement]) paiementsInconnus[paiement] = (paiementsInconnus[paiement] || 0) + 1;
     const panier = l['numero_panier'];
     return [i + 1, (panier === '' || panier == null) ? '' : num(panier), l['date'], id, String(l['reference_produit'] || ''),
-      remise, paiement, num(l['prix']), num(l['remise']), num(l['prix_client']), num(l['taxe']), num(l[COL_PRIME_CREATEUR]),
+      remise, paiement, num(l['prix']), num(l['remise']), num(l['prix_client']), num(l['taxe']), num(l[ANCIEN_COL_PRIME]),
       String(l['id_transaction'] || '')];
   });
   const cles = function (o) { return Object.keys(o).map(function (k) { return '« ' + k + ' » (' + o[k] + ')'; }).join(', '); };
   if (Object.keys(inconnus).length) alertes.push('Créateurs non rattachés : ' + cles(inconnus));
   if (Object.keys(remisesInconnues).length) alertes.push('Codes remise absents de « ' + SHEET_REMISES + ' » : ' + cles(remisesInconnues));
-  if (Object.keys(paiementsInconnus).length) alertes.push('Paiements absents de « ' + SHEET_PAIEMENTS_ANCIEN + ' » : ' + cles(paiementsInconnus));
+  if (Object.keys(paiementsInconnus).length) alertes.push('Paiements absents de « ' + ANCIEN_PAIEMENTS + ' » : ' + cles(paiementsInconnus));
 
   // --- Contrôle : mêmes totaux, mois par mois, avant / après ---
   const cumul = function (rows, getDate, getCa, getPrime) {
@@ -297,7 +293,7 @@ function _etape3(apercu) {
     return t;
   };
   // « avant » = ce que les tableaux de bord lisent aujourd'hui (tout All data).
-  const avant = cumul(historique.concat(recopieA), function (l) { return l['date']; }, function (l) { return num(l['prix_client']); }, function (l) { return num(l[COL_PRIME_CREATEUR]); });
+  const avant = cumul(historique.concat(recopieA), function (l) { return l['date']; }, function (l) { return num(l['prix_client']); }, function (l) { return num(l[ANCIEN_COL_PRIME]); });
   const apres = cumul(sortie, function (r) { return r[2]; }, function (r) { return r[9]; }, function (r) { return r[11]; });
   const r2 = function (x) { return Math.round(x * 100) / 100; };
   const mois = Object.keys(avant).concat(Object.keys(apres)).filter(function (m, i, a) { return a.indexOf(m) === i; }).sort();
@@ -317,14 +313,14 @@ function _etape3(apercu) {
 
   if (!apercu) {
     [SHEET_VENTES_V1, SHEET_CONTROLE].forEach(function (nom) { const s = ss.getSheetByName(nom); if (s) ss.deleteSheet(s); });
-    const sV = _nouvelOnglet(ss, SHEET_VENTES_V1, COLONNES_VENTES_V1, []);
+    const sV = _nouvelOnglet(ss, SHEET_VENTES_V1, COLONNES_VENTES, []);
     const n = sortie.length;
-    sV.getRange(2, 1, n, COLONNES_VENTES_V1.length).setValues(sortie);
-    const col = function (k) { return COLONNES_VENTES_V1.indexOf(k) + 1; };
+    sV.getRange(2, 1, n, COLONNES_VENTES.length).setValues(sortie);
+    const col = function (k) { return COLONNES_VENTES.indexOf(k) + 1; };
     sV.getRange(2, col('date'), n, 1).setNumberFormat('dd/mm/yyyy hh:mm');
     sV.getRange(2, col('reference'), n, 1).setNumberFormat('@');
     sV.getRange(2, col('prix'), n, 5).setNumberFormat('0.00');
-    sV.autoResizeColumns(1, COLONNES_VENTES_V1.length);
+    sV.autoResizeColumns(1, COLONNES_VENTES.length);
 
     const sK = _nouvelOnglet(ss, SHEET_CONTROLE, ['mois', 'nb_avant', 'nb_apres', 'ca_avant', 'ca_apres', 'prime_avant', 'prime_apres', 'resultat'], controle);
     controle.forEach(function (c, i) { if (c[7] !== 'OK') sK.getRange(i + 2, 1, 1, 8).setBackground('#fbeceb'); });
@@ -334,4 +330,84 @@ function _etape3(apercu) {
   Logger.log((apercu ? "APERÇU — rien n'a été écrit.\n" : '✅ Étape 3 terminée.\n') +
     bilan.map(function (l) { return '• ' + l; }).join('\n') +
     (alertes.length ? '\n⚠️ ' + alertes.join('\n⚠️ ') : '\n✅ Aucune anomalie : tous les créateurs, remises et paiements sont reconnus.'));
+  return { ecarts: ecarts, alertes: alertes, nb: sortie.length };
+}
+
+/*************************************************************
+ *  MIGRATION « BACKOFFICE V1 » — étape 4 : la bascule
+ *   apercuEtape4()  : reconstruit et contrôle, puis dit ce qui serait renommé
+ *   etape4Bascule() : À LANCER BOUTIQUE FERMÉE, juste avant de déployer le
+ *                     nouveau code. Bloque la caisse pendant l'opération,
+ *                     reconstruit `ventes_v1` avec les toutes dernières ventes,
+ *                     et n'effectue les renommages QUE si le contrôle est parfait.
+ *************************************************************/
+
+function apercuEtape4() { _etape4(true); }
+function etape4Bascule() { _etape4(false); }
+
+function _etape4(apercu) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName(ANCIEN_VENTES_ARCHIVE)) throw new Error('La bascule a déjà été faite.');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);                 // même verrou que la caisse : aucune vente ne peut s'écrire pendant la bascule
+  try {
+    const r = _etape3(apercu);
+    if (r.ecarts || r.alertes.length) {
+      throw new Error('Contrôle non conforme (' + r.ecarts + ' mois en écart, ' + r.alertes.length + ' alerte(s)) : bascule ANNULÉE, rien n\'a été renommé.');
+    }
+    const plan = [
+      '« ' + ANCIEN_VENTES + ' » → « ' + ANCIEN_VENTES_ARCHIVE + ' » (gardé pour contrôle)',
+      '« ' + SHEET_VENTES_V1 + ' » → « ' + SHEET_VENTES + ' » (' + r.nb + ' ventes)',
+      '« ' + ANCIEN_PAIEMENTS + ' » → « ' + SHEET_PAIEMENTS + ' »',
+      'en-têtes de « ' + SHEET_PAIEMENTS + ' » : code, taux_frais, statut, modifie_le',
+      'en-têtes de « ' + SHEET_REMISES + ' » : code, valeur, type, statut, modifie_le'
+    ];
+    if (apercu) {
+      Logger.log("APERÇU — contrôle parfait, rien n'a été renommé. La bascule ferait :\n• " + plan.join('\n• '));
+      return;
+    }
+    ss.getSheetByName(ANCIEN_VENTES).setName(ANCIEN_VENTES_ARCHIVE);
+    ss.getSheetByName(SHEET_VENTES_V1).setName(SHEET_VENTES);
+    ss.getSheetByName(ANCIEN_PAIEMENTS).setName(SHEET_PAIEMENTS);
+    _renommerEntetes(ss.getSheetByName(SHEET_PAIEMENTS), { type_de_paiement: 'code', valeur: 'taux_frais', status: 'statut', date_modification: 'modifie_le' });
+    _renommerEntetes(ss.getSheetByName(SHEET_REMISES), { type_de_remise: 'code', status: 'statut', date_modification: 'modifie_le' });
+    ss.getSheetByName(SHEET_JOURNAL).appendRow([new Date(), Session.getEffectiveUser().getEmail(), 'migration_etape4_bascule', plan.join(' | ')]);
+    Logger.log('✅ Bascule faite :\n• ' + plan.join('\n• ') + '\n→ Déploie maintenant le nouveau code (serveur + site).');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function _renommerEntetes(sh, correspondances) {
+  const r = sh.getRange(1, 1, 1, sh.getLastColumn());
+  r.setValues([r.getValues()[0].map(function (h) { const k = _norm(h); return correspondances[k] || h; })]);
+}
+
+/*************************************************************
+ *  MIGRATION « BACKOFFICE V1 » — étape 5 : le nettoyage
+ *   apercuNettoyage() : liste les onglets qui seraient supprimés
+ *   etape5Nettoyage() : les supprime. À lancer seulement après une semaine
+ *                       de fonctionnement sans souci, et avec une copie de
+ *                       sauvegarde du fichier (la suppression est définitive
+ *                       dans ce fichier ; la copie, elle, garde tout).
+ *************************************************************/
+
+function apercuNettoyage() { _etape5(true); }
+function etape5Nettoyage() { _etape5(false); }
+
+function _etape5(apercu) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss.getSheetByName(ANCIEN_VENTES_ARCHIVE)) throw new Error("La bascule n'a pas encore été faite : rien à nettoyer.");
+  const aSupprimer = ss.getSheets().map(function (s) { return s.getName(); }).filter(function (nom) {
+    return [ANCIEN_ALL_DATA, ANCIEN_VENDEURS, ANCIEN_VENTES_ARCHIVE, SHEET_CORRESPONDANCE, SHEET_CONTROLE, 'Looker'].indexOf(nom) !== -1 ||
+      /^archives?\b/i.test(nom);
+  });
+  if (apercu) {
+    Logger.log('APERÇU — ' + aSupprimer.length + ' onglet(s) seraient supprimés :\n• ' + aSupprimer.join('\n• ') +
+      '\nRestent : ' + ss.getSheets().map(function (s) { return s.getName(); }).filter(function (n) { return aSupprimer.indexOf(n) === -1; }).join(', '));
+    return;
+  }
+  aSupprimer.forEach(function (nom) { ss.deleteSheet(ss.getSheetByName(nom)); });
+  ss.getSheetByName(SHEET_JOURNAL).appendRow([new Date(), Session.getEffectiveUser().getEmail(), 'migration_etape5_nettoyage', aSupprimer.join(', ')]);
+  Logger.log('✅ ' + aSupprimer.length + ' onglet(s) supprimés : ' + aSupprimer.join(', '));
 }

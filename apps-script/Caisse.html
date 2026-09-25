@@ -96,7 +96,7 @@
       </div>
 
       <div class="preview">
-        <span>Prix client <span id="apercuInfo" class="badge" style="display:none"></span></span>
+        <span>Prix client</span>
         <b id="apercuPC">0,00 €</b>
       </div>
 
@@ -141,7 +141,7 @@
 
 <script>
   var DATA = null;        // données serveur
-  var panier = [];        // {createur, reference, prix, typeRemise, prixClient, remise, magasin}
+  var panier = [];        // {idCreateur, createur, reference, prix, typeRemise, prixClient, remise}
   var paiement = 'cb';
 
   var $ = function(id){ return document.getElementById(id); };
@@ -150,15 +150,15 @@
     var t = $('toast'); t.textContent = msg; t.className = 'toast show' + (err?' err':'');
     setTimeout(function(){ t.className = 'toast' + (err?' err':''); }, err?4000:2200);
   }
-  function remiseParNom(nom){
-    for (var i=0;i<DATA.remises.length;i++){ if (DATA.remises[i].nom===nom) return DATA.remises[i]; }
-    return {valeur:0, estPourcentage:false, magasin:false};
+  function remiseParCode(code){
+    for (var i=0;i<DATA.remises.length;i++){ if (DATA.remises[i].code===code) return DATA.remises[i]; }
+    return {valeur:0, estPourcentage:false};
   }
   function round2(x){ return Math.round((Number(x)+Number.EPSILON)*100)/100; }
   function calcLigne(prix, typeRemise){
-    var rd = remiseParNom(typeRemise);
+    var rd = remiseParCode(typeRemise);
     var remise = rd.estPourcentage ? round2(prix*rd.valeur) : round2(rd.valeur);
-    return { remise:remise, prixClient:round2(prix+remise), magasin:rd.magasin };
+    return { remise:remise, prixClient:round2(prix-Math.abs(remise)) };
   }
 
   // --- Chargement initial ---
@@ -168,13 +168,13 @@
     $('noVente').textContent = d.prochaineVente;
 
     var dl = $('listeCreateurs');
-    d.createurs.forEach(function(v){ var o=document.createElement('option'); o.value=v; dl.appendChild(o); });
+    d.createurs.forEach(function(c){ var o=document.createElement('option'); o.value=c.nom; dl.appendChild(o); });
 
     var sel = $('remise');
     d.remises.forEach(function(r){
-      var o=document.createElement('option'); o.value=r.nom;
-      o.textContent = r.nom + (r.magasin ? '  (magasin)' : '');
-      if (r.nom==='pas_de_remise') o.selected=true;
+      var o=document.createElement('option'); o.value=r.code;
+      o.textContent = r.code;
+      if (r.code==='pas_de_remise') o.selected=true;
       sel.appendChild(o);
     });
 
@@ -194,9 +194,6 @@
     var prix = parseFloat($('prix').value)||0;
     var c = calcLigne(prix, $('remise').value);
     $('apercuPC').textContent = fmt(c.prixClient);
-    var badge=$('apercuInfo');
-    if (c.magasin){ badge.style.display='inline-block'; badge.textContent='remise magasin'; }
-    else { badge.style.display='none'; }
   }
   $('prix').addEventListener('input', majApercu);
   $('remise').addEventListener('change', majApercu);
@@ -208,11 +205,12 @@
     var prix=parseFloat($('prix').value);
     var typeRemise=$('remise').value;
     if(!createur){ toast('Choisis un créateur.', true); $('createur').focus(); return; }
-    if(DATA.createurs.indexOf(createur)===-1){ toast('Créateur inconnu (vérifie l\'orthographe).', true); return; }
+    var trouve=DATA.createurs.filter(function(c){ return c.nom.toLowerCase()===createur.toLowerCase(); })[0];
+    if(!trouve){ toast('Créateur inconnu (vérifie l\'orthographe).', true); return; }
     if(isNaN(prix)||prix<=0){ toast('Prix invalide.', true); $('prix').focus(); return; }
 
     var c=calcLigne(prix, typeRemise);
-    panier.push({createur:createur, reference:reference, prix:prix, typeRemise:typeRemise, prixClient:c.prixClient, remise:c.remise, magasin:c.magasin});
+    panier.push({idCreateur:trouve.id, createur:trouve.nom, reference:reference, prix:prix, typeRemise:typeRemise, prixClient:c.prixClient, remise:c.remise});
     // reset partiel (on garde le créateur, souvent le même sur un panier)
     $('reference').value=''; $('prix').value='';
     majApercu(); render(); $('reference').focus();
@@ -230,7 +228,7 @@
         if(l.remise!==0) det += '  ('+(l.typeRemise)+')';
         var row=document.createElement('div'); row.className='ligne';
         row.innerHTML =
-          '<div class="info"><div class="nom">'+escapeHtml(l.createur)+(l.magasin?' <span class="badge">magasin</span>':'')+'</div>'+
+          '<div class="info"><div class="nom">'+escapeHtml(l.createur)+'</div>'+
           '<div class="det">'+escapeHtml(det)+'</div></div>'+
           '<div class="pc">'+fmt(l.prixClient)+'</div>'+
           '<button class="del" title="Retirer">✕</button>';
@@ -272,7 +270,7 @@
   $('btnValider').addEventListener('click', function(){
     if(!panier.length) return;
     var btn=$('btnValider'); btn.disabled=true; var txt=btn.textContent; btn.textContent='Enregistrement…';
-    var payload={ paiement:paiement, lignes:panier.map(function(l){ return {createur:l.createur, reference:l.reference, prix:l.prix, typeRemise:l.typeRemise}; }) };
+    var payload={ paiement:paiement, lignes:panier.map(function(l){ return {idCreateur:l.idCreateur, reference:l.reference, prix:l.prix, typeRemise:l.typeRemise}; }) };
     google.script.run
       .withSuccessHandler(function(res){
         if(res && res.ok){

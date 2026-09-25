@@ -189,7 +189,7 @@
           <div><label>Prix (€)</label><input id="cPrix" type="number" min="0" step="0.5" inputmode="decimal" placeholder="0,00"></div>
           <div><label>Remise</label><div class="ms" id="cRemise"></div></div>
         </div>
-        <div class="preview"><span>Prix client <span id="cBadge" class="pill hide">remise magasin</span></span><b id="cApercu">0,00 €</b></div>
+        <div class="preview"><span>Prix client</span><b id="cApercu">0,00 €</b></div>
         <button class="btn btn-accent" id="cAdd" style="width:100%;margin-top:14px">＋ Ajouter au panier</button>
       </div>
 
@@ -463,8 +463,8 @@ const API = {
   async caisseData(password){
     if(DEMO_MODE){
       return {ok:true,
-        createurs:[...new Set(DEMO_ROWS.map(r=>r.createur))].sort((a,b)=>a.localeCompare(b,'fr')),
-        remises:[{nom:'pas_de_remise',valeur:0,estPourcentage:false,magasin:false},{nom:'carte_fidelite_10%',valeur:-0.10,estPourcentage:true,magasin:false},{nom:'machine_cadeau_5€',valeur:-5,estPourcentage:false,magasin:true},{nom:'soldes_20',valeur:-0.20,estPourcentage:true,magasin:false}],
+        createurs:[...new Set(DEMO_ROWS.map(r=>r.createur))].sort((a,b)=>a.localeCompare(b,'fr')).map((nom,i)=>({id:'C'+String(i+1).padStart(3,'0'),nom})),
+        remises:[{code:'pas_de_remise',valeur:0,estPourcentage:false},{code:'carte_fidelite_10%',valeur:-0.10,estPourcentage:true},{code:'machine_cadeau_5€',valeur:-5,estPourcentage:false},{code:'soldes_20',valeur:-0.20,estPourcentage:true}],
         paiements:['cb','espèces'],prochainPanier:9001,prochaineVente:9001};
     }
     const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify({action:'caisse_data',password})});
@@ -823,17 +823,20 @@ function nouvelIdTx(){
 function panierModifie(){C.txId=null;}
 let caisseLoaded=false,cCreateurSel=null,cRemiseSel=null;
 const round2=x=>Math.round((Number(x)+1e-9)*100)/100;
-const REMISE_DEFAUT=[{nom:'pas_de_remise',valeur:0,estPourcentage:false,magasin:false}];
+const REMISE_DEFAUT=[{code:'pas_de_remise',valeur:0,estPourcentage:false}];
 function calcLigneCaisse(prix,typeRemise){
   const liste=(C.data&&Array.isArray(C.data.remises)&&C.data.remises.length)?C.data.remises:REMISE_DEFAUT;
-  const rd=liste.find(r=>r&&r.nom===typeRemise)||{valeur:0,estPourcentage:false,magasin:false};
+  const rd=liste.find(r=>r&&r.code===typeRemise)||{valeur:0,estPourcentage:false};
   const remise=rd.estPourcentage?round2(prix*rd.valeur):round2(rd.valeur);
-  return {remise,prixClient:round2(prix+remise),magasin:!!rd.magasin};
+  return {remise,prixClient:round2(prix-Math.abs(remise))};
 }
-/* nom du créateur : liste déroulante si dispo, sinon champ libre de secours */
+/* créateur choisi : identifiant (clé de l'onglet createurs) + nom affiché.
+   Champ libre de secours si la liste n'a pas pu être chargée : le serveur retrouve l'identifiant par le nom. */
+let nomsCreateurs={};
 function createurCaisse(){
-  if(cCreateurSel&&cCreateurSel.count()) return cCreateurSel.getVal();
-  return $('cCreateurLibre').value.trim();
+  if(cCreateurSel&&cCreateurSel.count()){const id=cCreateurSel.getVal();return id?{id,nom:nomsCreateurs[id]||id}:null;}
+  const nom=$('cCreateurLibre').value.trim();
+  return nom?{id:'',nom}:null;
 }
 function caisseErr(msg){
   const el=$('cErr');
@@ -851,23 +854,22 @@ async function initCaisse(force){
     C.data=r;
 
     /* --- créateurs --- */
-    const createurs=(Array.isArray(r.createurs)?r.createurs:[])
-      .map(v=>String(v==null?'':v).trim()).filter(Boolean)
-      .filter((v,i,a)=>a.indexOf(v)===i)
-      .sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
+    const createurs=(Array.isArray(r.createurs)?r.createurs:[]).filter(c=>c&&c.id&&c.nom)
+      .sort((a,b)=>String(a.nom).localeCompare(String(b.nom),'fr',{sensitivity:'base'}));
+    nomsCreateurs=Object.fromEntries(createurs.map(c=>[c.id,c.nom]));
     if(createurs.length){
       $('cCreateur').classList.remove('hide');$('cCreateurLibre').classList.add('hide');
-      cCreateurSel=makeSingle($('cCreateur'),{values:createurs,placeholder:'— Choisir un créateur —',onChange:majApercuCaisse});
+      cCreateurSel=makeSingle($('cCreateur'),{values:createurs.map(c=>c.id),labels:nomsCreateurs,placeholder:'— Choisir un créateur —',onChange:majApercuCaisse});
     }else{
       $('cCreateur').classList.add('hide');$('cCreateurLibre').classList.remove('hide');
       cCreateurSel=null;
-      caisseErr("Le serveur n'a renvoyé aucun créateur (vérifie getCaisseData / l'onglet « vendeurs » du Sheet). Saisis le nom à la main en attendant.");
+      caisseErr("Le serveur n'a renvoyé aucun créateur actif (vérifie la colonne « statut » de l'onglet « createurs » du Sheet). Saisis le nom à la main en attendant.");
     }
 
     /* --- remises --- */
-    const remises=(Array.isArray(r.remises)&&r.remises.length?r.remises:REMISE_DEFAUT).filter(x=>x&&x.nom);
+    const remises=(Array.isArray(r.remises)&&r.remises.length?r.remises:REMISE_DEFAUT).filter(x=>x&&x.code);
     C.data.remises=remises.length?remises:REMISE_DEFAUT;
-    const remNoms=C.data.remises.map(x=>x.nom);
+    const remNoms=C.data.remises.map(x=>x.code);
     cRemiseSel=makeSingle($('cRemise'),{values:remNoms,value:remNoms.indexOf('pas_de_remise')>=0?'pas_de_remise':remNoms[0],onChange:majApercuCaisse});
 
     /* --- paiements --- */
@@ -891,7 +893,6 @@ function majApercuCaisse(){
   const prix=parseFloat($('cPrix').value)||0;
   const c=calcLigneCaisse(prix,cRemiseSel?cRemiseSel.getVal():'pas_de_remise');
   $('cApercu').textContent=FMT.eur(c.prixClient);
-  $('cBadge').classList.toggle('hide',!c.magasin);
 }
 function majEspecesCaisse(){
   const esp=/esp/i.test(C.paiement);
@@ -908,7 +909,7 @@ function renderCaisse(){
   else{
     box.innerHTML=C.cart.map((l,idx)=>{
       const det=(l.reference?FMT.esc(l.reference)+' · ':'')+FMT.eur(l.prix)+(l.remise!==0?' ('+FMT.esc(l.typeRemise)+')':'');
-      return `<div class="cligne"><div class="info"><div class="nom">${FMT.esc(l.createur)}${l.magasin?' <span class="pill">magasin</span>':''}</div><div class="det">${det}</div></div><div class="pc">${FMT.eur(l.prixClient)}</div><button class="del" data-i="${idx}">✕</button></div>`;
+      return `<div class="cligne"><div class="info"><div class="nom">${FMT.esc(l.createur)}</div><div class="det">${det}</div></div><div class="pc">${FMT.eur(l.prixClient)}</div><button class="del" data-i="${idx}">✕</button></div>`;
     }).join('');
     box.querySelectorAll('.del').forEach(b=>b.onclick=()=>{C.cart.splice(+b.dataset.i,1);panierModifie();renderCaisse();});
   }
@@ -925,7 +926,7 @@ $('cAdd').addEventListener('click',()=>{
   if(!createur){toast('Choisis un créateur.',true);if(!cCreateurSel)$('cCreateurLibre').focus();return;}
   if(isNaN(prix)||prix<=0){toast('Prix invalide.',true);$('cPrix').focus();return;}
   const c=calcLigneCaisse(prix,typeRemise);
-  C.cart.push({createur,reference,prix,typeRemise,prixClient:c.prixClient,remise:c.remise,magasin:c.magasin});
+  C.cart.push({idCreateur:createur.id,createur:createur.nom,reference,prix,typeRemise,prixClient:c.prixClient,remise:c.remise});
   panierModifie();
   $('cRef').value='';$('cPrix').value='';majApercuCaisse();renderCaisse();$('cRef').focus();
 });
@@ -935,7 +936,7 @@ $('cValider').addEventListener('click',async()=>{
   const btn=$('cValider'),t=btn.textContent;btn.disabled=true;btn.textContent='Enregistrement…';
   if(!C.txId) C.txId=nouvelIdTx();
   try{
-    const payload={idTransaction:C.txId,paiement:C.paiement,lignes:C.cart.map(l=>({createur:l.createur,reference:l.reference,prix:l.prix,typeRemise:l.typeRemise}))};
+    const payload={idTransaction:C.txId,paiement:C.paiement,lignes:C.cart.map(l=>({idCreateur:l.idCreateur,createur:l.createur,reference:l.reference,prix:l.prix,typeRemise:l.typeRemise}))};
     const res=await API.caisseSave(S.pwd,payload);
     if(res&&res.ok){
       toast(res.deja
@@ -1025,7 +1026,7 @@ const DEMO_ROWS=(function(){
     const nbPaniers=1+Math.floor(rnd()*4);
     for(let p=0;p<nbPaniers;p++){panier++;const paiement=rnd()<0.6?'cb':'espèces';const nbArt=1+Math.floor(rnd()*3);
       for(let a=0;a<nbArt;a++){const v=createurs[Math.floor(rnd()*createurs.length)];const rem=remises[Math.floor(rnd()*remises.length)];const prix=[2,3,5,8,10,12,15,20,25,35,45][Math.floor(rnd()*11)];
-        const remise=rem[1]===0?0:(Math.abs(rem[1])<1?r2(prix*rem[1]):rem[1]);const prixClient=r2(prix+remise);const taxe=paiement==='cb'?r2(prixClient*0.0175):0;const magasin=rem[0].indexOf('machine_cadeau')===0;const prime=r2((magasin?prix:prixClient)-taxe);
+        const remise=rem[1]===0?0:(Math.abs(rem[1])<1?r2(prix*rem[1]):rem[1]);const prixClient=r2(prix-Math.abs(remise));const taxe=paiement==='cb'?r2(prixClient*0.0175):0;const prime=r2(prixClient-taxe);
         rows.push({date:d.toISOString().slice(0,10),createur:v,panier,vente:vente++,reference:refs[Math.floor(rnd()*refs.length)],paiement,remiseType:rem[0],prix,remise,prixClient,taxe,prime});
       }}
   }

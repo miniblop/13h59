@@ -1,46 +1,24 @@
 /*************************************************************
- *  CAISSE 13h59 — système d'encaissement
- *  À coller dans : Extensions ▸ Apps Script ▸ fichier Code.gs
- *
- *  Principe : la caisse écrit les colonnes de SAISIE dans l'onglet
- *  "ventes" et RECOPIE tes formules existantes vers le bas pour les
- *  colonnes calculées (remise, prix_client, taxe, prime du créateur).
- *  => c'est ta propre logique de calcul qui s'applique.
- *  Un calcul de secours est prévu si une colonne n'est pas une formule.
+ *  CAISSE 13h59 — enregistrement des ventes (backoffice v1)
+ *  La caisse écrit des VALEURS dans l'onglet `ventes` (aucune formule) :
+ *  remise, prix client, frais et prime sont calculés ici, à partir des
+ *  onglets `remises` et `paiements`. Chaque vente référence son créateur
+ *  par `id_createur` (clé de l'onglet `createurs`).
  *************************************************************/
 
 // ===================== CONFIGURATION =======================
 
+// Onglets du backoffice : une future table de base de données chacun.
 const SHEET_VENTES    = 'ventes';
+const SHEET_CREATEURS = 'createurs';
 const SHEET_REMISES   = 'remises';
+const SHEET_PAIEMENTS = 'paiements';
+const SHEET_JOURNAL   = 'journal';
 
-// Le Google Sheet garde son vocabulaire historique « vendeur » (onglet et colonnes) :
-// on le renommera au passage à Postgres. Le code ne l'utilise qu'à travers ces noms.
-const SHEET_CREATEURS    = 'vendeurs';
-const COL_CREATEUR       = 'vendeur';
-const COL_NOM_CREATEUR   = 'nom_vendeur';
-const COL_PRIME_CREATEUR = 'prime_vendeur';
-
-// Onglets du backoffice (une future table chacun).
-const SHEET_STANDS       = 'stands';
-const SHEET_EMPLACEMENTS = 'emplacements';
-const SHEET_JOURNAL      = 'journal';
-
-// Remises PRISES EN CHARGE PAR LE MAGASIN
-// (le créateur touche sa prime sur le prix PLEIN, pas sur le prix client).
-// >>> Vérifie / complète cette liste si besoin. <<<
-const REMISES_MAGASIN = ['machine_cadeau_5€', 'machine_cadeau_10%', 'machine_cadeau_20%'];
-
-// Taux de taxe par type de paiement — SECOURS uniquement
-// (utilisé seulement si la colonne "taxe" n'est PAS une formule).
-const TAUX_TAXE = { 'cb': 0.0175, 'espèces': 0, 'especes': 0 };
-
-// Types de paiement proposés dans la caisse.
-const TYPES_PAIEMENT = ['cb', 'espèces'];
-
-// Colonne "validation" : la caisse n'y touche pas par défaut
-// (nouvelle vente = non validée). Passe à true pour cocher automatiquement.
-const COCHER_VALIDATION = false;
+const COLONNES_VENTES = [
+  'id_vente', 'id_panier', 'date', 'id_createur', 'reference', 'code_remise', 'code_paiement',
+  'prix', 'remise', 'prix_client', 'frais', 'prime', 'id_transaction'
+];
 
 // ===========================================================
 
@@ -74,64 +52,93 @@ function _headerMap(sheet) {
   return { map: map, entetes: entetes, nbCol: nbCol };
 }
 
+/** Lit un onglet en objets {entête: valeur}. */
+function _lireTable(sh) {
+  const n = sh.getLastRow() - 1;
+  if (n < 1) return [];
+  const h = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(_norm);
+  return sh.getRange(2, 1, n, h.length).getValues().map(function (r) {
+    const o = {}; h.forEach(function (k, i) { if (k) o[k] = r[i]; }); return o;
+  });
+}
+
+function _onglet(ss, nom) {
+  const sh = ss.getSheetByName(nom);
+  if (!sh) throw new Error("Onglet « " + nom + " » introuvable.");
+  return sh;
+}
+
+/* ---------- Référentiels ---------- */
+
+/** Tous les créateurs : { parId: {id: {id, nom, actif}}, parCle: {nom normalisé: id} }. */
+function _createurs(ss) {
+  const parId = {}, parCle = {};
+  _lireTable(_onglet(ss, SHEET_CREATEURS)).forEach(function (c) {
+    const id = String(c['id_createur'] || '').trim();
+    const nom = _nomPropre(c['nom']);
+    if (!id || !nom) return;
+    parId[id] = { id: id, nom: nom, actif: _norm(c['statut']) === 'actif' };
+    parCle[nom.toLowerCase()] = id;
+  });
+  return { parId: parId, parCle: parCle };
+}
+
+/** Remises actives, par code : {code: {code, valeur, estPourcentage}} (valeur négative). */
+function _remises(ss) {
+  const out = {};
+  _lireTable(_onglet(ss, SHEET_REMISES)).forEach(function (r) {
+    const code = String(r['code'] || '').trim();
+    if (!code || _norm(r['statut']) !== 'actif') return;
+    out[code] = { code: code, valeur: Number(r['valeur']) || 0, estPourcentage: _norm(r['type']) === 'pourcentage' };
+  });
+  return out;
+}
+
+/** Moyens de paiement actifs, par code : {code: taux_frais}. */
+function _paiements(ss) {
+  const out = {};
+  _lireTable(_onglet(ss, SHEET_PAIEMENTS)).forEach(function (p) {
+    const code = _norm(p['code']);
+    if (code && _norm(p['statut']) === 'actif') out[code] = Number(p['taux_frais']) || 0;
+  });
+  return out;
+}
+
+/** Montants d'une ligne : la remise est toujours à la charge du créateur. */
+function _montants(prix, remise, tauxFrais) {
+  const r = remise.estPourcentage ? _round2(prix * remise.valeur) : _round2(remise.valeur);
+  const prixClient = _round2(prix - Math.abs(r));
+  const frais = _round2(prixClient * tauxFrais);
+  return { remise: r, prixClient: prixClient, frais: frais, prime: _round2(prixClient - frais) };
+}
+
 /* ---------- Données pour l'interface ---------- */
 
-/** Renvoie tout ce dont l'interface a besoin au chargement. */
+/** Renvoie tout ce dont l'interface caisse a besoin au chargement. */
 function getCaisseData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const cr = _createurs(ss);
+  const createurs = Object.keys(cr.parId).map(function (id) { return cr.parId[id]; })
+    .filter(function (c) { return c.actif; })
+    .map(function (c) { return { id: c.id, nom: c.nom }; })
+    .sort(function (a, b) { return a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }); });
+  const rem = _remises(ss);
+  const remises = Object.keys(rem).map(function (k) { return rem[k]; });
 
-  // --- Créateurs actifs ---
-  const shC = ss.getSheetByName(SHEET_CREATEURS);
-  const hC = _headerMap(shC);
-  const cNomC = hC.map[COL_NOM_CREATEUR];
-  const cStatC = hC.map['status'];
-  const dataC = shC.getRange(2, 1, Math.max(0, shC.getLastRow() - 1), hC.nbCol).getValues();
-  const createurs = dataC
-    .filter(function (r) { return _norm(r[cStatC]) === 'actif' && String(r[cNomC]).trim() !== ''; })
-    .map(function (r) { return String(r[cNomC]).trim(); });
-  // dédoublonnage + tri
-  const createursUniques = Array.from(new Set(createurs)).sort(function (a, b) {
-    return a.localeCompare(b, 'fr', { sensitivity: 'base' });
-  });
-
-  // --- Remises actives ---
-  const shR = ss.getSheetByName(SHEET_REMISES);
-  const hR = _headerMap(shR);
-  const cNomR = hR.map['type_de_remise'];
-  const cValR = hR.map['valeur'];
-  const cTypeR = hR.map['type'];
-  const cStatR = hR.map['status'];
-  const dataR = shR.getRange(2, 1, Math.max(0, shR.getLastRow() - 1), hR.nbCol).getValues();
-  const remises = dataR
-    .filter(function (r) { return _norm(r[cStatR]) === 'actif' && String(r[cNomR]).trim() !== ''; })
-    .map(function (r) {
-      const nom = String(r[cNomR]).trim();
-      return {
-        nom: nom,
-        valeur: Number(r[cValR]) || 0,            // ex : -0.10 (%) ou -5 (€)
-        estPourcentage: _norm(r[cTypeR]) === 'pourcentage',
-        magasin: REMISES_MAGASIN.indexOf(nom) !== -1
-      };
-    });
-
-  // --- Prochains numéros (depuis l'onglet ventes) ---
-  const shVe = ss.getSheetByName(SHEET_VENTES);
-  const hVe = _headerMap(shVe);
-  const nbLignes = Math.max(0, shVe.getLastRow() - 1);
-  let maxPanier = 0, maxVente = 0;
-  if (nbLignes > 0) {
-    const colP = shVe.getRange(2, hVe.map['numero_panier'] + 1, nbLignes, 1).getValues();
-    const colVn = shVe.getRange(2, hVe.map['numero_vente'] + 1, nbLignes, 1).getValues();
-    colP.forEach(function (r) { const n = Number(r[0]); if (!isNaN(n)) maxPanier = Math.max(maxPanier, n); });
-    colVn.forEach(function (r) { const n = Number(r[0]); if (!isNaN(n)) maxVente = Math.max(maxVente, n); });
-  }
+  const sh = _onglet(ss, SHEET_VENTES);
+  const M = _headerMap(sh).map;
+  const n = Math.max(0, sh.getLastRow() - 1);
+  const max = function (col) {
+    if (!n || M[col] == null) return 0;
+    return sh.getRange(2, M[col] + 1, n, 1).getValues().reduce(function (m, r) { const x = Number(r[0]); return isNaN(x) ? m : Math.max(m, x); }, 0);
+  };
 
   return {
-    createurs: createursUniques,
+    createurs: createurs,
     remises: remises,
-    paiements: TYPES_PAIEMENT,
-    prochainPanier: maxPanier + 1,
-    prochaineVente: maxVente + 1
+    paiements: Object.keys(_paiements(ss)),
+    prochainPanier: max('id_panier') + 1,
+    prochaineVente: max('id_vente') + 1
   };
 }
 
@@ -147,25 +154,21 @@ function _idTxValide(id) {
 
 /**
  * Cette transaction a-t-elle déjà été écrite ? Renvoie le résultat d'origine, ou null.
- * 1) CacheService (rapide, mais « best effort » : Google peut l'effacer plus tôt) ;
- * 2) colonne « id_transaction » de l'onglet ventes, SI elle existe (filet durable).
+ * 1) CacheService (rapide, mais « best effort ») ; 2) colonne id_transaction (filet durable).
  */
 function _transactionDejaEcrite(sh, M, idTx) {
   const enCache = CacheService.getScriptCache().get('tx_' + idTx);
   if (enCache) return JSON.parse(enCache);
-
-  const col = M['id_transaction'];
-  if (col == null) return null;
   const last = sh.getLastRow();
   if (last < 2) return null;
   const n = Math.min(500, last - 1);            // une retentative arrive dans la minute
   const vals = sh.getRange(last - n + 1, 1, n, sh.getLastColumn()).getValues();
-  const lignes = vals.filter(function (r) { return String(r[col]) === idTx; });
+  const lignes = vals.filter(function (r) { return String(r[M['id_transaction']]) === idTx; });
   if (!lignes.length) return null;
   return {
     ok: true,
-    panier: lignes[0][M['numero_panier']],
-    ventes: lignes.map(function (r) { return r[M['numero_vente']]; }),
+    panier: lignes[0][M['id_panier']],
+    ventes: lignes.map(function (r) { return r[M['id_vente']]; }),
     nbLignes: lignes.length
   };
 }
@@ -173,132 +176,73 @@ function _transactionDejaEcrite(sh, M, idTx) {
 /* ---------- Enregistrement d'une vente ---------- */
 
 /**
- * Enregistre un panier dans l'onglet "ventes".
- * @param {Object} data  { idTransaction, paiement:'cb'|'espèces', lignes:[{createur,reference,prix,typeRemise}] }
+ * Enregistre un panier dans l'onglet `ventes`.
+ * @param {Object} data  { idTransaction, paiement, lignes:[{idCreateur, reference, prix, typeRemise}] }
  *   idTransaction : identifiant unique généré par le site pour CE panier. Si la même
- *   transaction arrive deux fois (clic répété, réponse perdue puis « réessayer »),
- *   la seconde ne réécrit rien et renvoie le résultat de la première (deja:true).
- * @return {Object} { ok, panier, ventes:[numeros], nbLignes, deja }
+ *   transaction arrive deux fois (réponse perdue puis « réessayer »), la seconde
+ *   n'écrit rien et renvoie le résultat de la première (deja:true).
+ * @return {Object} { ok, panier, ventes:[id_vente], nbLignes, deja }
  */
 function enregistrerVente(data) {
   const lock = LockService.getScriptLock();
-  lock.waitLock(15000); // évite les collisions de numéros si 2 saisies simultanées
+  lock.waitLock(15000); // deux saisies simultanées ne peuvent pas prendre les mêmes numéros
   try {
-    if (!data || !data.lignes || !data.lignes.length) {
-      throw new Error('Panier vide.');
-    }
+    if (!data || !data.lignes || !data.lignes.length) throw new Error('Panier vide.');
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sh = ss.getSheetByName(SHEET_VENTES);
+    const sh = _onglet(ss, SHEET_VENTES);
     const h = _headerMap(sh);
     const M = h.map;
-    const nbCol = h.nbCol;
+    COLONNES_VENTES.forEach(function (c) { if (M[c] == null) throw new Error("Colonne « " + c + " » absente de l'onglet « " + SHEET_VENTES + " »."); });
 
-    // --- Anti-doublon : vérifié DANS le verrou, donc deux envois simultanés
-    //     du même panier sont forcément traités l'un après l'autre.
     const idTx = _idTxValide(data.idTransaction) ? data.idTransaction : null;
     if (idTx) {
       const deja = _transactionDejaEcrite(sh, M, idTx);
       if (deja) { deja.deja = true; return deja; }
     }
 
-    // Recalcul autoritaire des numéros (dans le verrou).
+    const cr = _createurs(ss);
+    const remises = _remises(ss);
+    const paiements = _paiements(ss);
+    const paiement = _norm(data.paiement);
+    if (!(paiement in paiements)) throw new Error('Moyen de paiement inconnu : « ' + data.paiement + ' ».');
+
     const info = getCaisseData();
     const panier = info.prochainPanier;
     let vente = info.prochaineVente;
-
-    // Table des remises (pour le calcul de secours).
-    const remiseParNom = {};
-    info.remises.forEach(function (r) { remiseParNom[r.nom] = r; });
-
-    // Ligne modèle = dernière ligne de données (pour recopier formules + format).
-    const derniereLigne = sh.getLastRow();
-    const formulesR1C1 = derniereLigne >= 2
-      ? sh.getRange(derniereLigne, 1, 1, nbCol).getFormulasR1C1()[0]
-      : new Array(nbCol).fill('');
-
-    const nb = data.lignes.length;
-    const premiere = derniereLigne + 1;
-    const bloc = sh.getRange(premiere, 1, nb, nbCol);
-
-    // 1) FORMAT + VALIDATIONS du modèle, en une fois pour tout le panier
-    //    (avant : 2 copies + N appels PAR ligne → exécution lente → délais réseau).
-    if (derniereLigne >= 2) {
-      const src = sh.getRange(derniereLigne, 1, 1, nbCol);
-      src.copyTo(bloc, SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
-      src.copyTo(bloc, SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATION, false);
-
-      // Assouplit les validations « Refuser la saisie » (menu conservé, valeur hors
-      // liste acceptée) — sinon la caisse plante sur un nom absent de la liste.
-      const dvs = src.getDataValidations()[0];
-      for (var c = 0; c < nbCol; c++) {
-        var dv = dvs[c];
-        if (dv && dv.getAllowInvalid && !dv.getAllowInvalid()) {
-          sh.getRange(premiere, c + 1, nb, 1).setDataValidation(dv.copy().setAllowInvalid(true).build());
-        }
-      }
-    }
-
-    // Référence en TEXTE brut : sinon Sheets convertit « 20-2 » ou « 3/4 » en date.
-    if (M['reference_produit'] != null) {
-      sh.getRange(premiere, M['reference_produit'] + 1, nb, 1).setNumberFormat('@');
-    }
-
-    const aFormule = function (nomCol) {
-      const idx = M[nomCol];
-      return idx != null && formulesR1C1[idx] && formulesR1C1[idx] !== '';
-    };
-
-    // 2) Valeurs de saisie (+ calcul de secours si une colonne n'est pas une formule).
-    const numerosVente = [];
     const maintenant = new Date();
-    const tableau = data.lignes.map(function (ligne) {
-      const valeurs = new Array(nbCol).fill('');
-      const prix = Number(ligne.prix) || 0;
-      const typeRemise = ligne.typeRemise || 'pas_de_remise';
 
-      if (M['numero_panier'] != null)     valeurs[M['numero_panier']] = panier;
-      if (M['numero_vente'] != null)      valeurs[M['numero_vente']] = vente;
-      if (M['date'] != null)              valeurs[M['date']] = maintenant;
-      // `vendeur` : envoyé par une page de caisse restée ouverte depuis avant le renommage.
-      if (M[COL_CREATEUR] != null)        valeurs[M[COL_CREATEUR]] = ligne.createur != null ? ligne.createur : ligne.vendeur;
-      if (M['reference_produit'] != null) valeurs[M['reference_produit']] = String(ligne.reference || '');
-      if (M['type_de_remise'] != null)    valeurs[M['type_de_remise']] = typeRemise;
-      if (M['type_de_paiement'] != null)  valeurs[M['type_de_paiement']] = data.paiement;
-      if (M['prix'] != null)              valeurs[M['prix']] = prix;
-      if (M['id_transaction'] != null)    valeurs[M['id_transaction']] = idTx || '';
-
-      const rd = remiseParNom[typeRemise] || { valeur: 0, estPourcentage: false, magasin: false };
-      const remise = rd.estPourcentage ? _round2(prix * rd.valeur) : _round2(rd.valeur);
-      const prixClient = _round2(prix + remise);
-      const taux = TAUX_TAXE[_norm(data.paiement)] || 0;
-      const taxe = _round2(prixClient * taux);
-      const prime = rd.magasin ? _round2(prix - taxe) : _round2(prixClient - taxe);
-
-      if (M['remise'] != null && !aFormule('remise'))               valeurs[M['remise']] = remise;
-      if (M['prix_client'] != null && !aFormule('prix_client'))     valeurs[M['prix_client']] = prixClient;
-      if (M['taxe'] != null && !aFormule('taxe'))                   valeurs[M['taxe']] = taxe;
-      if (M[COL_PRIME_CREATEUR] != null && !aFormule(COL_PRIME_CREATEUR)) valeurs[M[COL_PRIME_CREATEUR]] = prime;
-
-      if (M['validation'] != null) valeurs[M['validation']] = COCHER_VALIDATION ? true : '';
-
-      numerosVente.push(vente);
-      vente++;
-      return valeurs;
+    const lignes = data.lignes.map(function (l) {
+      // Une page de caisse ouverte avant la mise à jour envoie le NOM (createur, ou vendeur avant le renommage).
+      const nom = l.createur != null ? l.createur : l.vendeur;
+      const id = (l.idCreateur && cr.parId[l.idCreateur]) ? l.idCreateur : cr.parCle[_nomPropre(nom).toLowerCase()];
+      if (!id) throw new Error('Créateur inconnu : « ' + (l.idCreateur || nom || '?') + ' ».');
+      const prix = Number(l.prix);
+      if (!(prix > 0)) throw new Error('Prix invalide pour ' + cr.parId[id].nom + '.');
+      const code = String(l.typeRemise || 'pas_de_remise').trim();
+      const remise = remises[code];
+      if (!remise) throw new Error('Remise inconnue ou inactive : « ' + code + ' ».');
+      const m = _montants(prix, remise, paiements[paiement]);
+      const valeurs = {
+        id_vente: vente++, id_panier: panier, date: maintenant, id_createur: id,
+        reference: String(l.reference || ''), code_remise: code, code_paiement: paiement,
+        prix: prix, remise: m.remise, prix_client: m.prixClient, frais: m.frais, prime: m.prime,
+        id_transaction: idTx || ''
+      };
+      const ligne = new Array(h.nbCol).fill('');
+      COLONNES_VENTES.forEach(function (c) { ligne[M[c]] = valeurs[c]; });
+      return ligne;
     });
 
-    // 3) Écriture du panier en un seul appel.
-    bloc.setValues(tableau);
-
-    // 4) Formules du modèle (R1C1 = recopie relative correcte), une colonne à la fois.
-    for (let c = 0; c < nbCol; c++) {
-      if (formulesR1C1[c] && formulesR1C1[c] !== '') {
-        sh.getRange(premiere, c + 1, nb, 1).setFormulaR1C1(formulesR1C1[c]);
-      }
-    }
-
+    const derniere = sh.getLastRow();
+    const bloc = sh.getRange(derniere + 1, 1, lignes.length, h.nbCol);
+    if (derniere >= 2) sh.getRange(derniere, 1, 1, h.nbCol).copyTo(bloc, SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+    // Référence en texte brut : sinon Sheets convertit « 20-2 » ou « 3/4 » en date.
+    sh.getRange(derniere + 1, M['reference'] + 1, lignes.length, 1).setNumberFormat('@');
+    bloc.setValues(lignes);
     SpreadsheetApp.flush();
-    const res = { ok: true, panier: panier, ventes: numerosVente, nbLignes: nb, deja: false };
+
+    const res = { ok: true, panier: panier, ventes: lignes.map(function (l) { return l[M['id_vente']]; }), nbLignes: lignes.length, deja: false };
     if (idTx) CacheService.getScriptCache().put('tx_' + idTx, JSON.stringify(res), ANTI_DOUBLON_TTL);
     return res;
 
@@ -312,49 +256,33 @@ function enregistrerVente(data) {
 /* ---------- Récap des ventes d'une journée (onglet Caisse du site) ---------- */
 
 /**
- * Lignes de l'onglet "ventes" pour un jour donné (lecture seule).
+ * Ventes d'un jour donné (lecture seule), avec le nom du créateur.
  * @param {string} jourStr  'yyyy-MM-dd' ; vide/invalide = aujourd'hui (fuseau du classeur).
  */
 function getVentesDuJour(jourStr) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sh = ss.getSheetByName(SHEET_VENTES);
   const tz = ss.getSpreadsheetTimeZone();
-  const jour = /^\d{4}-\d{2}-\d{2}$/.test(String(jourStr || ''))
-    ? jourStr
-    : Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
-
-  const h = _headerMap(sh);
-  const M = h.map;
-  const last = sh.getLastRow();
-  if (last < 2) return { jour: jour, lignes: [] };
-
-  const data = sh.getRange(2, 1, last - 1, h.nbCol).getValues();
-  const get = function (r, nom) { return M[nom] != null ? r[M[nom]] : ''; };
+  const jour = /^\d{4}-\d{2}-\d{2}$/.test(String(jourStr || '')) ? jourStr : Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  const noms = _createurs(ss).parId;
   const num = function (v) { const n = Number(v); return isNaN(n) ? 0 : n; };
-
   const lignes = [];
-  data.forEach(function (r) {
-    const d = get(r, 'date');
-    let j, heure = '';
-    if (d instanceof Date) {
-      j = Utilities.formatDate(d, tz, 'yyyy-MM-dd');
-      heure = Utilities.formatDate(d, tz, 'HH:mm');
-    } else {
-      j = String(d || '').trim().slice(0, 10);
-    }
-    if (j !== jour) return;
-    const p = get(r, 'numero_panier');
+  _lireTable(_onglet(ss, SHEET_VENTES)).forEach(function (v) {
+    const d = v['date'];
+    if (!(d instanceof Date) || Utilities.formatDate(d, tz, 'yyyy-MM-dd') !== jour) return;
+    const heure = Utilities.formatDate(d, tz, 'HH:mm');
+    const id = String(v['id_createur'] || '');
     lignes.push({
-      panier: (p === '' || p == null) ? null : num(p),
-      vente: num(get(r, 'numero_vente')),
+      panier: v['id_panier'] === '' || v['id_panier'] == null ? null : num(v['id_panier']),
+      vente: num(v['id_vente']),
       heure: heure === '00:00' ? '' : heure,   // 00:00 = saisie manuelle sans heure
-      createur: String(get(r, COL_CREATEUR) || ''),
-      reference: String(get(r, 'reference_produit') || ''),
-      remiseType: String(get(r, 'type_de_remise') || '').trim(),
-      paiement: String(get(r, 'type_de_paiement') || '').trim(),
-      prix: num(get(r, 'prix')),
-      remise: num(get(r, 'remise')),
-      prixClient: num(get(r, 'prix_client'))
+      idCreateur: id,
+      createur: noms[id] ? noms[id].nom : id,
+      reference: String(v['reference'] || ''),
+      remiseType: String(v['code_remise'] || '').trim(),
+      paiement: String(v['code_paiement'] || '').trim(),
+      prix: num(v['prix']),
+      remise: num(v['remise']),
+      prixClient: num(v['prix_client'])
     });
   });
   return { jour: jour, lignes: lignes };
