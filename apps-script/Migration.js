@@ -19,7 +19,6 @@ const ANCIEN_COL_NOM        = 'nom_vendeur';
 const ANCIEN_COL_PRIME      = 'prime_vendeur';
 
 const SHEET_CREATEURS_V1  = 'createurs';
-const SHEET_CATEGORIES    = 'categories';
 const SHEET_CORRESPONDANCE = '_correspondance_noms';
 
 const COLONNES_CREATEURS_V1 = [

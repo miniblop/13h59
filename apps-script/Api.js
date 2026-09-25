@@ -33,7 +33,7 @@ function _acces() {
 }
 
 /** Numéro de version du code — sert à vérifier ce qui est réellement DÉPLOYÉ. */
-function _version() { return '2026-09-backoffice-v1'; }
+function _version() { return '2026-09-gestion-createurs'; }
 
 /** Point d'entrée des appels POST du site. */
 function doPost(e) {
@@ -44,6 +44,7 @@ function doPost(e) {
     if (body.action === 'caisse_data') return _caisseData(body);
     if (body.action === 'caisse_save') return _caisseSave(body);
     if (body.action === 'caisse_jour') return _caisseJour(body);
+    if (String(body.action).indexOf('gestion_') === 0) return _json(_gestion(body));
     return _json({ ok: false, message: 'Action inconnue.' });
   } catch (err) {
     return _json({ ok: false, message: 'Erreur : ' + (err && err.message ? err.message : err) });
@@ -96,6 +97,9 @@ function _refusCaisse(body) {
 function _caisseData(body) {
   const refus = _refusCaisse(body);
   if (refus) return _json({ ok: false, message: refus });
+  // À l'ouverture de la caisse, les créateurs qui arrivent ou partent aujourd'hui sont mis à jour.
+  const lock = LockService.getScriptLock();
+  if (lock.tryLock(5000)) { try { _synchroniserStatuts(SpreadsheetApp.getActiveSpreadsheet()); SpreadsheetApp.flush(); } finally { lock.releaseLock(); } }
   const d = getCaisseData();
   d.ok = true;
   d.role = _role(body.password);

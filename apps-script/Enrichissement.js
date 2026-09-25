@@ -11,8 +11,6 @@
 
 const ID_FICHIER_BASE   = '1h538tdGm8Y-DzjdI0PND7XKkcYDArJdmYZWin20omDg';
 const ID_FICHIER_LISTE  = '1Jg79ugNWQJqYCqYoR9mektHCgv8sDPMEtVVnufD9B2Q';
-const SHEET_STANDS       = 'stands';
-const SHEET_EMPLACEMENTS = 'emplacements';
 const SHEET_REVUE        = '_revue_enrichissement';
 
 const STANDS_INITIAUX = [
@@ -25,7 +23,6 @@ const STANDS_INITIAUX = [
 const STAND_PAR_LOYER = { 28: 'illu', 48: 'unique', 68: 'grand', 70: 'friperie' };
 const STAND_PAR_COLONNE_F9 = { 'S.UNIQUE': 'unique', 'STAND ILLU': 'illu', 'FRIPE': 'friperie', 'STAND 68': 'grand' };
 const CATEGORIE_PAR_GROUPE = { 'BIJOUX': 'bijoux', 'ACCESSOIRES': 'accessoires', 'DECO': 'deco', 'ILLUSTRATION': 'illustration', 'FRIPE': 'friperie', '1.SHOP ET RESIDENT': 'shop' };
-const COLONNES_EMPLACEMENTS = ['id_emplacement', 'id_createur', 'code_stand', 'debut', 'fin', 'preavis_recu_le', 'accueil_par', 'motif_fin', 'remarque'];
 
 /** Valeur d'une colonne, quel que soit l'accent, l'apostrophe ou la casse de son en-tête. */
 function _champ(o, nom) {
@@ -57,18 +54,6 @@ function _rapprocheur(createurs) {
 function apercuEnrichissement() { _etape6(true); }
 function etape6Enrichissement() { _etape6(false); }
 
-function _telephone(v) {
-  let d = String(v == null ? '' : v).replace(/\D/g, '');
-  if (d.length === 9) d = '0' + d;
-  if (d.length === 11 && d.indexOf('33') === 0) d = '0' + d.slice(2);
-  return d.length === 10 ? d.replace(/(\d{2})(?=\d)/g, '$1 ') : String(v || '').trim();
-}
-function _siretValide(s) {
-  if (!/^\d{14}$/.test(s)) return false;
-  let t = 0;
-  for (let i = 0; i < 14; i++) { let n = +s[13 - i]; if (i % 2) { n *= 2; if (n > 9) n -= 9; } t += n; }
-  return t % 10 === 0 || s.indexOf('356000000') === 0;   // La Poste : exception connue
-}
 /** « 12 rue X, 59000 Lille » → {cp:'59000', ville:'Lille'} (dernier code postal trouvé). */
 function _cpVille(adresse) {
   const a = String(adresse || '').replace(/\s+/g, ' ').trim();
@@ -253,15 +238,6 @@ function _etape6(apercu) {
  *  Rien n'est deviné : une valeur qui n'est pas un compte est signalée.
  *************************************************************/
 
-/** « @nom », « nom » ou un lien instagram.com/nom?igsh=… → « nom » ; sinon null. */
-function _compteInstagram(v) {
-  const s = String(v == null ? '' : v).trim();
-  const m = s.match(/instagram\.com\/([A-Za-z0-9._]+)/i);
-  if (m) return m[1].toLowerCase();
-  const h = s.replace(/^@/, '').trim();
-  return /^[A-Za-z0-9._]{2,30}$/.test(h) && /[a-z]/i.test(h) ? h.toLowerCase() : null;
-}
-const _lienInstagram = function (compte) { return 'https://www.instagram.com/' + compte + '/'; };
 
 function apercuInstagram() { _instagram(true); }
 function completerInstagram() { _instagram(false); }

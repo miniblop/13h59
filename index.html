@@ -145,6 +145,57 @@
     h2{font-size:14px}
   }
   @media(max-width:420px){ .filters{grid-template-columns:1fr} }
+  /* --- gestion : sous-onglets et créateurs --- */
+  .subtabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:0 0 16px}
+  .subtab{padding:10px 14px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .subtab.active{color:var(--ink);border-bottom-color:var(--ink)}
+  .gc-places{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+  .gc-place{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .gc-place.over{border-color:#e5b9b3;background:#fdf8f7}
+  .gc-place .k{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.4px;text-transform:uppercase;display:flex;justify-content:space-between;gap:6px}
+  .gc-place .v{font-size:22px;font-weight:800;margin-top:5px}
+  .gc-place .v small{font-size:13px;color:var(--muted);font-weight:700}
+  .gc-place .l{font-size:12px;color:#6f6c65;line-height:1.55}
+  .gc-bar{height:6px;border-radius:4px;background:var(--grid);margin:8px 0;overflow:hidden;display:flex}
+  .gc-bar i{display:block;height:100%}
+  .gc-bar .o{background:var(--ink)}.gc-bar .p{background:#c9a55c}.gc-bar .x{background:var(--neg)}
+  .gc-chip{padding:7px 12px;border-radius:999px;background:var(--chip);font-weight:700;font-size:12px;cursor:pointer;user-select:none;white-space:nowrap;display:inline-block;margin:0 6px 6px 0}
+  .gc-chip.on{background:var(--band);color:#fff}
+  .gc-chip .c{opacity:.6;margin-left:4px}
+  .gc-main{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:16px;align-items:start}
+  .gc-list{max-height:620px}
+  .gc-list th,.gc-list td{text-align:left}
+  .gc-list th{position:sticky;top:0;background:#fff;z-index:1}
+  #gcTbl tbody tr{cursor:pointer}
+  #gcTbl tbody tr:hover td{background:#faf9f7}
+  #gcTbl tbody tr.sel td{background:var(--tot)}
+  .gc-sub{display:block;font-size:11px;color:var(--muted);font-weight:400}
+  .gc-st{display:inline-block;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700;white-space:nowrap}
+  .gc-st.actif{background:#eef6f0;color:var(--pos)}
+  .gc-st.preavis{background:#fbf3e2;color:#8a6d3b}
+  .gc-st.inactif{background:var(--chip);color:#8b887f}
+  .gc-st.benev{background:#fdf0e6;color:#a0522d}
+  .gc-ko{color:#8a6d3b;font-weight:700}.gc-ok{color:var(--pos);font-weight:700}
+  .gc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .gc-head .nm{font-size:18px;font-weight:800}
+  .gc-docs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+  .gc-doc{background:var(--tot);border-radius:10px;padding:9px 10px;font-size:12px}
+  .gc-doc .k{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+  .gc-doc .v{font-weight:700;margin-top:2px}
+  .gc-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .gc-form .full{grid-column:1/-1}
+  .gc-check{display:flex;gap:9px;align-items:center;font-size:13px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--ink);font-weight:400}
+  .gc-check input{width:17px;height:17px;margin:0;accent-color:#111}
+  .gc-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  .gc-why{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
+  .gc-h4{margin:18px 0 8px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:800}
+  .gc-ev{display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .gc-ev:last-child{border-bottom:none}
+  .gc-ev .d{flex:0 0 58px;background:var(--tot);border-radius:9px;padding:5px 4px;text-align:center;font-weight:800;font-size:13px}
+  .btn-danger{background:#fbeceb;color:var(--neg)}
+  .btn[disabled]{opacity:.45;cursor:not-allowed}
+  @media(max-width:960px){.gc-main{grid-template-columns:minmax(0,1fr)}.gc-places{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.gc-places,.gc-form,.gc-docs{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -245,6 +296,8 @@
 
   <!-- ONGLET GESTION -->
   <div id="viewGestion" class="hide">
+    <div class="subtabs" id="gSubtabs"><div class="subtab active" data-sub="stats">Statistiques</div><div class="subtab" data-sub="createurs">Créateurs</div></div>
+    <div id="gStats">
     <div class="card">
       <h2>Espace gestion</h2>
       <div class="filters" style="margin-top:12px">
@@ -267,6 +320,39 @@
     <div id="gTables"></div>
     <div class="card"><div class="cardhead"><h2>Récapitulatif (par <span id="gDimLabel">semaine</span>)</h2><button class="btn-dl" data-tbl="gRecap" data-name="recap_gestion">⬇︎ CSV</button></div><div class="tblwrap"><table id="gRecap"></table></div></div>
     <div class="card"><div class="cardhead"><h2>Détail des ventes <span id="gDetailNote" class="muted" style="font-weight:400;font-size:12px"></span></h2><button class="btn-dl" data-type="detail-g" data-name="detail_gestion">⬇︎ CSV</button></div><div class="tblwrap"><table id="gDetail"></table></div></div>
+    </div>
+    <div id="gCreat" class="hide">
+      <div id="gcErr" class="warn hide"></div>
+      <div class="card">
+        <div class="cardhead" style="margin-bottom:0">
+          <div><h2>Créateurs</h2><div class="muted" style="font-size:12px;margin-top:4px">Un créateur = un seul stand · préavis d'un mois, reçu par e-mail</div></div>
+          <div class="gc-acts" style="margin-top:0"><button class="btn-dl" id="gcRefresh">↻ Actualiser</button><button class="btn btn-ghost" id="gcAjout">＋ Ajouter un créateur</button></div>
+        </div>
+        <div id="gcAjoutForm" class="hide" style="margin-top:14px;border-top:1px dashed var(--line);padding-top:14px">
+          <div class="gc-form">
+            <div><label>Nom de marque</label><input id="gcNNom" placeholder="Atelier Lune"></div>
+            <div><label>E-mail</label><input id="gcNEmail" type="email" placeholder="contact@exemple.fr"></div>
+            <div><label>Catégorie</label><select id="gcNCat"></select></div>
+            <div><label>Stand (facultatif)</label><select id="gcNStand"></select></div>
+            <div><label>Arrivée en boutique</label><input id="gcNDebut" type="date"></div>
+            <div><label>Accueil par</label><input id="gcNAccueil" placeholder="Caro"></div>
+          </div>
+          <div class="gc-acts"><button class="btn btn-accent" id="gcNOk">Créer le créateur</button><button class="btn btn-ghost" id="gcNAnnuler">Annuler</button></div>
+          <div class="gc-why">Le créateur apparaît dans la caisse à partir de sa date d'arrivée. Sans stand, il est créé « inactif ».</div>
+        </div>
+      </div>
+      <h3>Places</h3>
+      <div class="gc-places" id="gcPlaces"></div>
+      <div class="card"><div class="cardhead"><h2>Départs à venir</h2><span class="muted" style="font-size:12px">pour prévenir le ou la bénévole de permanence</span></div><div id="gcAgenda"></div></div>
+      <div class="gc-main">
+        <div class="card">
+          <div id="gcChips"></div>
+          <div class="row2" style="margin:6px 0 10px"><input id="gcSearch" placeholder="Rechercher une marque, un nom, un e-mail…"><select id="gcCat"></select></div>
+          <div class="tblwrap gc-list"><table id="gcTbl"></table></div>
+        </div>
+        <div class="card" id="gcFiche"><div class="muted">Sélectionne un créateur dans la liste.</div></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -473,6 +559,11 @@ const API = {
   async caisseSave(password,payload){
     if(DEMO_MODE){return {ok:true,panier:9001,ventes:payload.lignes.map((_,i)=>9001+i),nbLignes:payload.lignes.length};}
     const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify({action:'caisse_save',password,payload})});
+    return res.json();
+  },
+  async gestion(action,params){
+    if(DEMO_MODE) return DEMO_G(action,params||{});
+    const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify(Object.assign({action,password:S.pwd},params||{}))});
     return res.json();
   },
   async caisseJour(password,date){
@@ -1011,6 +1102,239 @@ function renderJour(lignes){
 }
 $('cJourRefresh').addEventListener('click',chargerJour);
 $('cJourDate').addEventListener('change',chargerJour);
+
+/* ===================== GESTION ▸ CRÉATEURS ===================== */
+const GC={data:null,filtre:'actif',cat:'',q:'',sel:null,charge:false};
+const STAND_COURT={illu:'Illu',unique:'Unique',grand:'Grand',friperie:'Friperie'};
+const GC_LIB={actif:'Actif',preavis:'En préavis',inactif:'Inactif',tous:'Tous'};
+/* champs de la fiche : clé côté site, libellé, type, nom de la colonne du Sheet */
+const GC_CHAMPS=[['nom','Nom de marque','text','nom'],['nomLegal','Nom légal','text','nom_legal'],['email','E-mail','email','email'],['telephone','Téléphone','tel','telephone'],
+  ['adresse','Adresse','text','adresse',true],['codePostal','Code postal','text','code_postal'],['ville','Ville','text','ville'],['siret','SIRET','text','siret'],
+  ['iban','IBAN (virements)','text','iban'],['instagram','Instagram','text','instagram'],['adhesion','Adhésion payée le','date','adhesion_payee_le']];
+const isoJour=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const fmtD=iso=>iso?iso.slice(8,10)+'/'+iso.slice(5,7)+'/'+iso.slice(0,4):'';
+function plusUnMois(iso){const [y,m,d]=iso.split('-').map(Number);const fin=new Date(y,m+1,0).getDate();return isoJour(new Date(y,m,Math.min(d,fin)));}
+function gcAuj(){return GC.data.aujourdhui;}
+function gcEmpls(id){return GC.data.emplacements.filter(e=>e.idCreateur===id).sort((a,b)=>b.debut.localeCompare(a.debut));}
+function gcActifLe(e,d){return !!e.debut&&e.debut<=d&&(!e.fin||e.fin>=d);}
+function gcCourant(id){const a=gcAuj(),l=gcEmpls(id);return l.find(e=>gcActifLe(e,a))||l.find(e=>e.debut>a)||null;}
+function gcEtat(c){const e=gcCourant(c.id);if(c.statut==='actif'&&e&&e.fin&&e.fin>=gcAuj())return 'preavis';return c.statut==='actif'?'actif':'inactif';}
+function gcManque(c){return [['email','e-mail'],['telephone','téléphone'],['siret','SIRET'],['ibanFin','IBAN'],['adresse','adresse']].filter(([k])=>!c[k]).map(([,l])=>l);}
+function gcCat(code){const x=GC.data.categories.find(c=>c.code===code);return x?x.libelle:(code||'—');}
+function gcStand(code){return STAND_COURT[code]||code||'—';}
+function gcOccupation(code,d,sauf){return GC.data.emplacements.filter(e=>e.stand===code&&e.idCreateur!==sauf&&gcActifLe(e,d)).length;}
+
+async function gcCharger(garder){
+  $('gcErr').classList.add('hide');
+  try{
+    const r=await API.gestion('gestion_createurs');
+    if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
+    GC.data=r;GC.charge=true;
+    if(!garder)GC.sel=null;
+    gcInitSelects();gcRender();
+  }catch(e){$('gcErr').classList.remove('hide');$('gcErr').textContent='⚠️ Créateurs indisponibles : '+((e&&e.message)||e);}
+}
+function gcInitSelects(){
+  const cats=GC.data.categories.filter(c=>c.actif);
+  $('gcCat').innerHTML='<option value="">Toutes les catégories</option>'+cats.map(c=>`<option value="${FMT.esc(c.code)}"${c.code===GC.cat?' selected':''}>${FMT.esc(c.libelle)}</option>`).join('');
+  $('gcNCat').innerHTML='<option value="">—</option>'+cats.map(c=>`<option value="${FMT.esc(c.code)}">${FMT.esc(c.libelle)}</option>`).join('');
+  $('gcNStand').innerHTML='<option value="">Aucun pour l\'instant</option>'+GC.data.stands.map(s=>`<option value="${FMT.esc(s.code)}">${FMT.esc(s.libelle)} · ${s.loyer} €</option>`).join('');
+  if(!$('gcNDebut').value)$('gcNDebut').value=gcAuj();
+}
+function gcRender(){gcRenderPlaces();gcRenderAgenda();gcRenderListe();gcRenderFiche();}
+
+function gcRenderPlaces(){
+  const a=gcAuj();
+  $('gcPlaces').innerHTML=GC.data.stands.map(s=>{
+    const actifs=GC.data.emplacements.filter(e=>e.stand===s.code&&gcActifLe(e,a)),preavis=actifs.filter(e=>e.fin);
+    const occ=actifs.length,fermes=occ-preavis.length,over=occ>s.places,tot=Math.max(s.places,occ,1),w=x=>(100*Math.max(0,x)/tot)+'%',libres=s.places-occ;
+    const detail=(over?`<b style="color:var(--neg)">${occ-s.places} de trop</b><br>`:'')+
+      (preavis.length?`${preavis.length} en préavis · prochain départ le ${fmtD(preavis.map(e=>e.fin).sort()[0]).slice(0,5)}<br>`:'')+
+      (libres>0?`<b style="color:var(--pos)">${libres} place${libres>1?'s':''} libre${libres>1?'s':''}</b>`:'Complet');
+    return `<div class="gc-place${over?' over':''}"><div class="k"><span>${FMT.esc(s.libelle)}</span><span>${s.loyer} €</span></div><div class="v">${occ} <small>/ ${s.places} places</small></div>`+
+      `<div class="gc-bar"><i class="o" style="width:${w(Math.min(fermes,s.places))}"></i><i class="p" style="width:${w(Math.min(preavis.length,s.places-Math.min(fermes,s.places)))}"></i><i class="x" style="width:${w(occ-s.places)}"></i></div><div class="l">${detail}</div></div>`;
+  }).join('');
+}
+function gcRenderAgenda(){
+  const a=gcAuj(),nom=id=>{const c=GC.data.createurs.find(c=>c.id===id);return c?c.nom:id;};
+  const ev=[
+    ...GC.data.emplacements.filter(e=>e.fin&&e.fin>=a&&e.motifFin!=='changement_stand').map(e=>({d:e.fin,t:`<b>Départ ${FMT.esc(nom(e.idCreateur))}</b> · ${gcStand(e.stand)}${e.motifFin==='pause'?' (pause)':''}`})),
+    ...GC.data.emplacements.filter(e=>e.debut>a).map(e=>({d:e.debut,t:`<b>Arrivée ${FMT.esc(nom(e.idCreateur))}</b> · ${gcStand(e.stand)}${e.accueilPar?' · accueil : '+FMT.esc(e.accueilPar):''}`}))
+  ].sort((x,y)=>x.d.localeCompare(y.d));
+  $('gcAgenda').innerHTML=ev.length?ev.map(l=>`<div class="gc-ev"><span class="d">${fmtD(l.d).slice(0,5)}</span><span>${l.t}</span></div>`).join(''):'<div class="muted">Aucune arrivée ni aucun départ prévu.</div>';
+}
+function gcRenderListe(){
+  const all=GC.data.createurs,cnt=k=>k==='tous'?all.length:all.filter(c=>gcEtat(c)===k).length;
+  $('gcChips').innerHTML=['actif','preavis','inactif','tous'].map(k=>`<span class="gc-chip${GC.filtre===k?' on':''}" data-f="${k}">${GC_LIB[k]}<span class="c">${cnt(k)}</span></span>`).join('');
+  const q=GC.q.trim().toLowerCase(),a=gcAuj();
+  const rows=all.filter(c=>(GC.filtre==='tous'||gcEtat(c)===GC.filtre)&&(!GC.cat||c.categorie===GC.cat)&&(!q||[c.nom,c.nomLegal,c.email,c.id].join(' ').toLowerCase().includes(q)))
+    .sort((x,y)=>x.nom.localeCompare(y.nom,'fr',{sensitivity:'base'}));
+  $('gcTbl').innerHTML='<thead><tr><th>Créateur</th><th>Catégorie</th><th>Stand</th><th>Dates</th><th>Infos</th><th>Statut</th></tr></thead><tbody>'+
+    (rows.length?rows.map(c=>{
+      const e=gcCourant(c.id),etat=gcEtat(c),m=gcManque(c);
+      const dates=e?(e.fin&&e.fin>=a?'départ <b>'+fmtD(e.fin)+'</b>':(e.debut>a?'arrivée '+fmtD(e.debut):'depuis '+fmtD(e.debut))):(c.derniereVente?'<span class="gc-sub">dernière vente '+fmtD(c.derniereVente)+'</span>':'—');
+      return `<tr data-id="${FMT.esc(c.id)}" class="${c.id===GC.sel?'sel':''}"><td><b>${FMT.esc(c.nom)}</b>${c.benevole?' <span class="gc-st benev">bénévole</span>':''}<span class="gc-sub">${FMT.esc([c.nomLegal,c.id].filter(Boolean).join(' · '))}</span></td>`+
+        `<td>${FMT.esc(gcCat(c.categorie))}</td><td>${e?'<span class="pill">'+FMT.esc(gcStand(e.stand))+'</span>':'—'}</td><td>${dates}</td>`+
+        `<td>${etat==='inactif'?'':(m.length?'<span class="gc-ko">⚠ '+FMT.esc(m.join(', '))+'</span>':'<span class="gc-ok">✓</span>')}</td><td><span class="gc-st ${etat}">${GC_LIB[etat]}</span></td></tr>`;
+    }).join(''):'<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">Aucun créateur pour ces filtres.</td></tr>')+'</tbody>';
+}
+
+function gcRenderFiche(){
+  const F=$('gcFiche'),c=GC.data&&GC.data.createurs.find(x=>x.id===GC.sel);
+  if(!c){F.innerHTML='<div class="muted">Sélectionne un créateur dans la liste.</div>';return;}
+  const a=gcAuj(),e=gcCourant(c.id),etat=gcEtat(c),hist=gcEmpls(c.id);
+  let adh='<span class="gc-ko">Aucune date</span>';
+  if(c.adhesion){const [y,m,d]=c.adhesion.split('-').map(Number),ech=isoJour(new Date(y+1,m-1,d));adh=(ech<=plusUnMois(a)?'<span class="gc-ko">À renouveler le '+fmtD(ech)+'</span>':'<span class="gc-ok">Payée le '+fmtD(c.adhesion)+'</span>');}
+  const ig=/^https:\/\/www\.instagram\.com\/[A-Za-z0-9._]+\/$/.test(c.instagram)?`<a href="${FMT.esc(c.instagram)}" target="_blank" rel="noopener">@${FMT.esc(c.instagram.split('/')[3])}</a>`:'<span class="gc-ko">—</span>';
+  const statutAuto=hist.length&&c.categorie!=='shop';
+  const champ=([k,l,t,,full])=>{
+    const v=k==='iban'?'':(c[k]==null?'':c[k]);
+    const ph=k==='iban'?(c.ibanFin?'FR76 •••• •••• •••• '+c.ibanFin+' (laisser vide pour garder)':'FR76 …'):'';
+    return `<div${full?' class="full"':''}><label>${l}</label><input data-k="${k}" type="${t}" value="${FMT.esc(v)}" placeholder="${FMT.esc(ph)}"></div>`;
+  };
+  let h=`<div class="gc-head"><div><div class="nm">${FMT.esc(c.nom)}</div><div class="muted" style="font-size:12px;margin-top:3px">${FMT.esc([c.nomLegal,c.id].filter(Boolean).join(' · '))}</div></div><span class="gc-st ${etat}">${GC_LIB[etat]}</span></div>`+
+    `<div class="gc-docs"><div class="gc-doc"><div class="k">Stand</div><div class="v">${e?FMT.esc(gcStand(e.stand))+(e.debut>a?' dès le ':' depuis le ')+fmtD(e.debut):'Aucun'}</div></div>`+
+    `<div class="gc-doc"><div class="k">Ventes (total)</div><div class="v">${FMT.eur(c.ca)} · ${c.nbVentes} vente${c.nbVentes>1?'s':''}</div></div>`+
+    `<div class="gc-doc"><div class="k">Dernière vente</div><div class="v">${c.derniereVente?fmtD(c.derniereVente):'—'}</div></div>`+
+    `<div class="gc-doc"><div class="k">Adhésion 15 €</div><div class="v">${adh}</div></div>`+
+    `<div class="gc-doc"><div class="k">Instagram</div><div class="v">${ig}</div></div>`+
+    `<div class="gc-doc"><div class="k">RC Pro</div><div class="v">${c.rcPro?'<span class="gc-ok">Attestation ✓</span>':'<span class="gc-ko">Non renseignée</span>'}</div></div></div>`;
+
+  /* emplacement */
+  h+='<div class="gc-h4">Emplacement</div>';
+  if(e&&!e.fin){
+    h+=`<div class="gc-form"><div><label>Préavis reçu par e-mail le</label><input type="date" id="gcPrRecu" value="${a}"></div><div><label>Départ le</label><input id="gcPrFin" readonly value="${fmtD(plusUnMois(a))}"></div></div>`+
+      `<label class="gc-check" style="margin-top:8px"><input type="checkbox" id="gcPrPause"> Pause : souhaite revenir plus tard (place non garantie)</label>`+
+      `<div class="gc-acts"><button class="btn btn-danger" data-a="preavis" data-e="${FMT.esc(e.id)}">Enregistrer le préavis</button></div>`;
+  }else if(e&&e.fin&&e.fin>=a){
+    h+=`<div class="warn" style="margin:0">Préavis reçu le <b>${fmtD(e.preavisRecuLe)||'?'}</b> → départ le <b>${fmtD(e.fin)}</b>${e.motifFin==='pause'?' (pause, place non garantie au retour)':''}.</div>`+
+      `<div class="gc-acts"><button class="btn btn-ghost" data-a="annuler" data-e="${FMT.esc(e.id)}">↺ Annuler le préavis</button></div>`;
+  }
+  if(e&&(!e.fin||e.fin>=a)){
+    const opts=GC.data.stands.filter(s=>s.code!==e.stand).map(s=>{const libres=s.places-gcOccupation(s.code,a,c.id);return `<option value="${FMT.esc(s.code)}">${FMT.esc(s.libelle)} · ${libres>0?libres+' place'+(libres>1?'s':'')+' libre'+(libres>1?'s':''):'complet'}</option>`;}).join('');
+    h+=`<div class="gc-form" style="margin-top:12px"><div><label>Changer de stand</label><select id="gcCsStand">${opts}</select></div><div><label>À partir du</label><input type="date" id="gcCsDate" value="${e.debut>a?e.debut:a}"></div></div>`+
+      `<div class="gc-acts"><button class="btn btn-ghost" data-a="changer">Changer de stand</button></div>`;
+  }
+  if(!e||(e.fin&&e.fin<a)){
+    h+=`<div class="muted" style="font-size:13px">Pas d'emplacement en cours.</div><div class="gc-form" style="margin-top:8px"><div><label>Nouvel emplacement</label><select id="gcNeStand">${GC.data.stands.map(s=>`<option value="${FMT.esc(s.code)}">${FMT.esc(s.libelle)} · ${Math.max(0,s.places-gcOccupation(s.code,a,''))} libre(s)</option>`).join('')}</select></div>`+
+      `<div><label>Arrivée le</label><input type="date" id="gcNeDebut" value="${a}"></div><div><label>Accueil par</label><input id="gcNeAccueil" placeholder="Caro"></div></div>`+
+      `<div class="gc-acts"><button class="btn btn-accent" data-a="emplacement">Créer l'emplacement</button></div>`;
+  }
+  if(hist.length) h+=`<div class="gc-why">Historique : ${hist.map(x=>FMT.esc(gcStand(x.stand))+' du '+fmtD(x.debut)+(x.fin?' au '+fmtD(x.fin):'')).join(' · ')}</div>`;
+
+  /* fiche */
+  h+='<div class="gc-h4">Infos et facturation</div><div class="gc-form">'+GC_CHAMPS.map(champ).join('')+
+    `<div><label>Catégorie</label><select data-k="categorie"><option value="">—</option>${GC.data.categories.filter(x=>x.actif||x.code===c.categorie).map(x=>`<option value="${FMT.esc(x.code)}"${x.code===c.categorie?' selected':''}>${FMT.esc(x.libelle)}</option>`).join('')}</select></div>`+
+    `<div><label>Statut</label><select data-k="statut"${statutAuto?' disabled title="Calculé automatiquement d\'après les emplacements"':''}><option value="actif"${c.statut==='actif'?' selected':''}>actif</option><option value="inactif"${c.statut!=='actif'?' selected':''}>inactif</option></select></div>`+
+    `<div class="full"><label class="gc-check"><input type="checkbox" data-k="benevole"${c.benevole?' checked':''}> Bénévole : loyer payé en permanences, aucune commission</label></div>`+
+    `<div><label>Permanences prévues / mois</label><input data-k="permsPrevues" type="number" min="0" step="0.5" value="${FMT.esc(c.permsPrevues)}"></div>`+
+    `<div style="align-self:end"><label class="gc-check"><input type="checkbox" data-k="rcPro"${c.rcPro?' checked':''}> Attestation RC Pro reçue</label></div></div>`+
+    `<div class="gc-acts"><button class="btn btn-accent" data-a="enregistrer">Enregistrer la fiche</button></div>`+
+    `<div class="gc-why">${statutAuto?'Le statut suit les emplacements : actif pendant un emplacement, inactif après le départ. ':''}Chaque modification est notée dans l'onglet « journal » du Sheet${c.modifieLe?' · dernière le '+fmtD(c.modifieLe):''}.</div>`;
+  F.innerHTML=h;
+  const pr=$('gcPrRecu');if(pr)pr.addEventListener('change',()=>{$('gcPrFin').value=pr.value?fmtD(plusUnMois(pr.value)):'';});
+}
+
+const GC_SERVEUR={nom:'nom',nomLegal:'nom_legal',email:'email',telephone:'telephone',adresse:'adresse',codePostal:'code_postal',ville:'ville',siret:'siret',iban:'iban',instagram:'instagram',adhesion:'adhesion_payee_le',categorie:'categorie',statut:'statut',benevole:'benevole',permsPrevues:'perms_prevues',rcPro:'rc_pro'};
+function gcChampsModifies(c){
+  const champs={};
+  $('gcFiche').querySelectorAll('[data-k]').forEach(el=>{
+    const k=el.dataset.k;if(el.disabled)return;
+    const v=el.type==='checkbox'?el.checked:el.value.trim();
+    if(k==='iban'){if(v)champs.iban=v;return;}
+    const avant=c[k]==null?'':c[k];
+    if(el.type==='checkbox'?v!==!!avant:String(v)!==String(avant)) champs[GC_SERVEUR[k]]=v;
+  });
+  return champs;
+}
+async function gcAppel(btn,action,params,msg){
+  const t=btn.textContent;btn.disabled=true;btn.textContent='…';
+  try{
+    const r=await API.gestion(action,params);
+    if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
+    toast(msg(r));await gcCharger(true);return r;
+  }catch(e){toast((e&&e.message)||String(e),true);}
+  finally{if(btn.isConnected){btn.disabled=false;btn.textContent=t;}}
+}
+$('gCreat').addEventListener('click',e=>{
+  const f=e.target.closest('[data-f]');if(f){GC.filtre=f.dataset.f;gcRenderListe();return;}
+  const tr=e.target.closest('#gcTbl tbody tr[data-id]');if(tr){GC.sel=tr.dataset.id;gcRenderListe();gcRenderFiche();return;}
+  const b=e.target.closest('#gcFiche [data-a]');if(!b||b.disabled)return;
+  const c=GC.data.createurs.find(x=>x.id===GC.sel);if(!c)return;
+  const a=b.dataset.a;
+  if(a==='enregistrer'){
+    const champs=gcChampsModifies(c);
+    if(!Object.keys(champs).length){toast('Aucune modification.');return;}
+    gcAppel(b,'gestion_createur_maj',{id:c.id,champs},r=>'Fiche de '+c.nom+' enregistrée ('+r.modifies.length+' champ'+(r.modifies.length>1?'s':'')+')');
+  }else if(a==='preavis'){
+    const recu=$('gcPrRecu').value;if(!recu){toast("Indique la date de l'e-mail de préavis.",true);return;}
+    gcAppel(b,'gestion_preavis',{idEmplacement:b.dataset.e,recuLe:recu,pause:$('gcPrPause').checked},r=>'Préavis enregistré : départ de '+c.nom+' le '+fmtD(r.fin));
+  }else if(a==='annuler'){
+    if(!confirm('Annuler le préavis de '+c.nom+' ?'))return;
+    gcAppel(b,'gestion_preavis_annuler',{idEmplacement:b.dataset.e},()=>'Préavis annulé : '+c.nom+' reste en boutique');
+  }else if(a==='changer'){
+    const stand=$('gcCsStand').value,date=$('gcCsDate').value;if(!stand||!date){toast('Choisis un stand et une date.',true);return;}
+    gcAppel(b,'gestion_changer_stand',{idCreateur:c.id,stand,date},()=>c.nom+' passe en '+gcStand(stand)+' le '+fmtD(date));
+  }else if(a==='emplacement'){
+    const stand=$('gcNeStand').value,debut=$('gcNeDebut').value;if(!stand||!debut){toast('Choisis un stand et une date.',true);return;}
+    gcAppel(b,'gestion_emplacement_creer',{idCreateur:c.id,stand,debut,accueilPar:$('gcNeAccueil').value.trim()},()=>'Emplacement créé : '+c.nom+' en '+gcStand(stand)+' dès le '+fmtD(debut));
+  }
+});
+$('gcSearch').addEventListener('input',e=>{GC.q=e.target.value;gcRenderListe();});
+$('gcCat').addEventListener('change',e=>{GC.cat=e.target.value;gcRenderListe();});
+$('gcRefresh').addEventListener('click',()=>gcCharger(true));
+$('gcAjout').addEventListener('click',()=>{$('gcAjoutForm').classList.toggle('hide');$('gcNNom').focus();});
+$('gcNAnnuler').addEventListener('click',()=>$('gcAjoutForm').classList.add('hide'));
+$('gcNOk').addEventListener('click',async()=>{
+  const nom=$('gcNNom').value.trim();if(!nom){toast('Indique le nom de marque.',true);$('gcNNom').focus();return;}
+  const stand=$('gcNStand').value,debut=$('gcNDebut').value;
+  if(stand&&!debut){toast("Indique la date d'arrivée.",true);return;}
+  const r=await gcAppel($('gcNOk'),'gestion_createur_creer',{nom,email:$('gcNEmail').value.trim(),categorie:$('gcNCat').value,stand,debut,accueilPar:$('gcNAccueil').value.trim()},r=>nom+' créé ('+r.id+')');
+  if(r){$('gcAjoutForm').classList.add('hide');['gcNNom','gcNEmail','gcNAccueil'].forEach(id=>$(id).value='');GC.sel=r.id;GC.filtre='tous';gcRender();}
+});
+/* sous-onglets de Gestion */
+$('gSubtabs').addEventListener('click',e=>{
+  const t=e.target.closest('[data-sub]');if(!t)return;
+  $('gSubtabs').querySelectorAll('.subtab').forEach(x=>x.classList.toggle('active',x===t));
+  $('gStats').classList.toggle('hide',t.dataset.sub!=='stats');
+  $('gCreat').classList.toggle('hide',t.dataset.sub!=='createurs');
+  if(t.dataset.sub==='createurs'&&!GC.charge)gcCharger();
+});
+
+/* démo : même logique que le serveur, en mémoire */
+const DEMO_G=(function(){
+  let st=null;
+  const init=()=>{
+    const a=aujourdhui(),dans=j=>isoJour(new Date(Date.now()+j*864e5));
+    st={aujourdhui:a,
+      categories:[['bijoux','Bijoux'],['illustration','Illustration'],['accessoires','Accessoires'],['deco','Déco & maison'],['friperie','Friperie'],['shop','Shop & résidents']].map(([code,libelle])=>({code,libelle,actif:true})),
+      stands:[{code:'illu',libelle:'Exposant illustration · espace partagé',loyer:28,places:10},{code:'unique',libelle:'Exposant créateur · petit espace unique',loyer:48,places:18},{code:'grand',libelle:'Exposant créateur · grand stand',loyer:68,places:6},{code:'friperie',libelle:'Exposant friperie',loyer:70,places:3}],
+      createurs:[['C001','solenne','shop'],['C002','caro','shop'],['C003','riri','illustration'],['C004','Jackline','illustration'],['C005','NYU','bijoux']].map(([id,nom,categorie])=>({id,nom,email:nom.toLowerCase()+'@exemple.fr',statut:'actif',categorie,nomLegal:'',telephone:'',adresse:'',codePostal:'',ville:'',siret:'',ibanFin:'',benevole:false,permsPrevues:'',rcPro:false,adhesion:'',instagram:'',creeLe:'',modifieLe:'',ca:0,nbVentes:0,derniereVente:''})),
+      emplacements:[{id:'E001',idCreateur:'C004',stand:'grand',debut:'2025-06-03',fin:'',preavisRecuLe:'',accueilPar:'',motifFin:'',remarque:''},{id:'E002',idCreateur:'C005',stand:'unique',debut:'2025-09-10',fin:'',preavisRecuLe:'',accueilPar:'',motifFin:'',remarque:''},{id:'E003',idCreateur:'C003',stand:'illu',debut:'2026-01-13',fin:dans(12),preavisRecuLe:dans(-19),accueilPar:'',motifFin:'depart',remarque:''}]};
+    DEMO_ROWS.forEach(r=>{const c=st.createurs.find(c=>c.nom.toLowerCase()===String(r.createur).toLowerCase());if(c){c.ca=round2(c.ca+r.prixClient);c.nbVentes++;if(r.date>c.derniereVente)c.derniereVente=r.date;}});
+  };
+  const nextId=(l,p)=>p+String(l.reduce((m,x)=>Math.max(m,+String(x.id).slice(1)||0),0)+1).padStart(3,'0');
+  const occ=(stand,d,sauf)=>st.emplacements.filter(e=>e.stand===stand&&e.idCreateur!==sauf&&gcActifLe(e,d)).length;
+  const places=s=>st.stands.find(x=>x.code===s).places;
+  const CLIENT={nom:'nom',nom_legal:'nomLegal',email:'email',telephone:'telephone',adresse:'adresse',code_postal:'codePostal',ville:'ville',siret:'siret',instagram:'instagram',adhesion_payee_le:'adhesion',categorie:'categorie',statut:'statut',benevole:'benevole',perms_prevues:'permsPrevues',rc_pro:'rcPro'};
+  return async function(action,p){
+    if(!st)init();
+    const e=id=>st.emplacements.find(x=>x.id===id);
+    switch(action){
+      case 'gestion_createurs': return JSON.parse(JSON.stringify(Object.assign({ok:true},st)));
+      case 'gestion_createur_maj':{const c=st.createurs.find(x=>x.id===p.id),m=[];Object.keys(p.champs).forEach(k=>{if(k==='iban'){c.ibanFin=String(p.champs.iban).replace(/\s/g,'').slice(-4);m.push(k);return;}let v=p.champs[k];if(k==='instagram'&&v){const u=String(v).trim().replace(/^@/,'').replace(/^https?:\/\/(www\.)?instagram\.com\//,'').split(/[/?]/)[0];v=u?'https://www.instagram.com/'+u+'/':'';}c[CLIENT[k]]=v;m.push(k);});c.modifieLe=aujourdhui();return {ok:true,modifies:m};}
+      case 'gestion_createur_creer':{if(st.createurs.some(x=>x.nom.toLowerCase()===p.nom.toLowerCase()))return {ok:false,message:'Un autre créateur s\'appelle déjà « '+p.nom+' ».'};const id=nextId(st.createurs,'C');
+        if(p.stand){if(occ(p.stand,p.debut,'')>=places(p.stand))return {ok:false,message:'Plus de place libre en « '+p.stand+' ».'};st.emplacements.push({id:nextId(st.emplacements,'E'),idCreateur:id,stand:p.stand,debut:p.debut,fin:'',preavisRecuLe:'',accueilPar:p.accueilPar||'',motifFin:'',remarque:''});}
+        st.createurs.push({id,nom:p.nom,email:p.email,statut:p.stand&&p.debut<=st.aujourdhui?'actif':'inactif',categorie:p.categorie,nomLegal:'',telephone:'',adresse:'',codePostal:'',ville:'',siret:'',ibanFin:'',benevole:false,permsPrevues:'',rcPro:false,adhesion:'',instagram:'',creeLe:st.aujourdhui,modifieLe:st.aujourdhui,ca:0,nbVentes:0,derniereVente:''});return {ok:true,id};}
+      case 'gestion_preavis':{const x=e(p.idEmplacement);x.preavisRecuLe=p.recuLe;x.fin=plusUnMois(p.recuLe);x.motifFin=p.pause?'pause':'depart';return {ok:true,fin:x.fin};}
+      case 'gestion_preavis_annuler':{const x=e(p.idEmplacement);x.fin='';x.preavisRecuLe='';x.motifFin='';return {ok:true};}
+      case 'gestion_changer_stand':{if(occ(p.stand,p.date,p.idCreateur)>=places(p.stand))return {ok:false,message:'Plus de place libre en « '+p.stand+' ».'};const x=st.emplacements.find(y=>y.idCreateur===p.idCreateur&&gcActifLe(y,p.date));
+        if(x.debut===p.date){x.stand=p.stand;return {ok:true};}const [yy,mm,dd]=p.date.split('-').map(Number);x.fin=isoJour(new Date(yy,mm-1,dd-1));x.motifFin='changement_stand';st.emplacements.push({id:nextId(st.emplacements,'E'),idCreateur:p.idCreateur,stand:p.stand,debut:p.date,fin:'',preavisRecuLe:'',accueilPar:'',motifFin:'',remarque:''});return {ok:true};}
+      case 'gestion_emplacement_creer':{if(occ(p.stand,p.debut,'')>=places(p.stand))return {ok:false,message:'Plus de place libre en « '+p.stand+' ».'};st.emplacements.push({id:nextId(st.emplacements,'E'),idCreateur:p.idCreateur,stand:p.stand,debut:p.debut,fin:'',preavisRecuLe:'',accueilPar:p.accueilPar||'',motifFin:'',remarque:''});const c=st.createurs.find(x=>x.id===p.idCreateur);if(p.debut<=st.aujourdhui)c.statut='actif';return {ok:true};}
+    }
+    return {ok:false,message:'Action inconnue.'};
+  };
+})();
 
 /* ===================== DONNÉES DÉMO ===================== */
 const DEMO_ROWS=(function(){

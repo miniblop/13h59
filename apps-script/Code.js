@@ -14,6 +14,11 @@ const SHEET_CREATEURS = 'createurs';
 const SHEET_REMISES   = 'remises';
 const SHEET_PAIEMENTS = 'paiements';
 const SHEET_JOURNAL   = 'journal';
+const SHEET_CATEGORIES   = 'categories';
+const SHEET_STANDS       = 'stands';
+const SHEET_EMPLACEMENTS = 'emplacements';
+
+const COLONNES_EMPLACEMENTS = ['id_emplacement', 'id_createur', 'code_stand', 'debut', 'fin', 'preavis_recu_le', 'accueil_par', 'motif_fin', 'remarque'];
 
 const COLONNES_VENTES = [
   'id_vente', 'id_panier', 'date', 'id_createur', 'reference', 'code_remise', 'code_paiement',
@@ -67,6 +72,30 @@ function _onglet(ss, nom) {
   if (!sh) throw new Error("Onglet « " + nom + " » introuvable.");
   return sh;
 }
+
+/* ---------- Formats ---------- */
+
+function _telephone(v) {
+  let d = String(v == null ? '' : v).replace(/\D/g, '');
+  if (d.length === 9) d = '0' + d;
+  if (d.length === 11 && d.indexOf('33') === 0) d = '0' + d.slice(2);
+  return d.length === 10 ? d.replace(/(\d{2})(?=\d)/g, '$1 ') : String(v || '').trim();
+}
+function _siretValide(s) {
+  if (!/^\d{14}$/.test(s)) return false;
+  let t = 0;
+  for (let i = 0; i < 14; i++) { let n = +s[13 - i]; if (i % 2) { n *= 2; if (n > 9) n -= 9; } t += n; }
+  return t % 10 === 0 || s.indexOf('356000000') === 0;   // La Poste : exception connue
+}
+/** « @nom », « nom » ou un lien instagram.com/nom?igsh=… → « nom » ; sinon null. */
+function _compteInstagram(v) {
+  const s = String(v == null ? '' : v).trim();
+  const m = s.match(/instagram\.com\/([A-Za-z0-9._]+)/i);
+  if (m) return m[1].toLowerCase();
+  const h = s.replace(/^@/, '').trim();
+  return /^[A-Za-z0-9._]{2,30}$/.test(h) && /[a-z]/i.test(h) ? h.toLowerCase() : null;
+}
+function _lienInstagram(compte) { return 'https://www.instagram.com/' + compte + '/'; }
 
 /* ---------- Référentiels ---------- */
 
