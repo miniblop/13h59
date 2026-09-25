@@ -34,6 +34,26 @@ function _champ(o, nom) {
   return cle ? o[cle] : '';
 }
 
+/** Retrouve un créateur ({c, par}) par e-mail, puis par nom (exact, préfixe, ou à 2 lettres près). */
+function _rapprocheur(createurs) {
+  const parEmail = {}, parLarge = {};
+  createurs.forEach(function (c) { if (c.email) parEmail[c.email] = c; parLarge[_cleLarge(c.nom)] = c; });
+  return function (nom, email) {
+    const e = _norm(email);
+    if (e && parEmail[e]) return { c: parEmail[e], par: 'e-mail' };
+    const k = _cleLarge(nom);
+    if (!k) return null;
+    if (parLarge[k]) return { c: parLarge[k], par: 'nom' };
+    const proches = createurs.filter(function (c) {
+      const kc = _cleLarge(c.nom);
+      if (!kc) return false;
+      if (Math.min(kc.length, k.length) >= 3 && (kc.indexOf(k) === 0 || k.indexOf(kc) === 0)) return true;
+      return Math.min(kc.length, k.length) >= 6 && _levenshtein(kc, k) <= 2;
+    });
+    return proches.length === 1 ? { c: proches[0], par: 'nom proche (' + proches[0].nom + ')' } : null;
+  };
+}
+
 function apercuEnrichissement() { _etape6(true); }
 function etape6Enrichissement() { _etape6(false); }
 
@@ -84,22 +104,7 @@ function _etape6(apercu) {
   const createurs = lignes.map(function (r, i) {
     return { i: i, id: String(r[col('id_createur')]), nom: _nomPropre(r[col('nom')]), email: _norm(r[col('email')]), r: r };
   });
-  const parEmail = {}, parLarge = {};
-  createurs.forEach(function (c) { if (c.email) parEmail[c.email] = c; parLarge[_cleLarge(c.nom)] = c; });
-  const trouver = function (nom, email) {
-    const e = _norm(email);
-    if (e && parEmail[e]) return { c: parEmail[e], par: 'e-mail' };
-    const k = _cleLarge(nom);
-    if (!k) return null;
-    if (parLarge[k]) return { c: parLarge[k], par: 'nom' };
-    const proches = createurs.filter(function (c) {
-      const kc = _cleLarge(c.nom);
-      if (!kc) return false;
-      if (Math.min(kc.length, k.length) >= 3 && (kc.indexOf(k) === 0 || k.indexOf(kc) === 0)) return true;
-      return Math.min(kc.length, k.length) >= 6 && _levenshtein(kc, k) <= 2;
-    });
-    return proches.length === 1 ? { c: proches[0], par: 'nom proche (' + proches[0].nom + ')' } : null;
-  };
+  const trouver = _rapprocheur(createurs);
   const modifier = function (c, champ, valeur, rem) {
     if (valeur === '' || valeur == null) return;
     const idx = col(champ), avant = c.r[idx];
@@ -237,4 +242,99 @@ function _etape6(apercu) {
   }
   Logger.log((apercu ? "APERÇU — rien n'a été écrit.\n" : '✅ Enrichissement terminé.\n') + bilan.map(function (l) { return '• ' + l; }).join('\n') +
     '\nÀ vérifier :\n' + revue.filter(function (r) { return String(r[5]).indexOf('⚠️') === 0 || !r[0]; }).map(function (r) { return '  - ' + (r[1] || '?') + ' : ' + r[5]; }).join('\n'));
+}
+
+/*************************************************************
+ *  Liens Instagram des créateurs
+ *   apercuInstagram()     : liste ce qui serait fait, n'écrit RIEN
+ *   completerInstagram()  : écrit un lien complet dans `createurs.instagram`
+ *  Sources, par ordre de priorité (fichier LISTE CREATEURS) : onglet 2026,
+ *  réponses au formulaire de candidature, anciens créateurs, onglet SEPT-DEC.
+ *  Rien n'est deviné : une valeur qui n'est pas un compte est signalée.
+ *************************************************************/
+
+/** « @nom », « nom » ou un lien instagram.com/nom?igsh=… → « nom » ; sinon null. */
+function _compteInstagram(v) {
+  const s = String(v == null ? '' : v).trim();
+  const m = s.match(/instagram\.com\/([A-Za-z0-9._]+)/i);
+  if (m) return m[1].toLowerCase();
+  const h = s.replace(/^@/, '').trim();
+  return /^[A-Za-z0-9._]{2,30}$/.test(h) && /[a-z]/i.test(h) ? h.toLowerCase() : null;
+}
+const _lienInstagram = function (compte) { return 'https://www.instagram.com/' + compte + '/'; };
+
+function apercuInstagram() { _instagram(true); }
+function completerInstagram() { _instagram(false); }
+
+function _instagram(apercu) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const shC = _onglet(ss, SHEET_CREATEURS);
+  const h = _headerMap(shC);
+  if (h.map['instagram'] == null) throw new Error("Colonne « instagram » absente de « createurs » : lance d'abord l'étape 6.");
+  const n = shC.getLastRow() - 1;
+  const valeurs = shC.getRange(2, 1, n, h.nbCol).getValues();
+  const createurs = valeurs.map(function (r, i) {
+    return { i: i, id: String(r[h.map['id_createur']]), nom: _nomPropre(r[h.map['nom']]), email: _norm(r[h.map['email']]),
+             actif: _norm(r[h.map['statut']]) === 'actif', actuel: r[h.map['instagram']] };
+  });
+  const trouver = _rapprocheur(createurs);
+  const liste = SpreadsheetApp.openById(ID_FICHIER_LISTE);
+
+  // Candidats par créateur, dans l'ordre de priorité des sources.
+  const candidats = {};
+  const ajouter = function (source, marque, email, valeur) {
+    if (!_nomPropre(marque) && !_norm(email)) return;
+    const t = trouver(marque, email) || trouver(String(marque || '').split(' - ')[0], '');
+    if (!t) return;
+    (candidats[t.c.id] = candidats[t.c.id] || []).push({ source: source, brut: valeur, compte: _compteInstagram(valeur) });
+  };
+  const suivi = function (onglet) {
+    const sh = liste.getSheetByName(onglet);
+    if (sh) _lireTable(sh).forEach(function (s) { ajouter(onglet, _champ(s, 'marque'), _champ(s, 'contact'), _champ(s, 'compte ig')); });
+  };
+  // Formulaires de candidature : même structure (horodateur, nom, marque, e-mail, Instagram…).
+  const formulaire = function (onglet) {
+    const sh = liste.getSheetByName(onglet);
+    if (!sh || sh.getLastRow() < 1) return;
+    sh.getDataRange().getValues().forEach(function (r) {
+      if (!(r[0] instanceof Date)) return;             // ignore la ligne d'en-tête éventuelle
+      ajouter(onglet, r[2], r[3], r[4]);
+    });
+  };
+  suivi('2026');
+  formulaire('Réponses au formulaire 2');
+  formulaire('anciens créateurs');
+  suivi('SEPT-DEC');
+
+  const lignes = [], sansCompte = [], aVerifier = [];
+  let nbEcrits = 0;
+  createurs.forEach(function (c) {
+    const actuel = _compteInstagram(c.actuel);
+    const trouve = (candidats[c.id] || []).filter(function (x) { return x.compte; })[0];
+    const compte = actuel || (trouve && trouve.compte);
+    if (!compte) {
+      if (c.actif) {
+        const bruts = (candidats[c.id] || []).map(function (x) { return x.brut; }).filter(String).concat(c.actuel ? [c.actuel] : []);
+        (bruts.length ? aVerifier : sansCompte).push(c.nom + (bruts.length ? ' (valeur trouvée : « ' + bruts[0] + ' »)' : ''));
+      }
+      return;
+    }
+    const lien = _lienInstagram(compte);
+    if (String(c.actuel) === lien) return;
+    valeurs[c.i][h.map['instagram']] = lien;
+    nbEcrits++;
+    lignes.push(c.nom + ' → ' + lien + (actuel ? '' : ' (source : ' + trouve.source + ')'));
+  });
+
+  const actifs = createurs.filter(function (c) { return c.actif; }).length;
+  if (!apercu && nbEcrits) {
+    shC.getRange(2, h.map['instagram'] + 1, n, 1).setValues(valeurs.map(function (r) { return [r[h.map['instagram']]]; }));
+    _onglet(ss, SHEET_JOURNAL).appendRow([new Date(), Session.getEffectiveUser().getEmail(), 'liens_instagram', nbEcrits + ' lien(s) écrit(s)']);
+  }
+  Logger.log((apercu ? "APERÇU — rien n'a été écrit.\n" : '✅ Liens Instagram complétés.\n') +
+    '• ' + nbEcrits + ' lien(s) ' + (apercu ? 'à écrire' : 'écrits') + '.\n' +
+    '• Créateurs actifs sans compte trouvé : ' + (sansCompte.length + aVerifier.length) + ' sur ' + actifs + '.\n' +
+    (aVerifier.length ? 'Valeur trouvée mais pas un compte Instagram (à corriger à la main) :\n  - ' + aVerifier.join('\n  - ') + '\n' : '') +
+    (sansCompte.length ? 'Aucune valeur trouvée :\n  - ' + sansCompte.join('\n  - ') + '\n' : '') +
+    (apercu && lignes.length ? 'Exemples :\n  - ' + lignes.slice(0, 8).join('\n  - ') : ''));
 }
