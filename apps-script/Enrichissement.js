@@ -218,11 +218,13 @@ function _etape6(apercu) {
   bilan.push(SHEET_REVUE + ' : ' + revue.length + ' ligne(s), dont ' + aVerifier + ' à vérifier.');
 
   if (!apercu) {
-    shC.getRange(2, 1, n, lignes[0].length).setValues(lignes.map(function (r) { return r.slice(0, lignes[0].length); }));
+    // La catégorie doit exister AVANT d'être écrite : la colonne `categorie` n'accepte que les codes de `categories`.
     const cats = _onglet(ss, SHEET_CATEGORIES);
     if (!_lireTable(cats).some(function (c) { return c['code'] === 'shop'; })) {
       cats.appendRow(['shop', 'Shop & résidents', "l'équipe et les résidents du shop", cats.getLastRow(), true]);
+      SpreadsheetApp.flush();
     }
+    shC.getRange(2, 1, n, lignes[0].length).setValues(lignes.map(function (r) { return r.slice(0, lignes[0].length); }));
     if (!ss.getSheetByName(SHEET_STANDS)) _nouvelOnglet(ss, SHEET_STANDS, ['code', 'libelle', 'loyer', 'places', 'ref_facture', 'perms_loyer_gratuit'], STANDS_INITIAUX);
     if (!ss.getSheetByName(SHEET_EMPLACEMENTS)) {
       const sE = _nouvelOnglet(ss, SHEET_EMPLACEMENTS, COLONNES_EMPLACEMENTS, emplacements);
