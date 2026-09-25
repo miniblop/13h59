@@ -102,6 +102,11 @@ function _compteInstagram(v) {
   const h = s.replace(/^@/, '').trim();
   return /^[A-Za-z0-9._]{2,30}$/.test(h) && /[a-z]/i.test(h) ? h.toLowerCase() : null;
 }
+/** Catégories dans l'ordre choisi par l'équipe (colonne « ordre »). */
+function _categoriesTriees(ss) {
+  return _lireTable(_onglet(ss, SHEET_CATEGORIES)).filter(function (c) { return c['code']; })
+    .sort(function (a, b) { return (Number(a['ordre']) || 999) - (Number(b['ordre']) || 999); });
+}
 function _lienInstagram(compte) { return 'https://www.instagram.com/' + compte + '/'; }
 /** Clé de rapprochement : casse, espaces et caractères invisibles ignorés. */
 function _cleNom(s) { return _nomPropre(s).toLowerCase(); }

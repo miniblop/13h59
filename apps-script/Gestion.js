@@ -25,7 +25,10 @@ function _gestion(body) {
     gestion_candidature_statut: _gCandidatureStatut,
     gestion_candidature_retenir: _gCandidatureRetenir,
     gestion_candidature_remarque: _gCandidatureRemarque,
-    gestion_email_maj: _gEmailMaj
+    gestion_email_maj: _gEmailMaj,
+    gestion_reglages: _gReglages,
+    gestion_reglage_maj: _gReglageMaj,
+    gestion_reglage_creer: _gReglageCreer
   };
   const f = actions[body.action];
   if (!f) return { ok: false, message: 'Action inconnue.' };
@@ -168,7 +171,7 @@ function _gCreateurs() {
   const stands = _lireTable(_onglet(ss, SHEET_STANDS)).filter(function (s) { return s['code']; }).map(function (s) {
     return { code: String(s['code']), libelle: String(s['libelle'] || s['code']), loyer: Number(s['loyer']) || 0, places: Number(s['places']) || 0 };
   });
-  const categories = _lireTable(_onglet(ss, SHEET_CATEGORIES)).filter(function (c) { return c['code']; }).map(function (c) {
+  const categories = _categoriesTriees(ss).map(function (c) {
     return { code: String(c['code']), libelle: String(c['libelle'] || c['code']), actif: c['actif'] !== false };
   });
   return { ok: true, aujourdhui: _iso(auj), createurs: createurs, emplacements: emplacements, stands: stands, categories: categories };

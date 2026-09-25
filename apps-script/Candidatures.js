@@ -37,8 +37,8 @@ function _standsAvecPlaces(ss) {
   });
 }
 function _categoriesPubliques(ss) {
-  return _lireTable(_onglet(ss, SHEET_CATEGORIES)).filter(function (c) {
-    return c['code'] && c['actif'] !== false && String(c['code']) !== 'shop';
+  return _categoriesTriees(ss).filter(function (c) {
+    return c['actif'] !== false && String(c['code']) !== 'shop';
   }).map(function (c) { return { code: String(c['code']), libelle: String(c['libelle'] || c['code']) }; });
 }
 
@@ -173,7 +173,7 @@ function _gCandidatures() {
   return {
     ok: true, aujourdhui: _iso(_aujourdhui()), candidatures: candidatures,
     stands: _standsAvecPlaces(ss),
-    categories: _lireTable(_onglet(ss, SHEET_CATEGORIES)).filter(function (c) { return c['code']; })
+    categories: _categoriesTriees(ss)
       .map(function (c) { return { code: String(c['code']), libelle: String(c['libelle'] || c['code']) }; }),
     modeles: modeles, modelesDefaut: _emailsParDefaut()
   };

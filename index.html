@@ -194,6 +194,12 @@
   .gc-ev .d{flex:0 0 58px;background:var(--tot);border-radius:9px;padding:5px 4px;text-align:center;font-weight:800;font-size:13px}
   .gk-n{display:inline-block;min-width:18px;padding:1px 6px;border-radius:999px;background:var(--band);color:#fff;font-size:11px;text-align:center;margin-left:4px}
   .gk-desc{background:var(--tot);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.55;white-space:pre-wrap;max-height:260px;overflow:auto}
+  .gr-tbl th,.gr-tbl td{text-align:left;vertical-align:middle}
+  .gr-tbl input[type=text],.gr-tbl input[type=number],.gr-tbl select{padding:7px 9px;font-size:13px}
+  .gr-tbl input[type=checkbox]{width:17px;height:17px;accent-color:#111}
+  .gr-tbl tr.gr-modif td{background:#fffbf0}
+  .gr-tbl tr.gr-new td{background:var(--tot)}
+  .gr-btn{padding:7px 12px;font-size:13px;white-space:nowrap}
   .gk-mod{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;background:#fff}
   .gk-mod summary{padding:12px 14px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;list-style:none}
   .gk-mod summary::-webkit-details-marker{display:none}
@@ -318,7 +324,7 @@
 
   <!-- ONGLET GESTION -->
   <div id="viewGestion" class="hide">
-    <div class="subtabs" id="gSubtabs"><div class="subtab active" data-sub="stats">Statistiques</div><div class="subtab" data-sub="createurs">Créateurs</div><div class="subtab" data-sub="candidatures">Candidatures</div></div>
+    <div class="subtabs" id="gSubtabs"><div class="subtab active" data-sub="stats">Statistiques</div><div class="subtab" data-sub="createurs">Créateurs</div><div class="subtab" data-sub="candidatures">Candidatures</div><div class="subtab" data-sub="reglages">Réglages</div></div>
     <div id="gStats">
     <div class="card">
       <h2>Espace gestion</h2>
@@ -374,6 +380,17 @@
         </div>
         <div class="card" id="gcFiche"><div class="muted">Sélectionne un créateur dans la liste.</div></div>
       </div>
+    </div>
+    <div id="gRegl" class="hide">
+      <div id="grErr" class="warn hide"></div>
+      <div class="card">
+        <div class="cardhead" style="margin-bottom:0">
+          <div><h2>Réglages</h2><div class="muted" style="font-size:12px;margin-top:4px;line-height:1.5">Tout se règle ici : le Google Sheet ne sert plus que de stockage. Les codes ne changent jamais et rien ne se supprime, on désactive. Chaque modification est notée dans le journal avec ton prénom.</div></div>
+          <div class="gc-acts" style="margin-top:0"><button class="btn-dl" id="grRefresh">↻ Actualiser</button></div>
+        </div>
+      </div>
+      <div id="grTables"></div>
+      <div class="card"><div class="cardhead"><h2>E-mails types</h2></div><div class="gc-why" style="margin:0">Ils se modifient dans <a href="#" id="grVersEmails">Gestion ▸ Candidatures</a>, sous la liste, avec un aperçu sur une vraie candidature.</div></div>
     </div>
     <div id="gCand" class="hide">
       <div id="gkErr" class="warn hide"></div>
@@ -606,7 +623,7 @@ const API = {
     return res.json();
   },
   async gestion(action,params){
-    if(DEMO_MODE) return (action.indexOf('gestion_candidature')===0||action==='gestion_email_maj'?DEMO_K:DEMO_G)(action,params||{});
+    if(DEMO_MODE) return (action.indexOf('gestion_reglage')===0?DEMO_R:action.indexOf('gestion_candidature')===0||action==='gestion_email_maj'?DEMO_K:DEMO_G)(action,params||{});
     const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify(Object.assign({action,password:S.pwd,qui:gcPrenom()},params||{}))});
     return res.json();
   },
@@ -1366,8 +1383,10 @@ $('gSubtabs').addEventListener('click',e=>{
   $('gStats').classList.toggle('hide',t.dataset.sub!=='stats');
   $('gCreat').classList.toggle('hide',t.dataset.sub!=='createurs');
   $('gCand').classList.toggle('hide',t.dataset.sub!=='candidatures');
+  $('gRegl').classList.toggle('hide',t.dataset.sub!=='reglages');
   if(t.dataset.sub==='createurs'&&!GC.charge)gcCharger();
   if(t.dataset.sub==='candidatures'&&!GK.charge)gkCharger();
+  if(t.dataset.sub==='reglages')grCharger();
 });
 
 /* démo : même logique que le serveur, en mémoire */
@@ -1656,6 +1675,122 @@ const DEMO_K=(function(){
     return {ok:false,message:'Action inconnue (démo).'};
   };
 })();
+/* ===================== GESTION ▸ RÉGLAGES ===================== */
+const GR={data:null,charge:false,brouillons:{}};
+const GR_T={
+  categories:{titre:'Catégories',code:'auto',aide:"Proposées sur la page de candidature et dans les fiches créateurs, dans l'ordre indiqué. Désactivée, elle disparaît des listes mais reste sur les créateurs qui l'ont déjà.",
+    cols:[['libelle','Nom','text',180],['exemples','Exemples','text',240],['ordre','Ordre','num',64],['actif','Active','bool']],utilise:n=>n+' créateur'+(n>1?'s':'')},
+  stands:{titre:'Stands et loyers',code:'auto',aide:"Loyer mensuel et nombre de places. Les places alimentent Gestion ▸ Créateurs et la page de candidature (« complet · liste d'attente »).",
+    cols:[['libelle','Nom','text',260],['loyer','Loyer €/mois','num',84],['places','Places','num',64],['ref_facture','Réf. facture','text',80],['perms_loyer_gratuit','Perms = loyer offert','num',84]],utilise:n=>n+' occupée'+(n>1?'s':'')+' aujourd\'hui'},
+  remises:{titre:'Remises de la caisse',code:'saisi',codeLabel:'Nom affiché en caisse',aide:'Toujours à la charge du créateur. Le nom ne change plus une fois créé (il est enregistré sur chaque vente) : pour une nouvelle valeur, crée une nouvelle remise et désactive l\'ancienne.',
+    cols:[['valeur','Valeur','num',76],['type','Type','type'],['statut','Active','statut']],utilise:n=>n+' vente'+(n>1?'s':'')},
+  paiements:{titre:'Moyens de paiement de la caisse',code:'saisi',codeLabel:'Nom affiché en caisse',aide:'Frais bancaires retenus sur chaque vente payée ainsi (1,75 % pour la CB). Un nouveau taux ne s\'applique qu\'aux ventes suivantes.',
+    cols:[['taux_frais','Frais %','num',76],['statut','Actif','statut']],utilise:n=>n+' vente'+(n>1?'s':'')}
+};
+async function grCharger(){
+  $('grErr').classList.add('hide');
+  try{
+    const r=await API.gestion('gestion_reglages');
+    if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
+    GR.data=r;GR.charge=true;grRender();
+  }catch(e){$('grErr').classList.remove('hide');$('grErr').textContent='⚠️ Réglages indisponibles : '+((e&&e.message)||e);}
+}
+function grValeur(table,ligne,k){const b=GR.brouillons[table+'|'+ligne.code];return b&&k in b?b[k]:ligne[k];}
+function grChamp(table,[k,,t,w],v,verrou){
+  const dis=verrou?' disabled':'',st=w?` style="width:${w}px"`:'';
+  if(t==='bool') return `<input type="checkbox" data-f="${k}"${v?' checked':''}${dis}>`;
+  if(t==='statut') return `<input type="checkbox" data-f="${k}"${v==='actif'?' checked':''}${dis}>`;
+  if(t==='type') return `<select data-f="${k}"${dis}><option value="pourcentage"${v==='pourcentage'?' selected':''}>%</option><option value="montant"${v==='montant'?' selected':''}>€</option></select>`;
+  return `<input data-f="${k}" type="${t==='num'?'number':'text'}"${t==='num'?' step="any" min="0"':''} value="${FMT.esc(v==null?'':v)}"${st}${dis}>`;
+}
+function grRender(){
+  $('grTables').innerHTML=Object.keys(GR_T).map(table=>{
+    const T=GR_T[table],lignes=GR.data[table]||[];
+    const tete=`<tr><th>${T.code==='saisi'?'Nom en caisse':'Code'}</th>${T.cols.map(c=>`<th>${c[1]}</th>`).join('')}<th></th></tr>`;
+    const corps=lignes.map(l=>{
+      const brouillon=!!GR.brouillons[table+'|'+l.code];
+      return `<tr data-t="${table}" data-c="${FMT.esc(l.code)}" class="${brouillon?'gr-modif':''}"><td><b>${FMT.esc(l.code)}</b>${l.verrouille?' 🔒':''}<span class="gc-sub">${T.utilise(l.utilise||0)}</span></td>`+
+        T.cols.map(c=>`<td>${grChamp(table,c,grValeur(table,l,c[0]),l.verrouille)}</td>`).join('')+
+        `<td>${l.verrouille?'<span class="gc-sub">remise par défaut</span>':`<button class="btn btn-accent gr-btn" data-ga="enregistrer"${brouillon?'':' disabled'}>Enregistrer</button>`}</td></tr>`;
+    }).join('');
+    const nouvelle=`<tr data-t="${table}" data-c="" class="gr-new"><td>${T.code==='saisi'?`<input data-f="code" placeholder="${table==='remises'?'soldes_30':'virement'}" style="width:150px">`:'<span class="gc-sub">créé depuis le nom</span>'}</td>`+
+      T.cols.map(c=>`<td>${grChamp(table,c,c[2]==='bool'?true:c[2]==='statut'?'actif':c[2]==='type'?'pourcentage':'',false)}</td>`).join('')+
+      `<td><button class="btn btn-ghost gr-btn" data-ga="ajouter">＋ Ajouter</button></td></tr>`;
+    return `<div class="card"><div class="cardhead"><h2>${T.titre}</h2></div><div class="gc-why" style="margin:0 0 10px">${T.aide}</div>`+
+      `<div class="tblwrap"><table class="gr-tbl"><thead>${tete}</thead><tbody>${corps}${nouvelle}</tbody></table></div></div>`;
+  }).join('');
+}
+function grLire(tr){
+  const o={};
+  tr.querySelectorAll('[data-f]').forEach(el=>{o[el.dataset.f]=el.type==='checkbox'?(el.dataset.f==='statut'?(el.checked?'actif':'inactif'):el.checked):el.value.trim();});
+  return o;
+}
+$('grTables').addEventListener('input',e=>{
+  const tr=e.target.closest('tr[data-t]');if(!tr||!tr.dataset.c)return;
+  const table=tr.dataset.t,l=GR.data[table].find(x=>x.code===tr.dataset.c),v=grLire(tr),diff={};
+  Object.keys(v).forEach(k=>{if(String(v[k])!==String(l[k]==null?'':l[k]))diff[k]=v[k];});
+  if(Object.keys(diff).length)GR.brouillons[table+'|'+l.code]=diff;else delete GR.brouillons[table+'|'+l.code];
+  tr.classList.toggle('gr-modif',!!GR.brouillons[table+'|'+l.code]);
+  const b=tr.querySelector('[data-ga="enregistrer"]');if(b)b.disabled=!GR.brouillons[table+'|'+l.code];
+});
+$('grTables').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-ga]');if(!b||b.disabled)return;
+  const tr=b.closest('tr[data-t]'),table=tr.dataset.t,code=tr.dataset.c;
+  let action,params,msg;
+  if(b.dataset.ga==='enregistrer'){
+    const champs=Object.assign({},GR.brouillons[table+'|'+code]||{});
+    if(table==='remises'&&('valeur' in champs||'type' in champs)){const v=grLire(tr);champs.valeur=v.valeur;champs.type=v.type;}
+    action='gestion_reglage_maj';params={table,code,champs};msg=()=>code+' enregistré';
+  }else{
+    const champs=grLire(tr);
+    action='gestion_reglage_creer';params={table,champs};msg=r=>'« '+r.code+' » ajouté';
+  }
+  const t=b.textContent;b.disabled=true;b.textContent='…';
+  try{
+    const r=await API.gestion(action,params);
+    if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
+    delete GR.brouillons[table+'|'+code];
+    toast(msg(r)+(table==='remises'||table==='paiements'?' · visible dans la caisse à son prochain chargement':''));
+    /* les autres écrans relisent ces listes à leur prochaine ouverture */
+    GC.charge=false;GK.charge=false;
+    await grCharger();
+  }catch(err){toast((err&&err.message)||String(err),true);if(b.isConnected){b.disabled=false;b.textContent=t;}}
+});
+$('grRefresh').addEventListener('click',()=>grCharger());
+
+/* démo : réglages en mémoire */
+const DEMO_R=(function(){
+  let st=null;
+  const init=()=>{st={
+    categories:[['bijoux','Bijoux','boucles d\'oreilles, colliers',1,11],['illustration','Illustration','affiches, cartes',2,20],['deco','Déco & maison','bougies, objets',3,3],['shop','Shop & résidents','l\'équipe',4,6]].map(([code,libelle,exemples,ordre,utilise])=>({code,libelle,exemples,ordre,actif:true,utilise})),
+    stands:[['illu','Exposant illustration · espace partagé',28,10,'',''],['unique','Exposant créateur · petit espace unique',48,18,'',''],['grand','Exposant créateur · grand stand',68,6,'LGS',4],['friperie','Exposant friperie',70,3,'','']].map(([code,libelle,loyer,places,ref_facture,perms_loyer_gratuit],i)=>({code,libelle,loyer,places,ref_facture,perms_loyer_gratuit,utilise:[14,19,7,3][i]})),
+    remises:[['pas_de_remise',0,'montant',3819],['carte_fidelité_10%',10,'pourcentage',343],['soldes_20',20,'pourcentage',0],['machine_cadeau_5€',5,'montant',1]].map(([code,valeur,type,utilise])=>({code,valeur,type,statut:'actif',verrouille:code==='pas_de_remise',utilise})),
+    paiements:[['cb',1.75,3745],['espèces',0,891],['carte_cadeau',1.5,0]].map(([code,taux_frais,utilise])=>({code,taux_frais,statut:'actif',utilise}))
+  };};
+  const slug=s=>String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+  return async function(action,p){
+    if(!st)init();
+    if(action==='gestion_reglages')return JSON.parse(JSON.stringify(Object.assign({ok:true},st)));
+    const l=st[p.table];
+    if(action==='gestion_reglage_maj'){
+      const x=l.find(y=>y.code===p.code);if(x.verrouille)return {ok:false,message:'« pas_de_remise » est la remise par défaut de la caisse : elle ne se modifie pas.'};
+      if(p.table==='paiements'&&p.champs.statut==='inactif'&&!l.some(y=>y!==x&&y.statut==='actif'))return {ok:false,message:'Il faut garder au moins un moyen de paiement actif pour la caisse.'};
+      if('places' in p.champs&&!Number.isInteger(Number(p.champs.places)))return {ok:false,message:'Places : un nombre entier.'};
+      Object.keys(p.champs).forEach(k=>{x[k]=['loyer','places','valeur','taux_frais','ordre','perms_loyer_gratuit'].includes(k)&&p.champs[k]!==''?Number(String(p.champs[k]).replace(',','.')):p.champs[k];});return {ok:true};
+    }
+    if(action==='gestion_reglage_creer'){
+      const c=p.champs,code=p.table==='categories'||p.table==='stands'?slug(c.libelle):String(c.code||'').replace(/\s+/g,'_');
+      if(!code)return {ok:false,message:p.table==='remises'||p.table==='paiements'?'Indique le nom affiché en caisse.':'Le nom est obligatoire.'};
+      if(l.some(y=>y.code.toLowerCase()===code.toLowerCase()))return {ok:false,message:'« '+code+' » existe déjà : modifie-le ou réactive-le plutôt.'};
+      l.push(Object.assign({utilise:0},c,{code}));return {ok:true,code};
+    }
+    return {ok:false,message:'Action inconnue (démo).'};
+  };
+})();
+$('grVersEmails').addEventListener('click',e=>{
+  e.preventDefault();document.querySelector('#gSubtabs [data-sub="candidatures"]').click();
+  setTimeout(()=>$('gkModeles').scrollIntoView({behavior:'smooth',block:'start'}),GK.charge?0:900);
+});
 /* ===================== DONNÉES DÉMO ===================== */
 const DEMO_ROWS=(function(){
   const createurs=['caro','solenne','riri','Jackline','NYU'];
