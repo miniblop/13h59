@@ -194,6 +194,13 @@
   .gc-ev .d{flex:0 0 58px;background:var(--tot);border-radius:9px;padding:5px 4px;text-align:center;font-weight:800;font-size:13px}
   .gk-n{display:inline-block;min-width:18px;padding:1px 6px;border-radius:999px;background:var(--band);color:#fff;font-size:11px;text-align:center;margin-left:4px}
   .gk-desc{background:var(--tot);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.55;white-space:pre-wrap;max-height:260px;overflow:auto}
+  .gk-mod{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;background:#fff}
+  .gk-mod summary{padding:12px 14px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;list-style:none}
+  .gk-mod summary::-webkit-details-marker{display:none}
+  .gk-mod .corps{padding:0 14px 14px;border-top:1px solid var(--line)}
+  .gk-mod textarea{width:100%;min-height:190px;padding:10px 11px;border:1px solid var(--line);border-radius:10px;font:inherit;line-height:1.5;resize:vertical}
+  .gk-apercu{background:var(--tot);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.55;white-space:pre-wrap}
+  .gk-modifie{font-size:11px;color:#8a6d3b;font-weight:700}
   .gk-retenir{border:1px dashed var(--line);border-radius:12px;padding:12px;margin-top:12px}
   #gkFiche textarea{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:10px;font:inherit;resize:vertical}
   #gkTbl tbody tr{cursor:pointer}
@@ -383,6 +390,11 @@
           <div class="tblwrap gc-list"><table id="gkTbl"></table></div>
         </div>
         <div class="card" id="gkFiche"><div class="muted">Sélectionne une candidature dans la liste.</div></div>
+      </div>
+      <div class="card">
+        <div class="cardhead"><h2>E-mails types</h2><span class="muted" style="font-size:12px">envoyés depuis 13h59shop@gmail.com, avec copie cachée au shop</span></div>
+        <div class="gc-why" style="margin:0 0 10px">Champs remplacés à l'envoi : <b>{prenom}</b> <b>{marque}</b> <b>{stand}</b>, et <b>{date}</b> (date d'arrivée) dans l'e-mail de bienvenue. Un modèle désactivé n'est jamais envoyé.</div>
+        <div id="gkModeles"></div>
       </div>
     </div>
   </div>
@@ -594,7 +606,7 @@ const API = {
     return res.json();
   },
   async gestion(action,params){
-    if(DEMO_MODE) return (action.indexOf('gestion_candidature')===0?DEMO_K:DEMO_G)(action,params||{});
+    if(DEMO_MODE) return (action.indexOf('gestion_candidature')===0||action==='gestion_email_maj'?DEMO_K:DEMO_G)(action,params||{});
     const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify(Object.assign({action,password:S.pwd,qui:gcPrenom()},params||{}))});
     return res.json();
   },
@@ -1410,7 +1422,7 @@ async function gkCharger(garder){
     GK.data=r;GK.charge=true;
     if(!garder){GK.sel=null;GK.retenir=false;}
     $('gkStand').innerHTML='<option value="">Tous les forfaits</option>'+r.stands.map(s=>`<option value="${FMT.esc(s.code)}"${s.code===GK.stand?' selected':''}>${FMT.esc(s.libelle)}</option>`).join('');
-    gkBadge();gkRenderListe();gkRenderFiche();
+    gkBadge();gkRenderListe();gkRenderFiche();gkRenderModeles();
   }catch(e){$('gkErr').classList.remove('hide');$('gkErr').textContent='⚠️ Candidatures indisponibles : '+((e&&e.message)||e);}
 }
 function gkBadge(){
@@ -1542,13 +1554,71 @@ $('gkLien').addEventListener('click',async()=>{
   try{await navigator.clipboard.writeText(url);toast('Lien copié : '+url);}catch(e){prompt('Lien de la page de candidature :',url);}
 });
 
+/* ---------- E-mails types ---------- */
+const GK_MODELES=[['accuse_reception','Confirmation de candidature','envoyé automatiquement à chaque candidature reçue'],['liste_attente',"Liste d'attente",'bouton « Liste d\'attente »'],
+  ['non_retenu','Candidature non retenue','bouton « Non retenue »'],['retenu','Candidature retenue (bienvenue)','bouton « Retenir »']];
+GK.brouillons={};
+function gkExemple(code){
+  const k=GK.data.candidatures.find(x=>x.id===GK.sel)||{prenom:'Lucie',nom:'Vasseur',marque:'Atelier Lune',standSouhaite:(GK.data.stands[0]||{}).code};
+  return gkVars(k,k.standSouhaite,code==='retenu'?GK.data.aujourdhui:'');
+}
+function gkRemplir(t,v){return String(t).replace(/\{(\w+)\}/g,(x,c)=>v[c]!=null&&v[c]!==''?v[c]:x);}
+function gkRenderModeles(){
+  /* un modèle en cours de modification n'est jamais écrasé par un rechargement */
+  const el=$('gkModeles'),ouverts={};
+  el.querySelectorAll('details[data-m]').forEach(d=>{ouverts[d.dataset.m]=d.open;});
+  el.innerHTML=GK_MODELES.map(([code,titre,usage])=>{
+    const m=GK.brouillons[code]||GK.data.modeles[code]||{objet:'',texte:'',actif:false};
+    const v=gkExemple(code);
+    return `<details class="gk-mod" data-m="${code}"${ouverts[code]?' open':''}><summary><span>${titre} <span class="muted" style="font-weight:400;font-size:12px">· ${usage}</span></span>`+
+      `<span>${GK.brouillons[code]?'<span class="gk-modifie">non enregistré · </span>':''}<span class="gc-st ${m.actif?'actif':'inactif'}">${m.actif?'Actif':'Désactivé'}</span></span></summary><div class="corps">`+
+      `<div class="f" style="margin-top:12px"><label>Objet</label><input data-mc="objet" maxlength="200" value="${FMT.esc(m.objet)}"></div>`+
+      `<div class="f"><label>Texte</label><textarea data-mc="texte" maxlength="5000">${FMT.esc(m.texte)}</textarea></div>`+
+      `<label class="gc-check"><input type="checkbox" data-mc="actif"${m.actif?' checked':''}> Modèle actif (décoché : cet e-mail n'est jamais envoyé)</label>`+
+      `<div class="gc-h4">Aperçu${GK.sel?' pour '+FMT.esc(v.marque):' (exemple)'}</div><div class="gk-apercu" data-mc="apercu"><b>${FMT.esc(gkRemplir(m.objet,v))}</b>\n\n${FMT.esc(gkRemplir(m.texte,v))}</div>`+
+      `<div class="gc-acts"><button class="btn btn-accent" data-ma="enregistrer">Enregistrer</button><button class="btn btn-ghost" data-ma="annuler">Annuler les modifications</button>`+
+      `<button class="btn btn-ghost" data-ma="defaut">Rétablir le texte d'origine</button></div></div></details>`;
+  }).join('');
+}
+function gkLireModele(d){
+  const q=k=>d.querySelector(`[data-mc="${k}"]`);
+  return {objet:q('objet').value,texte:q('texte').value,actif:q('actif').checked};
+}
+$('gkModeles').addEventListener('input',e=>{
+  const d=e.target.closest('details[data-m]');if(!d)return;
+  const code=d.dataset.m,m=gkLireModele(d),v=gkExemple(code);
+  GK.brouillons[code]=m;
+  d.querySelector('[data-mc="apercu"]').innerHTML=`<b>${FMT.esc(gkRemplir(m.objet,v))}</b>\n\n${FMT.esc(gkRemplir(m.texte,v))}`;
+  const st=d.querySelector('summary .gc-st');st.className='gc-st '+(m.actif?'actif':'inactif');st.textContent=m.actif?'Actif':'Désactivé';
+  if(!d.querySelector('.gk-modifie'))st.insertAdjacentHTML('beforebegin','<span class="gk-modifie">non enregistré · </span>');
+});
+$('gkModeles').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-ma]');if(!b||b.disabled)return;
+  const d=b.closest('details[data-m]'),code=d.dataset.m,a=b.dataset.ma;
+  if(a==='annuler'){delete GK.brouillons[code];gkRenderModeles();return;}
+  if(a==='defaut'){
+    const o=GK.data.modelesDefaut&&GK.data.modelesDefaut[code];if(!o)return;
+    GK.brouillons[code]=Object.assign(gkLireModele(d),{objet:o.objet,texte:o.texte});gkRenderModeles();
+    toast("Texte d'origine remis : clique sur « Enregistrer » pour le garder.");return;
+  }
+  const m=gkLireModele(d);
+  const t=b.textContent;b.disabled=true;b.textContent='…';
+  try{
+    const r=await API.gestion('gestion_email_maj',Object.assign({code},m));
+    if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
+    GK.data.modeles[code]=Object.assign({},GK.data.modeles[code],m);delete GK.brouillons[code];
+    gkRenderModeles();toast('E-mail « '+GK_MODELES.find(x=>x[0]===code)[1]+' » enregistré'+(m.actif?'':' (désactivé)'));
+  }catch(err){toast((err&&err.message)||String(err),true);}
+  finally{if(b.isConnected){b.disabled=false;b.textContent=t;}}
+});
+
 /* démo : candidatures en mémoire (la création du créateur passe par la démo de Gestion ▸ Créateurs) */
 const DEMO_K=(function(){
   let st=null;
   const init=()=>{
     const j=n=>isoJour(new Date(Date.now()-n*864e5));
     const k=(id,recueLe,prenom,nom,marque,email,instagram,categorie,standSouhaite,statut,source,description,extra)=>Object.assign({id,recueLe,majLe:'',prenom,nom,marque,email,instagram,categorie,standSouhaite,description,statut,traiteeLe:'',traiteePar:'',idCreateur:'',source,remarque:'',doublons:[],createur:null},extra||{});
-    st={candidatures:[
+    st={defauts:null,candidatures:[
       k('CA001',j(400),'','Bollingh Lou-Anne','LAB ART','lab@exemple.fr','https://www.instagram.com/lab.art.design/','illustration','grand','retenu','anciens_createurs','Illustrations numériques et porte-clés, magnets.',{idCreateur:'C004',createur:{id:'C004',nom:'Jackline',statut:'actif',lie:true}}),
       k('CA002',j(200),'','Martin Zoé','Brume céramique','brume@exemple.fr','https://www.instagram.com/brume.ceramique/','','unique','liste_attente','formulaire_google','Céramiques tournées, émaux maison.',{remarque:'Formulaire Google : mess envoyé juillet 26'}),
       k('CA003',j(9),'Hugo','Leroy','Papier Hugo','hugo@exemple.fr','https://www.instagram.com/papier.hugo/','papeterie','illu','a_traiter','site','Carnets reliés à la main, papier recyclé, linogravures en petites séries.'),
@@ -1561,15 +1631,19 @@ const DEMO_K=(function(){
       non_retenu:{objet:'Ta candidature {marque} au 13H59 Shop',texte:"Bonjour {prenom},\n\nMerci pour ta candidature {marque} et pour le temps que tu y as consacré.\n\nAprès l'avoir étudiée avec attention, on ne peut pas te proposer de place au 13H59 Shop pour le moment.\n\nBelle continuation,\nL'équipe du 13H59 Shop",actif:true},
       retenu:{objet:'Bienvenue au 13H59 Shop, {marque} !',texte:"Bonjour {prenom},\n\nBonne nouvelle : ta candidature {marque} est retenue ! On t'accueille en boutique à partir du {date}, sur le forfait « {stand} ».\n\nÀ très vite,\nL'équipe du 13H59 Shop",actif:true}
     }};
+    st.defauts=JSON.parse(JSON.stringify(st.modeles));
   };
   const lire=async()=>{const g=await DEMO_G('gestion_createurs',{});return {g,stands:g.stands.map(s=>Object.assign({},s,{libres:Math.max(0,s.places-g.emplacements.filter(e=>e.stand===s.code&&gcActifLe(e,g.aujourdhui)).length)}))};};
   return async function(action,p){
     if(!st)init();
     const k=st.candidatures.find(x=>x.id===p.id),auj=aujourdhui();
     switch(action){
-      case 'gestion_candidatures':{const {g,stands}=await lire();return JSON.parse(JSON.stringify({ok:true,aujourdhui:g.aujourdhui,candidatures:st.candidatures,stands,categories:g.categories.concat([{code:'papeterie',libelle:'Papeterie'}]),modeles:st.modeles}));}
+      case 'gestion_candidatures':{const {g,stands}=await lire();return JSON.parse(JSON.stringify({ok:true,aujourdhui:g.aujourdhui,candidatures:st.candidatures,stands,categories:g.categories.concat([{code:'papeterie',libelle:'Papeterie'}]),modeles:st.modeles,modelesDefaut:st.defauts}));}
       case 'gestion_candidature_statut':{if(k.statut==='retenu')return {ok:false,message:'Candidature déjà retenue.'};k.statut=p.statut;k.traiteeLe=p.statut==='a_traiter'?'':auj;k.traiteePar=p.statut==='a_traiter'?'':(S.prenom||'');return {ok:true,email:!!p.email,emailErreur:''};}
       case 'gestion_candidature_remarque':{k.remarque=p.remarque;return {ok:true};}
+      case 'gestion_email_maj':{const inv=(p.objet+' '+p.texte).match(/\{[^{}]*\}/g)||[],bad=inv.filter(x=>!['{prenom}','{marque}','{stand}'].concat(p.code==='retenu'?['{date}']:[]).includes(x));
+        if(bad.length)return {ok:false,message:'Champ inconnu dans le texte : '+bad.join(', ')+'.'};if(String(p.texte).trim().length<20)return {ok:false,message:"Le texte de l'e-mail est vide ou trop court."};
+        st.modeles[p.code]=Object.assign({},st.modeles[p.code],{objet:p.objet,texte:p.texte,actif:p.actif});return {ok:true};}
       case 'gestion_candidature_retenir':{
         if(k.statut==='retenu')return {ok:false,message:'Cette candidature est déjà retenue.'};
         let id=p.idCreateur;

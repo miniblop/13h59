@@ -175,7 +175,7 @@ function _gCandidatures() {
     stands: _standsAvecPlaces(ss),
     categories: _lireTable(_onglet(ss, SHEET_CATEGORIES)).filter(function (c) { return c['code']; })
       .map(function (c) { return { code: String(c['code']), libelle: String(c['libelle'] || c['code']) }; }),
-    modeles: modeles
+    modeles: modeles, modelesDefaut: _emailsParDefaut()
   };
 }
 

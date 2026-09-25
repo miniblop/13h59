@@ -24,7 +24,8 @@ function _gestion(body) {
     gestion_candidatures: _gCandidatures,
     gestion_candidature_statut: _gCandidatureStatut,
     gestion_candidature_retenir: _gCandidatureRetenir,
-    gestion_candidature_remarque: _gCandidatureRemarque
+    gestion_candidature_remarque: _gCandidatureRemarque,
+    gestion_email_maj: _gEmailMaj
   };
   const f = actions[body.action];
   if (!f) return { ok: false, message: 'Action inconnue.' };

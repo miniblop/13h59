@@ -76,14 +76,58 @@ function _creerOngletEmails(ss) {
   return true;
 }
 
-/** Modèles par code : {code: {objet, texte, actif}}. */
+/** Modèles par code : {code: {objet, texte, actif, utilisePour}}. */
 function _modelesEmails(ss) {
   const sh = ss.getSheetByName(SHEET_EMAILS), out = {};
   if (!sh) return out;
   _lireTable(sh).forEach(function (m) {
-    if (m['code']) out[String(m['code'])] = { objet: String(m['objet'] || ''), texte: String(m['texte'] || ''), actif: m['actif'] === true };
+    if (m['code']) out[String(m['code'])] = { objet: String(m['objet'] || ''), texte: String(m['texte'] || ''), actif: m['actif'] === true, utilisePour: String(m['utilise_pour'] || '') };
   });
   return out;
+}
+
+/** Textes d'origine, pour le bouton « Rétablir » du site. */
+function _emailsParDefaut() {
+  const out = {};
+  EMAILS_PAR_DEFAUT.forEach(function (l) { out[l[0]] = { objet: l[1], texte: l[2] }; });
+  return out;
+}
+
+/** Champs utilisables dans chaque modèle ({date} n'a de sens que pour l'arrivée d'un créateur retenu). */
+const CHAMPS_EMAIL = ['prenom', 'marque', 'stand', 'date'];
+function _champsEmailInvalides(code, s) {
+  const out = [];
+  String(s).replace(/\{([^{}]*)\}/g, function (t, k) {
+    if (CHAMPS_EMAIL.indexOf(k) === -1 || (k === 'date' && code !== 'retenu')) out.push(t);
+    return t;
+  });
+  return out;
+}
+
+/** Gestion ▸ Candidatures ▸ E-mails types : modifie un modèle de l'onglet `emails`. */
+function _gEmailMaj(body) {
+  const code = String(body.code || '');
+  const defaut = EMAILS_PAR_DEFAUT.filter(function (l) { return l[0] === code; })[0];
+  if (!defaut) throw new Error('Modèle inconnu : « ' + code + ' ».');
+  const objet = _textePublic(String(body.objet || '').replace(/\n/g, ' '), 200);
+  const texte = _textePublic(body.texte, 5000);
+  if (!objet) throw new Error("L'objet de l'e-mail est vide.");
+  if (texte.length < 20) throw new Error("Le texte de l'e-mail est vide ou trop court.");
+  const mauvais = _champsEmailInvalides(code, objet + ' ' + texte);
+  if (mauvais.length) throw new Error('Champ inconnu dans le texte : ' + mauvais.join(', ') + '. Champs possibles : {prenom} {marque} {stand}' + (code === 'retenu' ? ' {date}' : '') + '.');
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  _creerOngletEmails(ss);
+  const t = _tableau(ss, SHEET_EMAILS);
+  const i = t.lignes.findIndex(function (r) { return String(_val(t, r, 'code')) === code; });
+  const valeurs = { code: code, objet: objet, texte: texte, actif: body.actif === true, utilise_pour: defaut[4] };
+  if (i < 0) _ajouterLigne(t, valeurs);
+  else {
+    const r = t.lignes[i];
+    ['objet', 'texte', 'actif'].forEach(function (k) { if (t.M[k] != null) r[t.M[k]] = valeurs[k]; });
+    _ecrireLigne(t, i, r);
+  }
+  _journaliser('email_modele_maj', code + (body.actif === true ? '' : ' (désactivé)'));
+  return { ok: true };
 }
 
 function _remplir(modele, vars) {
