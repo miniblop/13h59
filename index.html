@@ -480,7 +480,7 @@ const BUCKETS = {
   isoWeek(date){const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));const dn=(d.getUTCDay()+6)%7;d.setUTCDate(d.getUTCDate()-dn+3);const ft=new Date(Date.UTC(d.getUTCFullYear(),0,4));return{year:d.getUTCFullYear(),week:1+Math.round((d-ft)/(7*864e5))};},
   mondayOf(date){const d=new Date(date);const o=(d.getDay()+6)%7;d.setDate(d.getDate()-o);d.setHours(0,0,0,0);return d;},
   of(date,dim){
-    if(dim==='jour'){const key=date.toISOString().slice(0,10);return{key,label:date.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}),refDate:new Date(date.getFullYear(),date.getMonth(),date.getDate())};}
+    if(dim==='jour'){const key=date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0');return{key,label:date.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}),refDate:new Date(date.getFullYear(),date.getMonth(),date.getDate())};}
     if(dim==='mois'){const key=date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0');return{key,label:date.toLocaleDateString('fr-FR',{month:'short',year:'2-digit'}),refDate:new Date(date.getFullYear(),date.getMonth(),1)};}
     const w=BUCKETS.isoWeek(date);const key=w.year+'-W'+String(w.week).padStart(2,'0');return{key,label:'S'+w.week+' - '+w.year,refDate:BUCKETS.mondayOf(date)};
   },
@@ -674,14 +674,18 @@ function renderMonitoring(cfg){
    seuil d'ici la fin du mois. On la montre, mais on la signale. */
 const MOIS_COURANT=(()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');})();
 function estProvisoire(lignes){return (lignes||[]).some(l=>CALC.mois(l.date)===MOIS_COURANT);}
-const BADGE_PROV='<span class="prov" title="Mois en cours : le palier peut encore évoluer">en cours</span>';
+/* « en cours » = la période elle-même n'est pas terminée (le jour, la semaine ou le mois d'aujourd'hui).
+   Une semaine passée du mois courant n'est plus « en cours » : seul son taux reste provisoire (≥). */
+const CLES_EN_COURS=(()=>{const d=new Date();d.setHours(0,0,0,0);return new Set(['jour','mois','semaine'].map(x=>BUCKETS.of(d,x).key));})();
+function estEnCours(b){return CLES_EN_COURS.has(b.key);}
+const BADGE_PROV='<span class="prov" title="Période pas encore terminée">en cours</span>';
 
 function recapHTML(buckets,t){
-  const provisoire=buckets.some(b=>estProvisoire(b.lignes));
+  const provisoire=buckets.some(b=>estProvisoire(b.lignes)),enCours=buckets.some(estEnCours);
   return `<thead><tr><th>Période</th><th>Ventes</th><th>Paniers</th><th>Revenus</th><th>Remise</th><th>Taxe</th><th>Prime</th><th>Taux</th><th>Commission</th><th>Prime nette</th></tr></thead><tbody>`+
-    buckets.map(b=>{const a=b.agg;const p=estProvisoire(b.lignes);return `<tr><td>${FMT.esc(b.label)}${p?' '+BADGE_PROV:''}</td><td>${FMT.num(a.nbVentes)}</td><td>${FMT.num(a.nbPaniers)}</td><td>${FMT.eur(a.revenus)}</td><td>${FMT.eur(a.remise)}</td><td>${FMT.eur(a.taxe)}</td><td>${FMT.eur(a.prime)}</td><td>${p?`<span class="taux-prov" title="Mois en cours : le taux ne peut plus que monter d'ici la fin du mois">≥&nbsp;${FMT.pct(a.taux)}</span>`:FMT.pct(a.taux)}</td><td>${FMT.eur(a.commission)}</td><td>${FMT.eur(a.primeNet)}</td></tr>`;}).join('')+
-    `<tr class="tot"><td>Total${provisoire?' '+BADGE_PROV:''}</td><td>${FMT.num(t.nbVentes)}</td><td>${FMT.num(t.nbPaniers)}</td><td>${FMT.eur(t.revenus)}</td><td>${FMT.eur(t.remise)}</td><td>${FMT.eur(t.taxe)}</td><td>${FMT.eur(t.prime)}</td><td>—</td><td>${FMT.eur(t.commission)}</td><td>${FMT.eur(t.primeNet)}</td></tr>`+
-    (provisoire?`<tr class="note"><td colspan="10">« en cours » : le mois n'est pas terminé. Le palier de commission se calcule sur la prime du mois entier, d'où le taux noté <b>≥</b> : il ne peut plus que monter si un créateur franchit 100 € ou 250 € d'ici la fin du mois — jamais redescendre. La commission affichée est donc un plancher.</td></tr>`:'')+
+    buckets.map(b=>{const a=b.agg;const p=estProvisoire(b.lignes);return `<tr><td>${FMT.esc(b.label)}${estEnCours(b)?' '+BADGE_PROV:''}</td><td>${FMT.num(a.nbVentes)}</td><td>${FMT.num(a.nbPaniers)}</td><td>${FMT.eur(a.revenus)}</td><td>${FMT.eur(a.remise)}</td><td>${FMT.eur(a.taxe)}</td><td>${FMT.eur(a.prime)}</td><td>${p?`<span class="taux-prov" title="Mois en cours : le taux ne peut plus que monter d'ici la fin du mois">≥&nbsp;${FMT.pct(a.taux)}</span>`:FMT.pct(a.taux)}</td><td>${FMT.eur(a.commission)}</td><td>${FMT.eur(a.primeNet)}</td></tr>`;}).join('')+
+    `<tr class="tot"><td>Total${enCours?' '+BADGE_PROV:''}</td><td>${FMT.num(t.nbVentes)}</td><td>${FMT.num(t.nbPaniers)}</td><td>${FMT.eur(t.revenus)}</td><td>${FMT.eur(t.remise)}</td><td>${FMT.eur(t.taxe)}</td><td>${FMT.eur(t.prime)}</td><td>—</td><td>${FMT.eur(t.commission)}</td><td>${FMT.eur(t.primeNet)}</td></tr>`+
+    (provisoire?`<tr class="note"><td colspan="10">« en cours » : la période n'est pas terminée. Le taux marqué <b>≥</b> concerne le mois en cours : le palier de commission se calcule sur la prime du mois entier, d'où le taux noté <b>≥</b> : il ne peut plus que monter si un créateur franchit 100 € ou 250 € d'ici la fin du mois — jamais redescendre. La commission affichée est donc un plancher.</td></tr>`:'')+
     `</tbody>`;
 }
 function detailHTML(lignes,withCreateur,cap){
@@ -694,7 +698,7 @@ function detailHTML(lignes,withCreateur,cap){
 function blocTranspose(lignes,dim,id){
   const cols=BUCKETS.grouper(lignes,dim).map(b=>({...b,agg:CALC.agrege(b.lignes,b.refDate)}));
   const totAgg=totaux(cols,lignes);
-  let head='<thead><tr><th></th>'+cols.map(b=>`<th>${FMT.esc(b.label)}${estProvisoire(b.lignes)?' '+BADGE_PROV:''}</th>`).join('')+'<th>Total</th></tr></thead>';
+  let head='<thead><tr><th></th>'+cols.map(b=>`<th>${FMT.esc(b.label)}${estEnCours(b)?' '+BADGE_PROV:''}</th>`).join('')+'<th>Total</th></tr></thead>';
   let body='<tbody>';
   GEST_METRIQUES.forEach((m,i)=>{
     const fin=(i===GEST_METRIQUES.length-1)||(GEST_METRIQUES[i+1].grp!==m.grp);
