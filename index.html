@@ -187,8 +187,6 @@
   .gc-check{display:flex;gap:9px;align-items:center;font-size:13px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--ink);font-weight:400}
   .gc-check input{width:17px;height:17px;margin:0;accent-color:#111}
   .gc-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
-  .gc-qui{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--muted);text-transform:none;letter-spacing:0;margin:0}
-  .gc-qui input{width:130px;padding:7px 10px}
   .gc-why{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
   .gc-h4{margin:18px 0 8px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:800}
   .gc-ev{display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px}
@@ -206,6 +204,7 @@
 <div class="wrap">
   <div id="login" class="card">
     <h2>Accès sécurisé</h2>
+    <div id="loginPwd">
     <p class="muted" style="margin:6px 0 14px">Entre le mot de passe communiqué par le magasin.</p>
     <label>Mot de passe</label>
     <div class="pwdwrap">
@@ -213,6 +212,13 @@
       <button type="button" id="pwdEye" class="eye" aria-label="Afficher le mot de passe" title="Afficher le mot de passe" aria-pressed="false"></button>
     </div>
     <button class="btn btn-accent" id="btnLogin" style="width:100%;margin-top:12px">Entrer</button>
+    </div>
+    <div id="loginQui" class="hide">
+      <p class="muted" style="margin:6px 0 14px">Ton prénom signe les modifications faites dans la gestion (onglet « journal »).</p>
+      <label>Ton prénom</label>
+      <input id="quiPrenom" placeholder="Caro" maxlength="30" autocomplete="given-name">
+      <button class="btn btn-accent" id="btnQui" style="width:100%;margin-top:12px">Continuer</button>
+    </div>
     <div class="demo-hint" id="demoHint"></div>
   </div>
 </div>
@@ -328,7 +334,7 @@
       <div class="card">
         <div class="cardhead" style="margin-bottom:0">
           <div><h2>Créateurs</h2><div class="muted" style="font-size:12px;margin-top:4px">Un créateur = un seul stand · préavis d'un mois, reçu par e-mail</div></div>
-          <div class="gc-acts" style="margin-top:0"><label class="gc-qui">Tu es<input id="gcQui" placeholder="Ton prénom" maxlength="30" autocomplete="given-name"></label><button class="btn-dl" id="gcRefresh">↻ Actualiser</button><button class="btn btn-ghost" id="gcAjout">＋ Ajouter un créateur</button></div>
+          <div class="gc-acts" style="margin-top:0"><button class="btn-dl" id="gcRefresh">↻ Actualiser</button><button class="btn btn-ghost" id="gcAjout">＋ Ajouter un créateur</button></div>
         </div>
         <div id="gcAjoutForm" class="hide" style="margin-top:14px;border-top:1px dashed var(--line);padding-top:14px">
           <div class="gc-form">
@@ -765,6 +771,25 @@ async function login(){
     CALC.indexerMois(S.rows);
     /* zones : renvoyées par l'API ; sinon on retombe sur une table locale (ancien déploiement) */
     S.zones=Array.isArray(r.zones)&&r.zones.length?r.zones:(ACCES_LOCAL[r.role]||[]);
+    if(peut('gestion')){
+      let memo='';try{memo=localStorage.getItem('13h59_prenom')||'';}catch(e){}
+      $('quiPrenom').value=memo;$('loginPwd').classList.add('hide');$('loginQui').classList.remove('hide');$('quiPrenom').focus();
+      return;
+    }
+    ouvrirApp();
+  }catch(e){toast('Connexion impossible : '+e.message,true);}
+  finally{$('btnLogin').disabled=false;$('btnLogin').textContent='Entrer';}
+}
+function validerPrenom(){
+  const p=$('quiPrenom').value.trim();
+  if(!p){toast('Indique ton prénom.',true);$('quiPrenom').focus();return;}
+  S.prenom=p;try{localStorage.setItem('13h59_prenom',p);}catch(e){}
+  $('btnLogout').textContent='Déconnexion · '+p;
+  ouvrirApp();
+}
+$('btnQui').addEventListener('click',validerPrenom);
+$('quiPrenom').addEventListener('keydown',e=>{if(e.key==='Enter')validerPrenom();});
+function ouvrirApp(){
     $('login').classList.add('hide');$('app').classList.remove('hide');
     /* on masque simplement les onglets interdits */
     $('tabCreateur').classList.toggle('hide',!peut('createur'));
@@ -774,8 +799,6 @@ async function login(){
     if(peut('gestion')) initGestion();
     const premier=peut(ONGLET_DEFAUT)?ONGLET_DEFAUT:TAB_ORDER.find(peut);
     if(premier) showTab(premier); else toast('Aucun espace accessible avec ce mot de passe.',true);
-  }catch(e){toast('Connexion impossible : '+e.message,true);}
-  finally{$('btnLogin').disabled=false;$('btnLogin').textContent='Entrer';}
 }
 $('btnLogout').addEventListener('click',()=>location.reload());
 document.querySelectorAll('.tab[data-tab]').forEach(t=>t.addEventListener('click',()=>showTab(t.dataset.tab)));
@@ -1107,10 +1130,8 @@ $('cJourDate').addEventListener('change',chargerJour);
 
 /* ===================== GESTION ▸ CRÉATEURS ===================== */
 const GC={data:null,filtre:'actif',cat:'',q:'',sel:null,charge:false};
-/* prénom de la personne connectée : signe chaque ligne du journal, mémorisé dans ce navigateur */
-function gcPrenom(){return $('gcQui').value.trim();}
-try{$('gcQui').value=localStorage.getItem('13h59_prenom')||'';}catch(e){}
-$('gcQui').addEventListener('change',()=>{try{localStorage.setItem('13h59_prenom',gcPrenom());}catch(e){}});
+/* prénom saisi à la connexion : signe chaque ligne du journal */
+function gcPrenom(){return S.prenom||'';}
 const STAND_COURT={illu:'Illu',unique:'Unique',grand:'Grand',friperie:'Friperie'};
 const GC_LIB={actif:'Actif',preavis:'En préavis',inactif:'Inactif',tous:'Tous'};
 /* champs de la fiche : clé côté site, libellé, type, nom de la colonne du Sheet */
@@ -1254,7 +1275,6 @@ function gcChampsModifies(c){
   return champs;
 }
 async function gcAppel(btn,action,params,msg){
-  if(!gcPrenom()){toast('Indique ton prénom en haut de la page : il signe le journal.',true);$('gcQui').focus();return;}
   const t=btn.textContent;btn.disabled=true;btn.textContent='…';
   try{
     const r=await API.gestion(action,params);
