@@ -249,6 +249,10 @@ function _gVenteCorriger(body) {
   if (avant === [idCreateur, prix, codeRemise, codePaiement, reference].join('|')) throw new Error("Rien n'a changé : modifie au moins un champ.");
 
   const m = _montants(prix, { valeur: Number(rem['valeur']) || 0, estPourcentage: _norm(rem['type']) === 'pourcentage' }, Number(pai['taux_frais']) || 0);
+  // Même paiement, même montant payé : les frais d'origine sont gardés (le taux a pu changer depuis la vente).
+  if (codePaiement === _norm(r[M['code_paiement']]) && m.prixClient === Number(r[M['prix_client']])) {
+    m.frais = Number(r[M['frais']]) || 0; m.prime = _round2(m.prixClient - m.frais);
+  }
   if (_modifiableSurPlace(ctx, r)) {
     // Mois en cours : la ligne est modifiée, le journal garde l'avant.
     const copie = _copieVente(ctx, r), i = ctx.lignes.indexOf(r);
