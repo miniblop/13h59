@@ -385,16 +385,21 @@ function _htmlFacture(ctx, c, numero, emiseLe) {
 }
 
 /**
- * À lancer depuis l'éditeur, UNIQUEMENT tant qu'aucune facture n'a été envoyée : efface les factures
+ * À lancer depuis l'éditeur, tant qu'aucune facture n'a été envoyée à un créateur : efface les factures
  * d'essai (lignes des onglets factures et lignes_facture, PDF mis à la corbeille de Drive), pour que la
- * vraie numérotation commence à 001. Refuse de tourner dès qu'une facture a été envoyée à un créateur.
+ * vraie numérotation commence à 001. Les envois de test à soi-même ou au shop sont permis ; refuse dès
+ * qu'une facture est partie chez quelqu'un d'autre.
  */
 function effacerFacturesDEssai() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const shF = ss.getSheetByName(SHEET_FACTURES), shL = ss.getSheetByName(SHEET_LIGNES_FACTURE);
   if (!shF) { Logger.log('Aucune facture.'); return; }
   const f = _lireTable(shF);
-  if (f.some(function (x) { return String(x['statut']) === 'envoyee'; })) throw new Error("Une facture a déjà été envoyée : les factures ne s'effacent plus (numérotation légale).");
+  // Une facture envoyée à un créateur ne s'efface jamais ; un envoi de test à soi-même ou au shop, si.
+  const soi = [_norm(Session.getEffectiveUser().getEmail()), EMAIL_SHOP];
+  const vraies = f.filter(function (x) { return String(x['statut']) === 'envoyee' && soi.indexOf(_norm(x['envoyee_a'])) === -1; });
+  if (vraies.length) throw new Error('Facture(s) déjà envoyée(s) à un créateur (' + vraies.map(function (x) { return _numeroTexte(x['numero']) + ' → ' + x['envoyee_a']; }).join(', ') +
+    ') : les factures ne s\'effacent plus (numérotation légale).');
   let pdf = 0;
   f.forEach(function (x) { if (x['pdf_id']) { try { DriveApp.getFileById(String(x['pdf_id'])).setTrashed(true); pdf++; } catch (e) { /* déjà supprimé */ } } });
   if (shF.getLastRow() > 1) shF.deleteRows(2, shF.getLastRow() - 1);
