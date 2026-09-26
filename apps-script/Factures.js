@@ -190,16 +190,22 @@ function _aFacturer(ctx) {
 function _gFactures(body) {
   const ss = SpreadsheetApp.getActiveSpreadsheet(), ctx = _contexteFactures(ss, body.mois);
   const perms = body.perms || {};
+  // Permanences du mois d'après l'agenda BÉNÉVOLES : valeur proposée pour « faites » (modifiable).
+  let agenda = {}, agendaErreur = '';
+  try { agenda = _permanencesCache(ss, ctx.mois, body.rafraichirAgenda === true); }
+  catch (e) { agendaErreur = String(e && e.message ? e.message : e); }
   const lignes = _aFacturer(ctx).map(function (r) {
-    const id = String(_val(ctx.tC, r, 'id_createur')), f = ctx.factures[id];
+    const id = String(_val(ctx.tC, r, 'id_createur')), f = ctx.factures[id], ag = agenda[id];
     const p = perms[id] || {};
-    const c = _calculFacture(ctx, r, p.faites != null ? p.faites : (f ? f['perms_faites'] : 0), p.demandees != null ? p.demandees : (f ? f['perms_requises'] : ''));
+    const faites = p.faites != null ? p.faites : f ? f['perms_faites'] : ag ? ag.jours : 0;
+    const c = _calculFacture(ctx, r, faites, p.demandees != null ? p.demandees : (f ? f['perms_requises'] : ''));
+    c.permsAgenda = ag ? ag.jours : 0; c.permsDetail = ag ? ag.detail : [];
     delete c.releve;
     c.facture = f ? { numero: String(f['numero']), statut: String(f['statut']), total: Number(f['total']) || 0, emiseLe: _iso(f['emise_le']),
                       envoyeeLe: _iso(f['envoyee_le']), pdfId: String(f['pdf_id'] || '') } : null;
     return c;
   }).sort(function (a, b) { return a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }); });
-  return { ok: true, mois: ctx.mois, libelle: ctx.b.libelle, moisVentes: ctx.precBornes.libelle, joursOuverts: ctx.ouvertsMois, factures: lignes };
+  return { ok: true, mois: ctx.mois, libelle: ctx.b.libelle, moisVentes: ctx.precBornes.libelle, joursOuverts: ctx.ouvertsMois, factures: lignes, agendaErreur: agendaErreur };
 }
 
 /** Aperçu : la facture générée (montants figés) si elle existe, sinon le calcul du moment. */

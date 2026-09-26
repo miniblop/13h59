@@ -2212,7 +2212,7 @@ async function gfCharger(garder){
   $('gfErr').classList.add('hide');
   if(!$('gfMois').value)gfInitMois();
   try{
-    const r=await API.gestion('gestion_factures',{mois:$('gfMois').value,perms:GF.perms});
+    const r=await API.gestion('gestion_factures',{mois:$('gfMois').value,perms:GF.perms,rafraichirAgenda:!!GF.rafraichirAgenda});GF.rafraichirAgenda=false;
     if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
     GF.data=r;GF.charge=true;if(!garder)GF.sel=null;
     gfRender();if(GF.sel)gfApercu();
@@ -2230,6 +2230,7 @@ function gfRender(){
   if(sansAdr.length)w.push(`Nom légal et adresse manquants (obligatoires sur la facture) : <b>${sansAdr.map(f=>FMT.esc(f.nom)).join(', ')}</b>. À compléter dans Gestion ▸ Créateurs.`);
   if(sansMail.length)w.push(`Pas d'e-mail pour <b>${sansMail.map(f=>FMT.esc(f.nom)).join(', ')}</b> : la facture ne pourra pas être envoyée.`);
   alertes.forEach(f=>w.push(`<b>${FMT.esc(f.nom)}</b> : ${f.alertes.map(FMT.esc).join(' ; ')}`));
+  if(D.agendaErreur)w.push(`Agenda des bénévoles illisible (${FMT.esc(D.agendaErreur)}) : saisis les permanences à la main.`);
   $('gfWarn').innerHTML=w.map(x=>`<div class="warn" style="margin:0 0 10px">${x}</div>`).join('');
   const aGen=F.filter(f=>!f.facture&&!gfBloquant(f)),aEnv=F.filter(f=>f.facture&&f.facture.statut==='generee'&&f.email);
   $('gfGenTout').disabled=GF.occupe||!aGen.length;$('gfGenTout').textContent='Générer les factures'+(aGen.length?' ('+aGen.length+')':'');
@@ -2244,7 +2245,8 @@ function gfRender(){
       const fig=f.facture,prorata=f.lignes.some(l=>/jours d'ouverture/.test(l.libelle));
       const p=GF.perms[f.idCreateur]||{};
       const perms=!f.benevole?'<span class="muted">—</span>':f.permsRequises==null?'<span class="muted">pas de bénévolat</span>':fig?FMT.num(f.permsFaites||0)+' / '+f.permsRequises:
-        `<input class="gf-perms" type="number" min="0" step="0.5" value="${FMT.esc(p.faites??f.permsFaites??0)}" data-perm="${FMT.esc(f.idCreateur)}" data-k="faites" title="Journées faites"> <span class="muted">/</span> <input class="gf-perms" type="number" min="1" step="1" value="${FMT.esc(p.demandees??f.permsRequises)}" data-perm="${FMT.esc(f.idCreateur)}" data-k="demandees" title="Journées demandées ce mois-ci (loyer offert)">`;
+        `<input class="gf-perms" type="number" min="0" step="0.5" value="${FMT.esc(p.faites??f.permsFaites??0)}" data-perm="${FMT.esc(f.idCreateur)}" data-k="faites" title="Journées faites"> <span class="muted">/</span> <input class="gf-perms" type="number" min="1" step="1" value="${FMT.esc(p.demandees??f.permsRequises)}" data-perm="${FMT.esc(f.idCreateur)}" data-k="demandees" title="Journées demandées ce mois-ci (loyer offert)">`+
+        `<span class="gc-sub" title="${FMT.esc((f.permsDetail||[]).join('\n'))}">agenda : ${FMT.num(f.permsAgenda||0)}${p.faites!=null&&Number(p.faites)!==Number(f.permsAgenda||0)?' · saisie modifiée':''}</span>`;
       return `<tr data-f="${FMT.esc(f.idCreateur)}" class="${f.idCreateur===GF.sel?'sel':''}"><td><b>${FMT.esc(f.nom)}</b>${f.benevole?' <span class="gc-st benev">bénévole</span>':''}${prorata?' <span class="pill">prorata</span>':''}<span class="gc-sub">${FMT.esc(f.idCreateur)}</span></td>`+
         `<td class="r">${f.loyer?FMT.eur(f.loyer):'<span class="muted">—</span>'}</td><td>${perms}</td><td class="r">${FMT.eur(f.ventes)}</td>`+
         `<td class="r">${f.commission?FMT.eur(f.commission)+' <span class="muted">('+Math.round(f.taux*100)+' %)</span>':'<span class="muted">—</span>'}</td>`+
@@ -2318,7 +2320,7 @@ $('gfEnvTout').addEventListener('click',()=>{
   gfEnSerie(L,'gestion_facture_envoyer',f=>({numero:f.facture.numero}),'Envoi');
 });
 $('gfMois').addEventListener('change',()=>{GF.perms={};GF.sel=null;gfCharger();});
-$('gfRefresh').addEventListener('click',()=>gfCharger(true));
+$('gfRefresh').addEventListener('click',()=>{GF.rafraichirAgenda=true;gfCharger(true);});
 
 /* démo : quelques factures calculées à la main */
 const DEMO_F=(function(){

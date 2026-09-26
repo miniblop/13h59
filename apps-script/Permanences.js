@@ -60,6 +60,16 @@ function _permanencesDuMois(ss, mois) {
   return { parCreateur: parCreateur, nonRattachees: nonRattachees, source: src.dedie ? 'agenda « ' + src.agendas[0].getName() + ' »' : 'tous les agendas visibles (' + src.agendas.length + ')' };
 }
 
+/** Permanences du mois par créateur { id: {jours, detail[]} }, gardées 5 minutes (l'agenda est lent à lire). */
+function _permanencesCache(ss, mois, rafraichir) {
+  const cache = CacheService.getScriptCache(), cle = 'permanences_' + mois;
+  if (!rafraichir) { const d = cache.get(cle); if (d) return JSON.parse(d); }
+  const p = _permanencesDuMois(ss, mois).parCreateur, out = {};
+  Object.keys(p).forEach(function (id) { out[id] = { jours: p[id].jours, detail: p[id].detail }; });
+  try { cache.put(cle, JSON.stringify(out), 300); } catch (e) { /* trop gros pour le cache : sans effet */ }
+  return out;
+}
+
 /** À lancer depuis l'éditeur : vérifie l'accès à l'agenda et montre ce qui serait compté (n'écrit rien). */
 function diagnosticPermanences() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
