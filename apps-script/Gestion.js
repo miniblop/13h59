@@ -21,6 +21,7 @@ function _gestion(body) {
     gestion_createur_maj: _gCreateurMaj,
     gestion_createur_creer: _gCreateurCreer,
     gestion_createur_fusionner: _gCreateurFusionner,
+    gestion_createur_supprimer: _gCreateurSupprimer,
     gestion_preavis: _gPreavis,
     gestion_preavis_annuler: _gPreavisAnnuler,
     gestion_changer_stand: _gChangerStand,
@@ -375,6 +376,44 @@ function _gCreateurFusionner(body) {
   SpreadsheetApp.flush();
   _synchroniserStatuts(ss);
   return { ok: true, ventes: nbVentes, emplacements: nbE, candidatures: nbK, completes: completes };
+}
+
+/**
+ * Supprime une fiche créée par erreur ou pour un test : seulement si elle n'a AUCUNE vente
+ * et AUCUNE facture (l'historique d'un vrai créateur ne s'efface jamais). Ses emplacements
+ * partent avec elle, ses candidatures sont détachées ; le journal garde une copie de la fiche
+ * et son identifiant n'est jamais réattribué.
+ */
+function _gCreateurSupprimer(body) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), id = String(body.id || ''), motif = _motif(body);
+  const tC = _tableau(ss, SHEET_CREATEURS);
+  const iC = tC.lignes.findIndex(function (r) { return String(_val(tC, r, 'id_createur')) === id; });
+  if (iC < 0) throw new Error('Créateur introuvable : « ' + id + ' ».');
+  const rC = tC.lignes[iC], nom = _nomPropre(_val(tC, rC, 'nom'));
+  const shV = _onglet(ss, SHEET_VENTES), hV = _headerMap(shV), nV = shV.getLastRow() - 1;
+  const nbVentes = nV > 0 ? shV.getRange(2, hV.map['id_createur'] + 1, nV, 1).getValues().filter(function (r) { return String(r[0]) === id; }).length : 0;
+  if (nbVentes) throw new Error(nom + ' a ' + nbVentes + ' vente(s) : supprime-les ou rattache-les d\'abord (Gestion ▸ Ventes), ou utilise « Fiche en double ? ».');
+  if (ss.getSheetByName(SHEET_FACTURES) && _lireTable(_onglet(ss, SHEET_FACTURES)).some(function (f) { return String(f['id_createur']) === id; }))
+    throw new Error(nom + ' a des factures : une fiche facturée ne se supprime pas.');
+
+  const tE = _tableau(ss, SHEET_EMPLACEMENTS), aSupprimer = [];
+  tE.lignes.forEach(function (r, i) { if (String(_val(tE, r, 'id_createur')) === id) aSupprimer.push(i); });
+  let nbK = 0;
+  if (ss.getSheetByName(SHEET_CANDIDATURES)) {
+    const tK = _tableau(ss, SHEET_CANDIDATURES);
+    tK.lignes.forEach(function (r, i) { if (String(_val(tK, r, 'id_createur')) === id) { r[tK.M['id_createur']] = ''; _ecrireLigne(tK, i, r); nbK++; } });
+  }
+  const copie = Object.keys(tC.M).filter(function (k) { const x = rC[tC.M[k]]; return k && x !== '' && x != null && x !== false; }).map(function (k) {
+    const x = rC[tC.M[k]];
+    return k + '=' + (k === 'iban' ? '••••' + String(x).slice(-4) : x instanceof Date ? _iso(x) : x);
+  }).join(', ');
+  const p = PropertiesService.getScriptProperties();
+  p.setProperty('DERNIER_ID_C', String(Math.max(_maxId(tC, 'id_createur', 'C'), _dernierId('DERNIER_ID_C'))));
+  p.setProperty('DERNIER_ID_E', String(Math.max(_maxId(tE, 'id_emplacement', 'E'), _dernierId('DERNIER_ID_E'))));
+  aSupprimer.sort(function (a, b) { return b - a; }).forEach(function (i) { tE.sh.deleteRow(i + 2); });
+  tC.sh.deleteRow(iC + 2);
+  _journaliser('createur_supprime', id + ' « ' + nom + ' » : ' + motif + ' · ' + aSupprimer.length + ' emplacement(s) supprimé(s)' + (nbK ? ', ' + nbK + ' candidature(s) détachée(s)' : '') + ' | fiche : ' + copie);
+  return { ok: true, emplacements: aSupprimer.length };
 }
 
 /* ---------- Emplacements ---------- */

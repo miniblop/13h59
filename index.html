@@ -1427,6 +1427,9 @@ function gcRenderFiche(){
     `<div class="gc-h4">Fiche en double ?</div><div class="gc-why" style="margin-top:0">Si cette fiche et une autre sont le même créateur (ancien nom, faute de frappe), rattache tout à la bonne fiche : ventes, emplacements et candidatures. Les infos manquantes de la bonne fiche sont complétées, puis cette fiche-ci est supprimée.</div>`+
     `<div class="gc-form" style="margin-top:8px"><div class="full"><label>Tout rattacher à</label><select id="gcFusVers"><option value="">— Choisis la bonne fiche —</option>${GC.data.createurs.filter(x=>x.id!==c.id).sort((x,y)=>x.nom.localeCompare(y.nom,'fr',{sensitivity:'base'})).map(x=>`<option value="${FMT.esc(x.id)}">${FMT.esc(x.nom)} · ${FMT.esc(x.id)} · ${x.nbVentes} vente${x.nbVentes>1?'s':''}${x.statut==='actif'?'':' · inactif'}</option>`).join('')}</select></div></div>`+
     `<div class="gc-acts"><button class="btn btn-danger" data-a="fusionner">Fusionner dans la fiche choisie</button></div>`+
+    `<div class="gc-h4">Supprimer la fiche</div>`+(c.nbVentes
+      ?`<div class="gc-why" style="margin-top:0">Impossible : ${c.nbVentes} vente${c.nbVentes>1?'s':''} rattachée${c.nbVentes>1?'s':''} à cette fiche. L'historique d'un créateur ne s'efface pas ; pour une fiche en double, utilise la fusion ci-dessus.</div>`
+      :`<div class="gc-why" style="margin-top:0">Pour une fiche créée par erreur ou pour un test : possible seulement sans vente ni facture. Ses emplacements sont supprimés avec elle ; le journal garde une copie.</div><div class="gc-acts"><button class="btn btn-ghost" data-a="supprimer-fiche">Supprimer cette fiche</button></div>`)+
     `<div class="gc-why">${statutAuto?'Le statut suit les emplacements : actif pendant un emplacement, inactif après le départ. ':''}Chaque modification est notée dans l'onglet « journal » du Sheet${c.modifieLe?' · dernière le '+fmtD(c.modifieLe):''}.</div>`;
   F.innerHTML=h;
   const pr=$('gcPrRecu');if(pr)pr.addEventListener('change',()=>{$('gcPrFin').value=pr.value?fmtD(plusUnMois(pr.value)):'';});
@@ -1474,6 +1477,9 @@ $('gCreat').addEventListener('click',e=>{
   }else if(a==='changer'){
     const stand=$('gcCsStand').value,date=$('gcCsDate').value;if(!stand||!date){toast('Choisis un stand et une date.',true);return;}
     gcAppel(b,'gestion_changer_stand',{idCreateur:c.id,stand,date},()=>c.nom+' passe en '+gcStand(stand)+' le '+fmtD(date));
+  }else if(a==='supprimer-fiche'){
+    const motif=prompt(`Supprimer définitivement la fiche « ${c.nom} » (${c.id}) et ses emplacements ?\n\nMotif :`,'fiche de test');if(!motif)return;
+    gcAppel(b,'gestion_createur_supprimer',{id:c.id,motif},r=>{GC.sel=null;return `Fiche « ${c.nom} » supprimée`+(r.emplacements?` avec ${r.emplacements} emplacement${r.emplacements>1?'s':''}`:'');});
   }else if(a==='fusionner'){
     const vers=$('gcFusVers').value,cible=GC.data.createurs.find(x=>x.id===vers);if(!cible){toast('Choisis la bonne fiche.',true);return;}
     if(!confirm(`Rattacher « ${c.nom} » (${c.id}, ${c.nbVentes} vente${c.nbVentes>1?'s':''}) à « ${cible.nom} » (${cible.id}) ?\n\nSes ventes, emplacements et candidatures passent sur « ${cible.nom} », puis la fiche « ${c.nom} » est supprimée. Le journal en garde une copie.`))return;
@@ -1536,6 +1542,8 @@ const DEMO_G=(function(){
     switch(action){
       case 'gestion_createurs': return JSON.parse(JSON.stringify(Object.assign({ok:true},st)));
       case 'gestion_createur_maj':{const c=st.createurs.find(x=>x.id===p.id),m=[];Object.keys(p.champs).forEach(k=>{if(k==='iban'){c.ibanFin=String(p.champs.iban).replace(/\s/g,'').slice(-4);m.push(k);return;}let v=p.champs[k];if(k==='instagram'&&v){const u=String(v).trim().replace(/^@/,'').replace(/^https?:\/\/(www\.)?instagram\.com\//,'').split(/[/?]/)[0];v=u?'https://www.instagram.com/'+u+'/':'';}c[CLIENT[k]]=v;m.push(k);});c.modifieLe=aujourdhui();return {ok:true,modifies:m};}
+      case 'gestion_createur_supprimer':{const c=st.createurs.find(x=>x.id===p.id);if(c.nbVentes)return {ok:false,message:c.nom+' a '+c.nbVentes+' vente(s).'};
+        const n=st.emplacements.filter(e=>e.idCreateur===c.id).length;st.emplacements=st.emplacements.filter(e=>e.idCreateur!==c.id);st.createurs=st.createurs.filter(x=>x!==c);return {ok:true,emplacements:n};}
       case 'gestion_createur_fusionner':{const de=st.createurs.find(x=>x.id===p.id),vers=st.createurs.find(x=>x.id===p.vers);
         const enCours=id=>st.emplacements.some(e=>e.idCreateur===id&&(!e.fin||e.fin>=st.aujourdhui));
         if(enCours(de.id)&&enCours(vers.id))return {ok:false,message:"Les deux fiches ont un emplacement en cours : termine d'abord celui du doublon (un créateur = un seul stand)."};
@@ -2077,7 +2085,7 @@ const GJ_ACTIONS={createur_maj:'Fiche créateur modifiée',createur_creer:'Créa
   candidature_retenue:'Candidature retenue',candidature_remarque:'Candidature : remarque',email_envoye:'E-mail envoyé',email_echec:'E-mail non envoyé',email_modele_maj:'E-mail type modifié',
   reglage_categories:'Réglage : catégorie',reglage_stands:'Réglage : stand',reglage_remises:'Réglage : remise',reglage_paiements:'Réglage : paiement',
   reglage_categories_creation:'Catégorie ajoutée',reglage_stands_creation:'Stand ajouté',reglage_remises_creation:'Remise ajoutée',reglage_paiements_creation:'Moyen de paiement ajouté',
-  vente_annulee:'Vente annulée',vente_corrigee:'Vente corrigée',panier_annule:'Panier annulé',vente_supprimee:'Vente supprimée',panier_supprime:'Panier supprimé',createur_fusionne:'Fiches fusionnées',reponses_mo:'Réglages (réponses de Mo)',facture_generee:'Facture générée',facture_envoyee:'Facture envoyée',facture_annulee:'Facture annulée'};
+  vente_annulee:'Vente annulée',vente_corrigee:'Vente corrigée',panier_annule:'Panier annulé',vente_supprimee:'Vente supprimée',panier_supprime:'Panier supprimé',createur_fusionne:'Fiches fusionnées',createur_supprime:'Fiche supprimée',reponses_mo:'Réglages (réponses de Mo)',facture_generee:'Facture générée',facture_envoyee:'Facture envoyée',facture_annulee:'Facture annulée'};
 function gjLibelle(a){return GJ_ACTIONS[a]||(/^(migration|etape|liens_)/.test(a)?'Migration du Sheet':a);}
 async function gjCharger(){
   $('gjErr').classList.add('hide');
