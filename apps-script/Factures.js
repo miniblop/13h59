@@ -60,6 +60,18 @@ function _eurFr(n) {
 /** « de septembre », « d'octobre », « d'août ». */
 function _de(mot) { return (/^[aeiouyàâéèêîôû]/i.test(String(mot)) ? "d'" : 'de ') + mot; }
 function _dateFr(d) { return _deux(d.getDate()) + '/' + _deux(d.getMonth() + 1) + '/' + d.getFullYear(); }
+/* Sheets lit « 26-10-001 » ou « 2026-10 » comme des dates : ces colonnes sont en texte brut,
+ * et la lecture reconstruit la valeur si une ancienne cellule a déjà été convertie. */
+function _colonnesTexteFactures(ss) {
+  const f = ss.getSheetByName(SHEET_FACTURES), l = ss.getSheetByName(SHEET_LIGNES_FACTURE);
+  if (f) f.getRange(1, 1, f.getMaxRows(), 2).setNumberFormat('@');   // numero, mois
+  if (l) l.getRange(1, 1, l.getMaxRows(), 1).setNumberFormat('@');   // numero
+}
+function _moisTexte(v) { return v instanceof Date ? _jourIso(v).slice(0, 7) : String(v == null ? '' : v); }
+/** « 26-10-001 » lu comme le 26/10/2001 → « 26-10-001 ». */
+function _numeroTexte(v) {
+  return v instanceof Date ? _deux(v.getDate()) + '-' + _deux(v.getMonth() + 1) + '-' + String(v.getFullYear() % 1000).padStart(3, '0') : String(v == null ? '' : v);
+}
 function _creerOngletSiAbsent(ss, nom, colonnes) {
   if (ss.getSheetByName(nom)) return;
   const sh = ss.insertSheet(nom);
@@ -96,7 +108,8 @@ function _contexteFactures(ss, mois) {
   const factures = {};
   if (ss.getSheetByName(SHEET_FACTURES)) {
     _lireTable(_onglet(ss, SHEET_FACTURES)).forEach(function (f) {
-      if (String(f['mois']) === mois && String(f['statut']) !== 'annulee') factures[String(f['id_createur'])] = f;
+      f['mois'] = _moisTexte(f['mois']); f['numero'] = _numeroTexte(f['numero']);
+      if (f['mois'] === mois && String(f['statut']) !== 'annulee') factures[String(f['id_createur'])] = f;
     });
   }
   return { b: b, mois: mois, prec: prec, precBornes: _moisBornes(prec), tC: tC, tE: tE, stands: stands, ventes: ventes, factures: factures,
@@ -196,7 +209,7 @@ function _gFactureApercu(body) {
 /** Remplace le calcul par les montants figés d'une facture déjà générée. */
 function _appliquerFigee(ss, c, f) {
   const num = String(f['numero']);
-  c.lignes = _lireTable(_onglet(ss, SHEET_LIGNES_FACTURE)).filter(function (l) { return String(l['numero']) === num; })
+  c.lignes = _lireTable(_onglet(ss, SHEET_LIGNES_FACTURE)).filter(function (l) { return _numeroTexte(l['numero']) === num; })
     .sort(function (a, b) { return Number(a['ordre']) - Number(b['ordre']); })
     .map(function (l) { return { ref: String(l['ref']), libelle: String(l['libelle']), montant: Number(l['montant']) || 0 }; });
   c.total = Number(f['total']) || 0; c.loyer = Number(f['loyer']) || 0; c.commission = Number(f['commission']) || 0; c.taux = Number(f['taux_commission']) || 0;
@@ -209,6 +222,7 @@ function _gFactureGenerer(body) {
   _creerOngletSiAbsent(ss, SHEET_FACTURES, COLONNES_FACTURES);
   _creerOngletSiAbsent(ss, SHEET_LIGNES_FACTURE, COLONNES_LIGNES_FACTURE);
   _modeleFactureSiAbsent(ss);
+  _colonnesTexteFactures(ss);
   const ctx = _contexteFactures(ss, body.mois);
   if (ctx.factures[String(body.idCreateur)]) throw new Error('Cette facture est déjà générée (n° ' + ctx.factures[String(body.idCreateur)]['numero'] + ').');
   const r = ctx.tC.lignes.filter(function (x) { return String(_val(ctx.tC, x, 'id_createur')) === String(body.idCreateur); })[0];
@@ -219,7 +233,7 @@ function _gFactureGenerer(body) {
 
   // Numéro : AA-MM-NNN, compteur sur l'année (jamais réutilisé, même si une facture est annulée).
   const tF = _tableau(ss, SHEET_FACTURES), aa = ctx.mois.slice(2, 4);
-  const n = tF.lignes.reduce(function (m, x) { const k = new RegExp('^' + aa + '-\\d{2}-(\\d+)$').exec(String(_val(tF, x, 'numero'))); return k ? Math.max(m, +k[1]) : m; }, 0);
+  const n = tF.lignes.reduce(function (m, x) { const k = new RegExp('^' + aa + '-\\d{2}-(\\d+)$').exec(_numeroTexte(_val(tF, x, 'numero'))); return k ? Math.max(m, +k[1]) : m; }, 0);
   const numero = aa + '-' + ctx.mois.slice(5, 7) + '-' + String(n + 1).padStart(3, '0');
   const emiseLe = new Date();
 
@@ -247,7 +261,7 @@ function _dossierFactures(mois) {
 
 function _ligneFacture(ss, numero) {
   const t = _tableau(ss, SHEET_FACTURES);
-  const i = t.lignes.findIndex(function (r) { return String(_val(t, r, 'numero')) === String(numero); });
+  const i = t.lignes.findIndex(function (r) { return _numeroTexte(_val(t, r, 'numero')) === String(numero); });
   if (i < 0) throw new Error('Facture introuvable : « ' + numero + ' ».');
   return { t: t, i: i, r: t.lignes[i] };
 }
@@ -255,7 +269,7 @@ function _ligneFacture(ss, numero) {
 function _gFactureEnvoyer(body) {
   const ss = SpreadsheetApp.getActiveSpreadsheet(), x = _ligneFacture(ss, body.numero), t = x.t, r = x.r;
   if (String(_val(t, r, 'statut')) === 'annulee') throw new Error('Facture annulée : elle ne s\'envoie pas.');
-  const mois = String(_val(t, r, 'mois')), ctx = _contexteFactures(ss, mois);
+  const mois = _moisTexte(_val(t, r, 'mois')), ctx = _contexteFactures(ss, mois);
   const rc = ctx.tC.lignes.filter(function (c) { return String(_val(ctx.tC, c, 'id_createur')) === String(_val(t, r, 'id_createur')); })[0];
   const email = rc ? _norm(_val(ctx.tC, rc, 'email')) : '';
   if (!email) throw new Error("Pas d'adresse e-mail pour ce créateur : à compléter dans Gestion ▸ Créateurs.");
@@ -363,6 +377,26 @@ function _htmlFacture(ctx, c, numero, emiseLe) {
     'Barème : 0 % jusqu\'à 100 € de prime dans le mois, 10 % dès 100 €, 15 % dès 250 € (prime = prix client − frais de paiement).</div>' +
     '<div style="text-align:right;font-size:8.5px;color:#8b887f;margin-top:5px">Page 2 / 2</div></div>';
   return '<html><head><meta charset="utf-8"></head><body style="margin:0;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a">' + p1 + p2 + '</body></html>';
+}
+
+/**
+ * À lancer depuis l'éditeur, UNIQUEMENT tant qu'aucune facture n'a été envoyée : efface les factures
+ * d'essai (lignes des onglets factures et lignes_facture, PDF mis à la corbeille de Drive), pour que la
+ * vraie numérotation commence à 001. Refuse de tourner dès qu'une facture a été envoyée à un créateur.
+ */
+function effacerFacturesDEssai() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const shF = ss.getSheetByName(SHEET_FACTURES), shL = ss.getSheetByName(SHEET_LIGNES_FACTURE);
+  if (!shF) { Logger.log('Aucune facture.'); return; }
+  const f = _lireTable(shF);
+  if (f.some(function (x) { return String(x['statut']) === 'envoyee'; })) throw new Error("Une facture a déjà été envoyée : les factures ne s'effacent plus (numérotation légale).");
+  let pdf = 0;
+  f.forEach(function (x) { if (x['pdf_id']) { try { DriveApp.getFileById(String(x['pdf_id'])).setTrashed(true); pdf++; } catch (e) { /* déjà supprimé */ } } });
+  if (shF.getLastRow() > 1) shF.deleteRows(2, shF.getLastRow() - 1);
+  if (shL && shL.getLastRow() > 1) shL.deleteRows(2, shL.getLastRow() - 1);
+  _colonnesTexteFactures(ss);
+  _journaliser('factures_essai_effacees', f.length + ' facture(s) d\'essai effacée(s), ' + pdf + ' PDF mis à la corbeille', Session.getEffectiveUser().getEmail());
+  Logger.log('✅ ' + f.length + " facture(s) d'essai effacée(s), " + pdf + ' PDF mis à la corbeille de Drive. La numérotation repart à 001.');
 }
 
 /** À lancer UNE fois depuis l'éditeur : autorise l'accès à Drive (dossier des factures) et vérifie le modèle d'e-mail. */
