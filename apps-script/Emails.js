@@ -60,7 +60,11 @@ const EMAILS_PAR_DEFAUT = [
     "Pour préparer ton arrivée, garde sous la main : ton numéro SIRET, ton RIB, ton attestation d'assurance RC Pro et une pièce d'identité. " +
     "L'adhésion à l'association (15 €, valable un an) est réglée avec le premier loyer.\n\n" +
     "On revient vers toi avec la convention à signer. Si tu as la moindre question, réponds simplement à cet e-mail.\n\nÀ très vite,\nL'équipe du 13H59 Shop",
-    true, 'Gestion ▸ Candidatures : bouton « Retenir » (case e-mail cochée).']
+    true, 'Gestion ▸ Candidatures : bouton « Retenir » (case e-mail cochée).'],
+  ['facture', 'Collectif 13H59 · ta facture · {mois}',
+    "Bonjour {marque},\n\nTu trouveras ci-joint ta facture n° {numero} (loyer : {mois}). En page 2, le détail de tes ventes ({mois_ventes}) et le calcul de ton virement.\n\n" +
+    "Pour toute question, réponds simplement à cet e-mail.\n\nÀ très vite à la boutique,\nL'équipe du 13H59 Shop",
+    true, 'Gestion ▸ Facturation : bouton « Envoyer » (facture en pièce jointe).']
 ];
 
 /** Crée l'onglet `emails` avec les textes par défaut s'il n'existe pas. */
@@ -95,12 +99,14 @@ function _emailsParDefaut() {
 
 /** Champs utilisables dans chaque modèle ({date} n'a de sens que pour l'arrivée d'un créateur retenu). */
 const CHAMPS_EMAIL = ['prenom', 'marque', 'stand', 'date'];
+const CHAMPS_EMAIL_FACTURE = ['marque', 'mois', 'mois_ventes', 'numero'];
+function _champsAutorises(code) {
+  if (code === 'facture') return CHAMPS_EMAIL_FACTURE;
+  return CHAMPS_EMAIL.filter(function (k) { return k !== 'date' || code === 'retenu'; });
+}
 function _champsEmailInvalides(code, s) {
-  const out = [];
-  String(s).replace(/\{([^{}]*)\}/g, function (t, k) {
-    if (CHAMPS_EMAIL.indexOf(k) === -1 || (k === 'date' && code !== 'retenu')) out.push(t);
-    return t;
-  });
+  const out = [], ok = _champsAutorises(code);
+  String(s).replace(/\{([^{}]*)\}/g, function (t, k) { if (ok.indexOf(k) === -1) out.push(t); return t; });
   return out;
 }
 
@@ -114,7 +120,7 @@ function _gEmailMaj(body) {
   if (!objet) throw new Error("L'objet de l'e-mail est vide.");
   if (texte.length < 20) throw new Error("Le texte de l'e-mail est vide ou trop court.");
   const mauvais = _champsEmailInvalides(code, objet + ' ' + texte);
-  if (mauvais.length) throw new Error('Champ inconnu dans le texte : ' + mauvais.join(', ') + '. Champs possibles : {prenom} {marque} {stand}' + (code === 'retenu' ? ' {date}' : '') + '.');
+  if (mauvais.length) throw new Error('Champ inconnu dans le texte : ' + mauvais.join(', ') + '. Champs possibles : ' + _champsAutorises(code).map(function (k) { return '{' + k + '}'; }).join(' ') + '.');
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   _creerOngletEmails(ss);
   const t = _tableau(ss, SHEET_EMAILS);

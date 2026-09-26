@@ -197,6 +197,15 @@
   .gc-ev .d{flex:0 0 58px;background:var(--tot);border-radius:9px;padding:5px 4px;text-align:center;font-weight:800;font-size:13px}
   .gk-n{display:inline-block;min-width:18px;padding:1px 6px;border-radius:999px;background:var(--band);color:#fff;font-size:11px;text-align:center;margin-left:4px}
   .gk-desc{background:var(--tot);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.55;white-space:pre-wrap;max-height:260px;overflow:auto}
+  .gf-apercu{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;align-items:start}
+  #gfFrame{width:100%;height:1100px;border:1px solid var(--line);border-radius:8px;background:#fff}
+  #gfTbl tbody tr{cursor:pointer}
+  #gfTbl tbody tr:hover td{background:#faf9f7}
+  #gfTbl tbody tr.sel td{background:var(--tot)}
+  .gf-perms{width:58px;padding:5px 6px;font-size:13px;text-align:center}
+  .gf-mail{border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.6}
+  .gf-mail .corps{margin-top:8px;padding-top:8px;border-top:1px solid var(--line);white-space:pre-line}
+  @media(max-width:960px){.gf-apercu{grid-template-columns:minmax(0,1fr)}#gfFrame{height:900px}}
   .gv-filtres{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
   #gvTbl tbody tr{cursor:pointer}
   #gvTbl tbody tr:hover td{background:#faf9f7}
@@ -344,7 +353,7 @@
 
   <!-- ONGLET GESTION -->
   <div id="viewGestion" class="hide">
-    <div class="subtabs" id="gSubtabs"><div class="subtab active" data-sub="stats">Statistiques</div><div class="subtab" data-sub="createurs">Créateurs</div><div class="subtab" data-sub="candidatures">Candidatures</div><div class="subtab" data-sub="ventes">Ventes</div><div class="subtab" data-sub="journal">Journal</div><div class="subtab" data-sub="reglages">Réglages</div></div>
+    <div class="subtabs" id="gSubtabs"><div class="subtab active" data-sub="stats">Statistiques</div><div class="subtab" data-sub="createurs">Créateurs</div><div class="subtab" data-sub="candidatures">Candidatures</div><div class="subtab" data-sub="ventes">Ventes</div><div class="subtab" data-sub="journal">Journal</div><div class="subtab" data-sub="facturation">Facturation</div><div class="subtab" data-sub="reglages">Réglages</div></div>
     <div id="gStats">
     <div class="card">
       <h2>Espace gestion</h2>
@@ -435,6 +444,27 @@
         </div>
       </div>
       <div class="card"><div id="gjResume" class="muted" style="font-size:12px;margin-bottom:8px"></div><div class="tblwrap gc-list"><table id="gjTbl"></table></div></div>
+    </div>
+    <div id="gFact" class="hide">
+      <div id="gfErr" class="warn hide"></div>
+      <div class="card">
+        <div class="cardhead" style="margin-bottom:0">
+          <div><h2>Facturation</h2><div class="muted" style="font-size:12px;margin-top:4px;line-height:1.5" id="gfExpli"></div></div>
+          <div class="gc-acts" style="margin-top:0"><select id="gfMois" style="width:auto"></select><button class="btn-dl" id="gfRefresh">↻ Actualiser</button></div>
+        </div>
+      </div>
+      <div class="gc-places" id="gfKpis"></div>
+      <div id="gfWarn"></div>
+      <div class="card">
+        <div class="cardhead"><h2 id="gfTitre">Factures</h2><div class="gc-acts" style="margin-top:0"><button class="btn btn-ghost" id="gfGenTout">Générer les factures</button><button class="btn btn-accent" id="gfEnvTout">Envoyer les factures générées</button></div></div>
+        <div class="gc-why" id="gfProgres" style="margin:0 0 8px"></div>
+        <div class="tblwrap"><table id="gfTbl"></table></div>
+        <div class="gc-why">Clique une ligne pour voir la facture. Une facture générée a un numéro et des montants figés ; tant qu'elle n'est pas envoyée, elle peut être annulée (son numéro n'est pas réutilisé).</div>
+      </div>
+      <div class="gf-apercu">
+        <div class="card"><div class="cardhead"><h2>Aperçu</h2><span class="muted" id="gfApercuNom" style="font-size:12px"></span></div><iframe id="gfFrame" title="Aperçu de la facture"></iframe></div>
+        <div class="card" id="gfMail"><div class="muted">Sélectionne une facture dans la liste.</div></div>
+      </div>
     </div>
     <div id="gRegl" class="hide">
       <div id="grErr" class="warn hide"></div>
@@ -683,7 +713,7 @@ const API = {
     return res.json();
   },
   async gestion(action,params){
-    if(DEMO_MODE) return (/^gestion_(ventes?|panier|journal)/.test(action)?DEMO_V:action.indexOf('gestion_reglage')===0?DEMO_R:action.indexOf('gestion_candidature')===0||action==='gestion_email_maj'?DEMO_K:DEMO_G)(action,params||{});
+    if(DEMO_MODE) return (/^gestion_factures?/.test(action)?DEMO_F:/^gestion_(ventes?|panier|journal)/.test(action)?DEMO_V:action.indexOf('gestion_reglage')===0?DEMO_R:action.indexOf('gestion_candidature')===0||action==='gestion_email_maj'?DEMO_K:DEMO_G)(action,params||{});
     const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify(Object.assign({action,password:S.pwd,qui:gcPrenom()},params||{}))});
     return res.json();
   },
@@ -1475,11 +1505,13 @@ $('gSubtabs').addEventListener('click',e=>{
   $('gRegl').classList.toggle('hide',t.dataset.sub!=='reglages');
   $('gVentes').classList.toggle('hide',t.dataset.sub!=='ventes');
   $('gJournal').classList.toggle('hide',t.dataset.sub!=='journal');
+  $('gFact').classList.toggle('hide',t.dataset.sub!=='facturation');
   if(t.dataset.sub==='createurs'&&!GC.charge)gcCharger();
   if(t.dataset.sub==='candidatures'&&!GK.charge)gkCharger();
   if(t.dataset.sub==='reglages')grCharger();
   if(t.dataset.sub==='ventes'&&!GV.charge)gvCharger();
   if(t.dataset.sub==='journal')gjCharger();
+  if(t.dataset.sub==='facturation'&&!GF.charge){gfInitMois();gfCharger();}
 });
 
 /* démo : même logique que le serveur, en mémoire */
@@ -1676,13 +1708,15 @@ $('gkLien').addEventListener('click',async()=>{
 
 /* ---------- E-mails types ---------- */
 const GK_MODELES=[['accuse_reception','Confirmation de candidature','envoyé automatiquement à chaque candidature reçue'],['liste_attente',"Liste d'attente",'bouton « Liste d\'attente »'],
-  ['non_retenu','Candidature non retenue','bouton « Non retenue »'],['retenu','Candidature retenue (bienvenue)','bouton « Retenir »']];
+  ['non_retenu','Candidature non retenue','bouton « Non retenue »'],['retenu','Candidature retenue (bienvenue)','bouton « Retenir »'],
+  ['facture','Facture mensuelle','Gestion ▸ Facturation, PDF joint · champs : {marque} {mois} {mois_ventes} {numero}']];
 GK.brouillons={};
 /* aperçu : la candidature ouverte dans Gestion ▸ Candidatures, sinon un exemple */
 function gkCandidatureOuverte(){return GK.data&&GK.data.candidatures.find(x=>x.id===GK.sel);}
 function gkExemple(code){
   const k=gkCandidatureOuverte()||{prenom:'Lucie',nom:'Vasseur',marque:'Atelier Lune',standSouhaite:(GR.data.stands[0]||{}).code};
   const st=GR.data.stands.find(x=>x.code===k.standSouhaite);
+  if(code==='facture')return {marque:k.marque,mois:'octobre 2026',mois_ventes:'septembre 2026',numero:'26-10-001'};
   return {prenom:k.prenom||k.nom||k.marque,marque:k.marque,stand:st?st.libelle:'',date:code==='retenu'?fmtD(isoJour(new Date())):''};
 }
 function gkRemplir(t,v){return String(t).replace(/\{(\w+)\}/g,(x,c)=>v[c]!=null&&v[c]!==''?v[c]:x);}
@@ -2043,7 +2077,7 @@ const GJ_ACTIONS={createur_maj:'Fiche créateur modifiée',createur_creer:'Créa
   candidature_retenue:'Candidature retenue',candidature_remarque:'Candidature : remarque',email_envoye:'E-mail envoyé',email_echec:'E-mail non envoyé',email_modele_maj:'E-mail type modifié',
   reglage_categories:'Réglage : catégorie',reglage_stands:'Réglage : stand',reglage_remises:'Réglage : remise',reglage_paiements:'Réglage : paiement',
   reglage_categories_creation:'Catégorie ajoutée',reglage_stands_creation:'Stand ajouté',reglage_remises_creation:'Remise ajoutée',reglage_paiements_creation:'Moyen de paiement ajouté',
-  vente_annulee:'Vente annulée',vente_corrigee:'Vente corrigée',panier_annule:'Panier annulé',vente_supprimee:'Vente supprimée',panier_supprime:'Panier supprimé',createur_fusionne:'Fiches fusionnées',reponses_mo:'Réglages (réponses de Mo)'};
+  vente_annulee:'Vente annulée',vente_corrigee:'Vente corrigée',panier_annule:'Panier annulé',vente_supprimee:'Vente supprimée',panier_supprime:'Panier supprimé',createur_fusionne:'Fiches fusionnées',reponses_mo:'Réglages (réponses de Mo)',facture_generee:'Facture générée',facture_envoyee:'Facture envoyée',facture_annulee:'Facture annulée'};
 function gjLibelle(a){return GJ_ACTIONS[a]||(/^(migration|etape|liens_)/.test(a)?'Migration du Sheet':a);}
 async function gjCharger(){
   $('gjErr').classList.add('hide');
@@ -2108,6 +2142,151 @@ const DEMO_V=(function(){
         const n=Object.assign({},l,{vente:max()+1,date:aujourdhui(),idCreateur:c.id,createur:c.nom,reference:p.reference,remise:p.codeRemise,paiement:p.codePaiement,prix:Number(p.prix),montantRemise:m.remise,prixClient:m.prixClient,frais:m.frais,prime:m.prime,type:'correction',origine:l.vente,motif,annuleePar:undefined});
         st.lignes.push(n);l.corrigeePar=n.vente;journal('vente_corrigee','n°'+l.vente+' → n°'+n.vente+' : '+motif);return {ok:true,correction:n.vente};}
     }
+    return {ok:false,message:'Action inconnue (démo).'};
+  };
+})();
+/* ===================== GESTION ▸ FACTURATION ===================== */
+const GF={data:null,charge:false,sel:null,perms:{},minuterie:null,occupe:false};
+/* « de septembre », « d'octobre » */
+function deMois(m,gras){const t=gras?'<b>'+FMT.esc(m)+'</b>':FMT.esc(m);return (/^[aeiouyàâéèêîôû]/i.test(m)?"d'":'de ')+t;}
+const MOIS_LONG=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+function gfInitMois(){
+  const d=new Date(),opts=[];
+  /* à partir du 20, on prépare le mois suivant (loyers payés du 20 au 25) */
+  const defaut=new Date(d.getFullYear(),d.getMonth()+(d.getDate()>=20?1:0),1);
+  for(let k=-4;k<=1;k++){const m=new Date(d.getFullYear(),d.getMonth()+k,1);opts.push(m);}
+  $('gfMois').innerHTML=opts.reverse().map(m=>{const v=m.getFullYear()+'-'+String(m.getMonth()+1).padStart(2,'0');return `<option value="${v}"${m.getTime()===defaut.getTime()?' selected':''}>${MOIS_LONG[m.getMonth()]} ${m.getFullYear()}</option>`;}).join('');
+}
+async function gfCharger(garder){
+  $('gfErr').classList.add('hide');
+  if(!$('gfMois').value)gfInitMois();
+  try{
+    const r=await API.gestion('gestion_factures',{mois:$('gfMois').value,perms:GF.perms});
+    if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
+    GF.data=r;GF.charge=true;if(!garder)GF.sel=null;
+    gfRender();if(GF.sel)gfApercu();
+  }catch(e){$('gfErr').classList.remove('hide');$('gfErr').textContent='⚠️ Facturation indisponible : '+((e&&e.message)||e);}
+}
+function gfBloquant(f){return !f.nomLegal&&!f.adresse?'nom légal et adresse manquants':!f.lignes.length?'rien à facturer':'';}
+function gfRender(){
+  const D=GF.data,F=D.factures,somme=k=>F.reduce((s,f)=>s+f[k],0);
+  $('gfExpli').innerHTML=`Loyer ${deMois(D.libelle,true)} + commission sur les ventes ${deMois(D.moisVentes,true)} · ${D.joursOuverts} jours d'ouverture (mardi → samedi) pour le prorata`;
+  const gen=F.filter(f=>f.facture),env=F.filter(f=>f.facture&&f.facture.statut==='envoyee');
+  const kp=[['Factures',F.length,gen.length+' générée'+(gen.length>1?'s':'')+' · '+env.length+' envoyée'+(env.length>1?'s':'')],['Loyers',FMT.eur(somme('loyer')),F.filter(f=>f.benevole).length+' bénévole(s)'],
+    ['Commissions',FMT.eur(somme('commission')),'déduites des ventes reversées'],['Total facturé',FMT.eur(somme('total')),'net à verser : '+FMT.eur(somme('net'))]];
+  $('gfKpis').innerHTML=kp.map(([k,v,s])=>`<div class="gc-place"><div class="k"><span>${k}</span></div><div class="v">${v}</div><div class="l">${s}</div></div>`).join('');
+  const w=[],sansAdr=F.filter(f=>!f.facture&&!f.nomLegal&&!f.adresse&&f.lignes.length),sansMail=F.filter(f=>!f.email),alertes=F.filter(f=>f.alertes.length);
+  if(sansAdr.length)w.push(`Nom légal et adresse manquants (obligatoires sur la facture) : <b>${sansAdr.map(f=>FMT.esc(f.nom)).join(', ')}</b>. À compléter dans Gestion ▸ Créateurs.`);
+  if(sansMail.length)w.push(`Pas d'e-mail pour <b>${sansMail.map(f=>FMT.esc(f.nom)).join(', ')}</b> : la facture ne pourra pas être envoyée.`);
+  alertes.forEach(f=>w.push(`<b>${FMT.esc(f.nom)}</b> : ${f.alertes.map(FMT.esc).join(' ; ')}`));
+  $('gfWarn').innerHTML=w.map(x=>`<div class="warn" style="margin:0 0 10px">${x}</div>`).join('');
+  const aGen=F.filter(f=>!f.facture&&!gfBloquant(f)),aEnv=F.filter(f=>f.facture&&f.facture.statut==='generee'&&f.email);
+  $('gfGenTout').disabled=GF.occupe||!aGen.length;$('gfGenTout').textContent='Générer les factures'+(aGen.length?' ('+aGen.length+')':'');
+  $('gfEnvTout').disabled=GF.occupe||!aEnv.length;$('gfEnvTout').textContent='Envoyer les factures générées'+(aEnv.length?' ('+aEnv.length+')':'');
+  $('gfTitre').textContent='Factures · '+D.libelle;
+  const statut=f=>!f.facture?(gfBloquant(f)?`<span class="gc-st inactif">${gfBloquant(f)}</span>`:'<span class="gc-st inactif">à générer</span>')
+    :f.facture.statut==='envoyee'?`<span class="gc-st actif">envoyée ${fmtD(f.facture.envoyeeLe).slice(0,5)}</span>`:'<span class="gc-st preavis">générée</span>';
+  const actions=f=>!f.facture?(gfBloquant(f)?'':`<button class="btn-dl" data-gfa="generer">Générer</button>`)
+    :(f.facture.statut==='generee'?(f.email?`<button class="btn-dl dark" data-gfa="envoyer">Envoyer</button> `:'')+`<button class="btn-dl" data-gfa="annuler">Annuler</button> `:'')+`<button class="btn-dl" data-gfa="pdf">PDF</button>`;
+  $('gfTbl').innerHTML='<thead><tr><th>Créateur</th><th>Loyer</th><th>Permanences</th><th>Ventes '+FMT.esc(D.moisVentes.split(' ')[0])+'</th><th>Commission</th><th>Total</th><th>N°</th><th>Statut</th><th></th></tr></thead><tbody>'+
+    F.map(f=>{
+      const fig=f.facture,prorata=f.lignes.some(l=>/jours d'ouverture/.test(l.libelle));
+      const perms=f.benevole?(fig?FMT.num(f.permsFaites||0)+' / '+(f.permsRequises??'?'):`<input class="gf-perms" type="number" min="0" step="0.5" value="${FMT.esc(GF.perms[f.idCreateur]??f.permsFaites??0)}" data-perm="${FMT.esc(f.idCreateur)}"> <span class="muted">/ ${f.permsRequises??'?'}</span>`):'<span class="muted">—</span>';
+      return `<tr data-f="${FMT.esc(f.idCreateur)}" class="${f.idCreateur===GF.sel?'sel':''}"><td><b>${FMT.esc(f.nom)}</b>${f.benevole?' <span class="gc-st benev">bénévole</span>':''}${prorata?' <span class="pill">prorata</span>':''}<span class="gc-sub">${FMT.esc(f.idCreateur)}</span></td>`+
+        `<td class="r">${f.loyer?FMT.eur(f.loyer):'<span class="muted">—</span>'}</td><td>${perms}</td><td class="r">${FMT.eur(f.ventes)}</td>`+
+        `<td class="r">${f.commission?FMT.eur(f.commission)+' <span class="muted">('+Math.round(f.taux*100)+' %)</span>':'<span class="muted">—</span>'}</td>`+
+        `<td class="r"><b>${FMT.eur(fig?fig.total:f.total)}</b></td><td class="muted">${fig?FMT.esc(fig.numero):'—'}</td><td>${statut(f)}</td><td style="white-space:nowrap">${actions(f)}</td></tr>`;
+    }).join('')+'</tbody>';
+}
+async function gfApercu(){
+  const f=GF.data&&GF.data.factures.find(x=>x.idCreateur===GF.sel);if(!f){$('gfApercuNom').textContent='';return;}
+  $('gfApercuNom').textContent=f.nom+(f.facture?' · n° '+f.facture.numero:' · aperçu du calcul');
+  try{
+    const r=await API.gestion('gestion_facture_apercu',{mois:GF.data.mois,idCreateur:f.idCreateur,permsFaites:GF.perms[f.idCreateur]??f.permsFaites});
+    if(!r||!r.ok)throw new Error((r&&r.message)||'aperçu impossible');
+    $('gfFrame').srcdoc=r.html;
+    const e=r.email;
+    $('gfMail').innerHTML=`<div class="gc-h4" style="margin-top:0">E-mail envoyé avec la facture</div><div class="gf-mail"><div><span class="muted">À</span> ${e.a?FMT.esc(e.a):'<b style="color:var(--neg)">pas d\'e-mail</b>'}</div><div><span class="muted">Objet</span> <b>${FMT.esc(e.objet)}</b></div><div class="corps">${FMT.esc(e.texte)}</div></div>`+
+      `<div class="gc-why">Texte modifiable dans <a href="#" data-vers-reglages="emails">Réglages ▸ E-mails types</a> (modèle « Facture mensuelle »). Le PDF est rangé dans Drive : 13h59 / Factures / ${FMT.esc(GF.data.mois)}.</div>`;
+  }catch(e){$('gfMail').innerHTML='<div class="warn">'+FMT.esc(e.message||String(e))+'</div>';}
+}
+async function gfUne(action,params){
+  const r=await API.gestion(action,params);
+  if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide du serveur');
+  return r;
+}
+$('gFact').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-gfa]'),tr=e.target.closest('#gfTbl tbody tr[data-f]');
+  if(e.target.closest('.gf-perms'))return;
+  if(tr&&!b){GF.sel=tr.dataset.f;gfRender();gfApercu();return;}
+  if(!b||!tr||b.disabled)return;
+  const f=GF.data.factures.find(x=>x.idCreateur===tr.dataset.f),a=b.dataset.gfa,t=b.textContent;
+  GF.sel=f.idCreateur;
+  try{
+    if(a==='pdf'){const r=await gfUne('gestion_facture_pdf',{numero:f.facture.numero});window.open(r.url,'_blank','noopener');return;}
+    if(a==='generer'&&!confirm(`Générer la facture de ${f.nom} (${FMT.eur(f.total)}) ?\n\nLe numéro est attribué et les montants sont figés.`))return;
+    if(a==='envoyer'&&!confirm(`Envoyer la facture ${f.facture.numero} à ${f.email} ?`))return;
+    let motif='';
+    if(a==='annuler'){motif=prompt(`Annuler la facture ${f.facture.numero} ? Son numéro ne sera pas réutilisé.\n\nMotif :`,'');if(!motif)return;}
+    b.disabled=true;b.textContent='…';
+    if(a==='generer'){const r=await gfUne('gestion_facture_generer',{mois:GF.data.mois,idCreateur:f.idCreateur,permsFaites:GF.perms[f.idCreateur]??0});toast('Facture '+r.numero+' générée');}
+    if(a==='envoyer'){await gfUne('gestion_facture_envoyer',{numero:f.facture.numero});toast('Facture '+f.facture.numero+' envoyée à '+f.email);}
+    if(a==='annuler'){await gfUne('gestion_facture_annuler',{numero:f.facture.numero,motif});toast('Facture '+f.facture.numero+' annulée');}
+    await gfCharger(true);
+  }catch(err){toast((err&&err.message)||String(err),true);if(b.isConnected){b.disabled=false;b.textContent=t;}}
+});
+$('gFact').addEventListener('input',e=>{
+  const p=e.target.closest('.gf-perms');if(!p)return;
+  GF.perms[p.dataset.perm]=Number(p.value)||0;
+  clearTimeout(GF.minuterie);GF.minuterie=setTimeout(()=>gfCharger(true),600);
+});
+/* générer ou envoyer tout le mois : une facture après l'autre, avec l'avancement */
+async function gfEnSerie(liste,action,params,verbe){
+  GF.occupe=true;gfRender();let ok=0;const erreurs=[];
+  for(let i=0;i<liste.length;i++){
+    const f=liste[i];$('gfProgres').textContent=`${verbe} ${i+1} / ${liste.length} · ${f.nom}…`;
+    try{await gfUne(action,params(f));ok++;}catch(e){erreurs.push(f.nom+' : '+((e&&e.message)||e));}
+  }
+  GF.occupe=false;$('gfProgres').textContent='';
+  toast(`${ok} facture${ok>1?'s':''} ${verbe==='Génération'?'générée':'envoyée'}${ok>1?'s':''}`+(erreurs.length?' · '+erreurs.length+' en erreur':''),!!erreurs.length);
+  if(erreurs.length)$('gfWarn').insertAdjacentHTML('afterbegin','<div class="warn" style="margin:0 0 10px">'+erreurs.map(FMT.esc).join('<br>')+'</div>');
+  await gfCharger(true);
+}
+$('gfGenTout').addEventListener('click',()=>{
+  const L=GF.data.factures.filter(f=>!f.facture&&!gfBloquant(f));if(!L.length)return;
+  if(!confirm(`Générer ${L.length} facture${L.length>1?'s':''} pour ${GF.data.libelle} ?\n\nLes numéros sont attribués et les montants figés. Vérifie d'abord les permanences des bénévoles.`))return;
+  gfEnSerie(L,'gestion_facture_generer',f=>({mois:GF.data.mois,idCreateur:f.idCreateur,permsFaites:GF.perms[f.idCreateur]??0}),'Génération');
+});
+$('gfEnvTout').addEventListener('click',()=>{
+  const L=GF.data.factures.filter(f=>f.facture&&f.facture.statut==='generee'&&f.email);if(!L.length)return;
+  if(!confirm(`Envoyer ${L.length} facture${L.length>1?'s':''} par e-mail, depuis l'adresse du shop ?`))return;
+  gfEnSerie(L,'gestion_facture_envoyer',f=>({numero:f.facture.numero}),'Envoi');
+});
+$('gfMois').addEventListener('change',()=>{GF.perms={};GF.sel=null;gfCharger();});
+$('gfRefresh').addEventListener('click',()=>gfCharger(true));
+
+/* démo : quelques factures calculées à la main */
+const DEMO_F=(function(){
+  const factures={};let num=0;
+  const base=[['C004','Jackline','grand',68,512,false],['C005','NYU','unique',48,264,false],['C003','riri','illu',28,58,false],['C007','Studio Looleï','illu',28,142,true]];
+  const calc=(mois,perms)=>base.map(([id,nom,stand,loyer,ventes,benevole])=>{
+    const prime=round2(ventes*0.985),taux=benevole?0:prime>=250?0.15:prime>=100?0.10:0,commission=round2(prime*taux);
+    const requis={illu:1,unique:2,grand:4}[stand],faites=benevole?(perms[id]||0):'',remise=benevole?round2(Math.min(loyer,loyer*faites/requis)):0;
+    const lignes=[{ref:{grand:'LGS',unique:'LSU',illu:'LSI'}[stand],libelle:'Loyer · '+stand,montant:loyer}].concat(remise?[{ref:'BEN',libelle:'Remise bénévolat',montant:-remise}]:[]).concat(commission?[{ref:'COM'+Math.round(taux*100),libelle:'Commission',montant:commission}]:[]);
+    const f=factures[mois+id];
+    return {idCreateur:id,nom,nomLegal:nom==='riri'?'':'Nom légal',adresse:'1 rue X',email:nom.toLowerCase()+'@exemple.fr',benevole,permsFaites:faites,permsRequises:benevole?requis:null,
+      lignes,loyer:round2(loyer-remise),commission,taux,total:round2(lignes.reduce((s,l)=>s+l.montant,0)),ventes,frais:round2(ventes-prime),prime,net:round2(prime-commission),alertes:benevole?['journées de permanence provisoires ('+requis+') : à régler dans Réglages ▸ Stands']:[],facture:f||null};
+  });
+  return async function(action,p){
+    const mois=p.mois,[y,m]=String(mois||'2026-10').split('-').map(Number),lib=MOIS_LONG[m-1]+' '+y,libV=MOIS_LONG[(m+10)%12]+' '+(m===1?y-1:y);
+    if(action==='gestion_factures')return {ok:true,mois,libelle:lib,moisVentes:libV,joursOuverts:22,factures:calc(mois,p.perms||{})};
+    if(action==='gestion_facture_apercu'){const f=calc(mois,{[p.idCreateur]:p.permsFaites}).find(x=>x.idCreateur===p.idCreateur);
+      return {ok:true,html:`<div style="font-family:Arial;padding:20px"><div style="background:#000;color:#fff;padding:12px;font-weight:bold;letter-spacing:4px">13H59 · ${lib.toUpperCase()}</div><h3>${f.facture?'FACTURE N° '+f.facture.numero:'APERÇU'} · ${f.nom}</h3>${f.lignes.map(l=>`<div>${l.ref} · ${l.libelle} · ${l.montant} €</div>`).join('')}<p><b>Total ${f.total} €</b></p><p style="color:#888">(démo : aperçu simplifié)</p></div>`,
+        email:{a:f.email,objet:'Collectif 13H59 · ta facture · '+lib,texte:'Bonjour '+f.nom+',\n\nTu trouveras ci-joint ta facture…',actif:true}};}
+    if(action==='gestion_facture_generer'){num++;const n=String(mois).slice(2,4)+'-'+String(mois).slice(5,7)+'-'+String(num).padStart(3,'0');factures[mois+p.idCreateur]={numero:n,statut:'generee',total:0,emiseLe:aujourdhui(),envoyeeLe:'',pdfId:'x'};return {ok:true,numero:n};}
+    if(action==='gestion_facture_envoyer'){const f=Object.values(factures).find(x=>x.numero===p.numero);f.statut='envoyee';f.envoyeeLe=aujourdhui();return {ok:true};}
+    if(action==='gestion_facture_annuler'){const k=Object.keys(factures).find(k=>factures[k].numero===p.numero);delete factures[k];return {ok:true};}
+    if(action==='gestion_facture_pdf')return {ok:true,url:'about:blank'};
     return {ok:false,message:'Action inconnue (démo).'};
   };
 })();
