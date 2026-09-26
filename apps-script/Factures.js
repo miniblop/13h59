@@ -24,8 +24,10 @@ const ASSO = {
   nom: 'COLLECTIF 13H59', adresse: '27 rue du Plat', ville: '59800 LILLE', pays: 'FRANCE', email: 'contact : 13h59shop@gmail.com',
   tva: 'FR61988937876', siret: '98893787600015', naf: '91.02Z'
 };
-/* Journées de permanence pour un loyer offert, tant qu'elles ne sont pas réglées dans Réglages ▸ Stands (PROVISOIRE). */
-const PERMS_PAR_DEFAUT = { illu: 1, unique: 2, grand: 4 };
+/* Journées de permanence pour un loyer offert (Mo, 26/09/2026) : illustration 2, stand unique 2 ou 3 selon
+ * les besoins du mois, grand stand 4 ; pas de bénévolat en friperie. Réglages ▸ Stands prime sur ces valeurs,
+ * la fiche du créateur (« permanences prévues / mois ») sur le stand, et la saisie du mois sur tout le reste. */
+const PERMS_PAR_DEFAUT = { illu: 2, unique: 2, grand: 4 };
 const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
 /* ---------- Outils ---------- */
@@ -116,8 +118,9 @@ function _contexteFactures(ss, mois) {
            ouvertsMois: _joursOuverts(b.debut, b.fin) };
 }
 
-/** Calcule la facture d'un créateur (lignes, totaux, relevé des ventes). permsFaites : nombre saisi pour un bénévole. */
-function _calculFacture(ctx, r, permsFaites) {
+/** Calcule la facture d'un créateur (lignes, totaux, relevé des ventes).
+ *  permsFaites / permsDemandees : journées faites et demandées ce mois-ci (bénévole). */
+function _calculFacture(ctx, r, permsFaites, permsDemandees) {
   const tC = ctx.tC, tE = ctx.tE, b = ctx.b, id = String(_val(tC, r, 'id_createur'));
   const benevole = _val(tC, r, 'benevole') === true, lignes = [], alertes = [];
   // Loyers : chaque emplacement présent pendant le mois.
@@ -138,10 +141,11 @@ function _calculFacture(ctx, r, permsFaites) {
   });
   // Bénévole : loyer réduit selon les permanences faites.
   if (benevole && standPrincipal) {
-    permsRequises = standPrincipal.perms != null ? standPrincipal.perms : (PERMS_PAR_DEFAUT[standPrincipal.code] != null ? PERMS_PAR_DEFAUT[standPrincipal.code] : null);
-    if (permsRequises == null) alertes.push('bénévolat impossible sur ce stand');
+    const duStand = standPrincipal.perms != null ? standPrincipal.perms : (PERMS_PAR_DEFAUT[standPrincipal.code] != null ? PERMS_PAR_DEFAUT[standPrincipal.code] : null);
+    const deLaFiche = Number(_val(tC, r, 'perms_prevues')) > 0 ? Number(_val(tC, r, 'perms_prevues')) : null;
+    permsRequises = duStand == null ? null : Number(permsDemandees) > 0 ? Number(permsDemandees) : (deLaFiche || duStand);
+    if (permsRequises == null) alertes.push('pas de bénévolat sur ce stand : loyer dû en entier');
     else {
-      if (standPrincipal.perms == null) alertes.push('journées de permanence provisoires (' + permsRequises + ') : à régler dans Réglages ▸ Stands');
       const faites = Math.max(0, Number(permsFaites) || 0);
       const remise = _round2(Math.min(loyer, loyer * faites / permsRequises));
       if (remise > 0) lignes.push({ ref: 'BEN', libelle: 'Remise bénévolat · ' + String(faites).replace('.', ',') + ' journée(s) de permanence sur ' + permsRequises, montant: -remise });
@@ -187,7 +191,8 @@ function _gFactures(body) {
   const perms = body.perms || {};
   const lignes = _aFacturer(ctx).map(function (r) {
     const id = String(_val(ctx.tC, r, 'id_createur')), f = ctx.factures[id];
-    const c = _calculFacture(ctx, r, perms[id] != null ? perms[id] : (f ? f['perms_faites'] : 0));
+    const p = perms[id] || {};
+    const c = _calculFacture(ctx, r, p.faites != null ? p.faites : (f ? f['perms_faites'] : 0), p.demandees != null ? p.demandees : (f ? f['perms_requises'] : ''));
     delete c.releve;
     c.facture = f ? { numero: String(f['numero']), statut: String(f['statut']), total: Number(f['total']) || 0, emiseLe: _iso(f['emise_le']),
                       envoyeeLe: _iso(f['envoyee_le']), pdfId: String(f['pdf_id'] || '') } : null;
@@ -201,7 +206,7 @@ function _gFactureApercu(body) {
   const ss = SpreadsheetApp.getActiveSpreadsheet(), ctx = _contexteFactures(ss, body.mois);
   const r = ctx.tC.lignes.filter(function (x) { return String(_val(ctx.tC, x, 'id_createur')) === String(body.idCreateur); })[0];
   if (!r) throw new Error('Créateur introuvable.');
-  const c = _calculFacture(ctx, r, body.permsFaites);
+  const c = _calculFacture(ctx, r, body.permsFaites, body.permsDemandees);
   const f = ctx.factures[c.idCreateur];
   if (f) _appliquerFigee(ss, c, f);
   return { ok: true, html: _htmlFacture(ctx, c, f ? String(f['numero']) : null, f ? f['emise_le'] : new Date()), email: _emailFacture(ss, ctx, c, f ? String(f['numero']) : '(numéro attribué à la génération)') };
@@ -227,7 +232,7 @@ function _gFactureGenerer(body) {
   if (ctx.factures[String(body.idCreateur)]) throw new Error('Cette facture est déjà générée (n° ' + ctx.factures[String(body.idCreateur)]['numero'] + ').');
   const r = ctx.tC.lignes.filter(function (x) { return String(_val(ctx.tC, x, 'id_createur')) === String(body.idCreateur); })[0];
   if (!r) throw new Error('Créateur introuvable.');
-  const c = _calculFacture(ctx, r, body.permsFaites);
+  const c = _calculFacture(ctx, r, body.permsFaites, body.permsDemandees);
   if (!c.lignes.length) throw new Error('Rien à facturer pour ' + c.nom + ' ce mois-ci.');
   if (!c.nomLegal && !c.adresse) throw new Error('Nom légal et adresse manquants pour ' + c.nom + ' : à compléter dans Gestion ▸ Créateurs.');
 
@@ -273,7 +278,7 @@ function _gFactureEnvoyer(body) {
   const rc = ctx.tC.lignes.filter(function (c) { return String(_val(ctx.tC, c, 'id_createur')) === String(_val(t, r, 'id_createur')); })[0];
   const email = rc ? _norm(_val(ctx.tC, rc, 'email')) : '';
   if (!email) throw new Error("Pas d'adresse e-mail pour ce créateur : à compléter dans Gestion ▸ Créateurs.");
-  const c = _calculFacture(ctx, rc, _val(t, r, 'perms_faites'));
+  const c = _calculFacture(ctx, rc, _val(t, r, 'perms_faites'), _val(t, r, 'perms_requises'));
   _appliquerFigee(ss, c, { numero: body.numero, total: _val(t, r, 'total'), loyer: _val(t, r, 'loyer'), commission: _val(t, r, 'commission'), taux_commission: _val(t, r, 'taux_commission'),
     ventes_mois_precedent: _val(t, r, 'ventes_mois_precedent'), frais_mois_precedent: _val(t, r, 'frais_mois_precedent'), prime_mois_precedent: _val(t, r, 'prime_mois_precedent'), net_a_verser: _val(t, r, 'net_a_verser') });
   const e = _emailFacture(ss, ctx, c, String(body.numero));

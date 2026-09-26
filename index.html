@@ -202,7 +202,7 @@
   #gfTbl tbody tr{cursor:pointer}
   #gfTbl tbody tr:hover td{background:#faf9f7}
   #gfTbl tbody tr.sel td{background:var(--tot)}
-  .gf-perms{width:58px;padding:5px 6px;font-size:13px;text-align:center}
+  .gf-perms{width:52px;padding:5px 4px;font-size:13px;text-align:center}
   .gf-mail{border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.6}
   .gf-mail .corps{margin-top:8px;padding-top:8px;border-top:1px solid var(--line);white-space:pre-line}
   @media(max-width:960px){.gf-apercu{grid-template-columns:minmax(0,1fr)}#gfFrame{height:900px}}
@@ -2191,7 +2191,9 @@ function gfRender(){
   $('gfTbl').innerHTML='<thead><tr><th>Créateur</th><th>Loyer</th><th>Permanences</th><th>Ventes '+FMT.esc(D.moisVentes.split(' ')[0])+'</th><th>Commission</th><th>Total</th><th>N°</th><th>Statut</th><th></th></tr></thead><tbody>'+
     F.map(f=>{
       const fig=f.facture,prorata=f.lignes.some(l=>/jours d'ouverture/.test(l.libelle));
-      const perms=f.benevole?(fig?FMT.num(f.permsFaites||0)+' / '+(f.permsRequises??'?'):`<input class="gf-perms" type="number" min="0" step="0.5" value="${FMT.esc(GF.perms[f.idCreateur]??f.permsFaites??0)}" data-perm="${FMT.esc(f.idCreateur)}"> <span class="muted">/ ${f.permsRequises??'?'}</span>`):'<span class="muted">—</span>';
+      const p=GF.perms[f.idCreateur]||{};
+      const perms=!f.benevole?'<span class="muted">—</span>':f.permsRequises==null?'<span class="muted">pas de bénévolat</span>':fig?FMT.num(f.permsFaites||0)+' / '+f.permsRequises:
+        `<input class="gf-perms" type="number" min="0" step="0.5" value="${FMT.esc(p.faites??f.permsFaites??0)}" data-perm="${FMT.esc(f.idCreateur)}" data-k="faites" title="Journées faites"> <span class="muted">/</span> <input class="gf-perms" type="number" min="1" step="1" value="${FMT.esc(p.demandees??f.permsRequises)}" data-perm="${FMT.esc(f.idCreateur)}" data-k="demandees" title="Journées demandées ce mois-ci (loyer offert)">`;
       return `<tr data-f="${FMT.esc(f.idCreateur)}" class="${f.idCreateur===GF.sel?'sel':''}"><td><b>${FMT.esc(f.nom)}</b>${f.benevole?' <span class="gc-st benev">bénévole</span>':''}${prorata?' <span class="pill">prorata</span>':''}<span class="gc-sub">${FMT.esc(f.idCreateur)}</span></td>`+
         `<td class="r">${f.loyer?FMT.eur(f.loyer):'<span class="muted">—</span>'}</td><td>${perms}</td><td class="r">${FMT.eur(f.ventes)}</td>`+
         `<td class="r">${f.commission?FMT.eur(f.commission)+' <span class="muted">('+Math.round(f.taux*100)+' %)</span>':'<span class="muted">—</span>'}</td>`+
@@ -2202,7 +2204,8 @@ async function gfApercu(){
   const f=GF.data&&GF.data.factures.find(x=>x.idCreateur===GF.sel);if(!f){$('gfApercuNom').textContent='';return;}
   $('gfApercuNom').textContent=f.nom+(f.facture?' · n° '+f.facture.numero:' · aperçu du calcul');
   try{
-    const r=await API.gestion('gestion_facture_apercu',{mois:GF.data.mois,idCreateur:f.idCreateur,permsFaites:GF.perms[f.idCreateur]??f.permsFaites});
+    const p=GF.perms[f.idCreateur]||{};
+    const r=await API.gestion('gestion_facture_apercu',{mois:GF.data.mois,idCreateur:f.idCreateur,permsFaites:p.faites??f.permsFaites,permsDemandees:p.demandees??f.permsRequises});
     if(!r||!r.ok)throw new Error((r&&r.message)||'aperçu impossible');
     $('gfFrame').srcdoc=r.html;
     const e=r.email;
@@ -2210,6 +2213,7 @@ async function gfApercu(){
       `<div class="gc-why">Texte modifiable dans <a href="#" data-vers-reglages="emails">Réglages ▸ E-mails types</a> (modèle « Facture mensuelle »). Le PDF est rangé dans Drive : 13h59 / Factures / ${FMT.esc(GF.data.mois)}.</div>`;
   }catch(e){$('gfMail').innerHTML='<div class="warn">'+FMT.esc(e.message||String(e))+'</div>';}
 }
+function gfParamsGen(f){const p=GF.perms[f.idCreateur]||{};return {mois:GF.data.mois,idCreateur:f.idCreateur,permsFaites:p.faites??f.permsFaites??0,permsDemandees:p.demandees??f.permsRequises};}
 async function gfUne(action,params){
   const r=await API.gestion(action,params);
   if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide du serveur');
@@ -2229,7 +2233,7 @@ $('gFact').addEventListener('click',async e=>{
     let motif='';
     if(a==='annuler'){motif=prompt(`Annuler la facture ${f.facture.numero} ? Son numéro ne sera pas réutilisé.\n\nMotif :`,'');if(!motif)return;}
     b.disabled=true;b.textContent='…';
-    if(a==='generer'){const r=await gfUne('gestion_facture_generer',{mois:GF.data.mois,idCreateur:f.idCreateur,permsFaites:GF.perms[f.idCreateur]??0});toast('Facture '+r.numero+' générée');}
+    if(a==='generer'){const r=await gfUne('gestion_facture_generer',gfParamsGen(f));toast('Facture '+r.numero+' générée');}
     if(a==='envoyer'){await gfUne('gestion_facture_envoyer',{numero:f.facture.numero});toast('Facture '+f.facture.numero+' envoyée à '+f.email);}
     if(a==='annuler'){await gfUne('gestion_facture_annuler',{numero:f.facture.numero,motif});toast('Facture '+f.facture.numero+' annulée');}
     await gfCharger(true);
@@ -2237,7 +2241,7 @@ $('gFact').addEventListener('click',async e=>{
 });
 $('gFact').addEventListener('input',e=>{
   const p=e.target.closest('.gf-perms');if(!p)return;
-  GF.perms[p.dataset.perm]=Number(p.value)||0;
+  const o=GF.perms[p.dataset.perm]=GF.perms[p.dataset.perm]||{};o[p.dataset.k]=Number(p.value)||0;
   clearTimeout(GF.minuterie);GF.minuterie=setTimeout(()=>gfCharger(true),600);
 });
 /* générer ou envoyer tout le mois : une facture après l'autre, avec l'avancement */
@@ -2255,7 +2259,7 @@ async function gfEnSerie(liste,action,params,verbe){
 $('gfGenTout').addEventListener('click',()=>{
   const L=GF.data.factures.filter(f=>!f.facture&&!gfBloquant(f));if(!L.length)return;
   if(!confirm(`Générer ${L.length} facture${L.length>1?'s':''} pour ${GF.data.libelle} ?\n\nLes numéros sont attribués et les montants figés. Vérifie d'abord les permanences des bénévoles.`))return;
-  gfEnSerie(L,'gestion_facture_generer',f=>({mois:GF.data.mois,idCreateur:f.idCreateur,permsFaites:GF.perms[f.idCreateur]??0}),'Génération');
+  gfEnSerie(L,'gestion_facture_generer',gfParamsGen,'Génération');
 });
 $('gfEnvTout').addEventListener('click',()=>{
   const L=GF.data.factures.filter(f=>f.facture&&f.facture.statut==='generee'&&f.email);if(!L.length)return;
@@ -2271,16 +2275,16 @@ const DEMO_F=(function(){
   const base=[['C004','Jackline','grand',68,512,false],['C005','NYU','unique',48,264,false],['C003','riri','illu',28,58,false],['C007','Studio Looleï','illu',28,142,true]];
   const calc=(mois,perms)=>base.map(([id,nom,stand,loyer,ventes,benevole])=>{
     const prime=round2(ventes*0.985),taux=benevole?0:prime>=250?0.15:prime>=100?0.10:0,commission=round2(prime*taux);
-    const requis={illu:1,unique:2,grand:4}[stand],faites=benevole?(perms[id]||0):'',remise=benevole?round2(Math.min(loyer,loyer*faites/requis)):0;
+    const p=perms[id]||{},requis=p.demandees||{illu:2,unique:2,grand:4}[stand],faites=benevole?(p.faites||0):'',remise=benevole?round2(Math.min(loyer,loyer*faites/requis)):0;
     const lignes=[{ref:{grand:'LGS',unique:'LSU',illu:'LSI'}[stand],libelle:'Loyer · '+stand,montant:loyer}].concat(remise?[{ref:'BEN',libelle:'Remise bénévolat',montant:-remise}]:[]).concat(commission?[{ref:'COM'+Math.round(taux*100),libelle:'Commission',montant:commission}]:[]);
     const f=factures[mois+id];
     return {idCreateur:id,nom,nomLegal:nom==='riri'?'':'Nom légal',adresse:'1 rue X',email:nom.toLowerCase()+'@exemple.fr',benevole,permsFaites:faites,permsRequises:benevole?requis:null,
-      lignes,loyer:round2(loyer-remise),commission,taux,total:round2(lignes.reduce((s,l)=>s+l.montant,0)),ventes,frais:round2(ventes-prime),prime,net:round2(prime-commission),alertes:benevole?['journées de permanence provisoires ('+requis+') : à régler dans Réglages ▸ Stands']:[],facture:f||null};
+      lignes,loyer:round2(loyer-remise),commission,taux,total:round2(lignes.reduce((s,l)=>s+l.montant,0)),ventes,frais:round2(ventes-prime),prime,net:round2(prime-commission),alertes:[],facture:f||null};
   });
   return async function(action,p){
     const mois=p.mois,[y,m]=String(mois||'2026-10').split('-').map(Number),lib=MOIS_LONG[m-1]+' '+y,libV=MOIS_LONG[(m+10)%12]+' '+(m===1?y-1:y);
     if(action==='gestion_factures')return {ok:true,mois,libelle:lib,moisVentes:libV,joursOuverts:22,factures:calc(mois,p.perms||{})};
-    if(action==='gestion_facture_apercu'){const f=calc(mois,{[p.idCreateur]:p.permsFaites}).find(x=>x.idCreateur===p.idCreateur);
+    if(action==='gestion_facture_apercu'){const f=calc(mois,{[p.idCreateur]:{faites:p.permsFaites,demandees:p.permsDemandees}}).find(x=>x.idCreateur===p.idCreateur);
       return {ok:true,html:`<div style="font-family:Arial;padding:20px"><div style="background:#000;color:#fff;padding:12px;font-weight:bold;letter-spacing:4px">13H59 · ${lib.toUpperCase()}</div><h3>${f.facture?'FACTURE N° '+f.facture.numero:'APERÇU'} · ${f.nom}</h3>${f.lignes.map(l=>`<div>${l.ref} · ${l.libelle} · ${l.montant} €</div>`).join('')}<p><b>Total ${f.total} €</b></p><p style="color:#888">(démo : aperçu simplifié)</p></div>`,
         email:{a:f.email,objet:'Collectif 13H59 · ta facture · '+lib,texte:'Bonjour '+f.nom+',\n\nTu trouveras ci-joint ta facture…',actif:true}};}
     if(action==='gestion_facture_generer'){num++;const n=String(mois).slice(2,4)+'-'+String(mois).slice(5,7)+'-'+String(num).padStart(3,'0');factures[mois+p.idCreateur]={numero:n,statut:'generee',total:0,emiseLe:aujourdhui(),envoyeeLe:'',pdfId:'x'};return {ok:true,numero:n};}
