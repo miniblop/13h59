@@ -219,6 +219,10 @@
   .ge-lib .gc-sub{font-family:ui-monospace,Consolas,monospace;font-size:10.5px}
   .ge-pay{display:inline-block;background:var(--tot);border-radius:8px;padding:2px 7px;font-size:12px;margin:1px 3px 1px 0;white-space:nowrap}
   .ge-pay a{text-decoration:none;color:var(--muted);font-weight:700;margin-left:3px}
+  #gwTbl td,#gwTbl th{text-align:left}
+  #gwTbl td.r{text-align:right}
+  .gw-detail td{font-size:12px;text-align:left}
+  .gw-detail td.r{text-align:right}
   .gv-filtres{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
   #gvTbl tbody tr{cursor:pointer}
   #gvTbl tbody tr:hover td{background:#faf9f7}
@@ -501,7 +505,18 @@
           <div class="gc-why">Loyer attendu : celui de la facture du mois si elle est générée, sinon le loyer calculé. « Pointer reçu » pour un paiement vu ailleurs (appli bancaire…). La relance est possible après le 25 du mois précédent.</div>
         </div>
       </div>
-      <div id="gVueVer" class="hide"><div class="card"><h2>À verser · ventes</h2><div class="gc-why" style="margin-top:8px">Prochaine étape : le montant à virer à chaque créateur (ventes − frais − commission), bloqué tant que son loyer n'est pas reçu, et le fichier de virements groupés pour la banque.</div></div></div>
+      <div id="gVueVer" class="hide">
+        <div id="gwErr" class="warn hide"></div>
+        <div class="gc-places" id="gwKpis"></div>
+        <div id="gwWarn"></div>
+        <div class="card">
+          <div class="cardhead"><h2 id="gwTitre">Versements</h2><div class="gc-acts" style="margin-top:0"><button class="btn-dl" id="gwRefresh">↻ Actualiser</button><button class="btn btn-accent" id="gwFichier">Fichier de virements groupés</button></div></div>
+          <div class="tblwrap"><table id="gwTbl"></table></div>
+          <div class="gc-why">Net à verser = ventes du mois précédent − frais de paiement − commission (montant figé sur la facture). Un versement part seulement si la facture est générée, le loyer du mois reçu et l'IBAN renseigné ; sinon il est reporté et reste proposé les mois suivants.</div>
+          <div id="gwDetail"></div>
+        </div>
+        <div class="card"><div class="gc-h4" style="margin-top:0">Comment ça marche avec la banque</div><div class="gc-why" style="margin-top:0;line-height:1.6">1. « Fichier de virements groupés » télécharge un fichier SEPA (format standard des banques). 2. Dans l'espace pro du CIC, cherche l'import de fichier de virements (remise de virements SEPA) et importe-le : une seule validation pour tous. 3. Reviens ici : « J'ai validé ces virements à la banque ». Le site ne déclenche jamais de paiement. Si l'import de fichier n'est pas proposé par ton contrat CIC, la liste des virements à saisir s'affiche sous le tableau ; « Marquer versé » note un virement fait à la main.</div></div>
+      </div>
     </div>
     <div id="gRegl" class="hide">
       <div id="grErr" class="warn hide"></div>
@@ -750,7 +765,7 @@ const API = {
     return res.json();
   },
   async gestion(action,params){
-    if(DEMO_MODE) return (/^gestion_(encaissements|paiements?_|relancer)/.test(action)?DEMO_E:/^gestion_factures?/.test(action)?DEMO_F:/^gestion_(ventes?|panier|journal)/.test(action)?DEMO_V:action.indexOf('gestion_reglage')===0?DEMO_R:action.indexOf('gestion_candidature')===0||action==='gestion_email_maj'?DEMO_K:DEMO_G)(action,params||{});
+    if(DEMO_MODE) return (/^gestion_versements/.test(action)?DEMO_W:/^gestion_(encaissements|paiements?_|relancer)/.test(action)?DEMO_E:/^gestion_factures?/.test(action)?DEMO_F:/^gestion_(ventes?|panier|journal)/.test(action)?DEMO_V:action.indexOf('gestion_reglage')===0?DEMO_R:action.indexOf('gestion_candidature')===0||action==='gestion_email_maj'?DEMO_K:DEMO_G)(action,params||{});
     const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify(Object.assign({action,password:S.pwd,qui:gcPrenom()},params||{}))});
     return res.json();
   },
@@ -2128,7 +2143,7 @@ const GJ_ACTIONS={createur_maj:'Fiche créateur modifiée',createur_creer:'Créa
   candidature_retenue:'Candidature retenue',candidature_remarque:'Candidature : remarque',email_envoye:'E-mail envoyé',email_echec:'E-mail non envoyé',email_modele_maj:'E-mail type modifié',
   reglage_categories:'Réglage : catégorie',reglage_stands:'Réglage : stand',reglage_remises:'Réglage : remise',reglage_paiements:'Réglage : paiement',
   reglage_categories_creation:'Catégorie ajoutée',reglage_stands_creation:'Stand ajouté',reglage_remises_creation:'Remise ajoutée',reglage_paiements_creation:'Moyen de paiement ajouté',
-  vente_annulee:'Vente annulée',vente_corrigee:'Vente corrigée',panier_annule:'Panier annulé',vente_supprimee:'Vente supprimée',panier_supprime:'Panier supprimé',createur_fusionne:'Fiches fusionnées',createur_supprime:'Fiche supprimée',reponses_mo:'Réglages (réponses de Mo)',facture_generee:'Facture générée',facture_envoyee:'Facture envoyée',facture_annulee:'Facture annulée',loyers_pointes:'Loyers pointés',loyer_depointe:'Pointage annulé',loyers_relances:'Relances loyer'};
+  vente_annulee:'Vente annulée',vente_corrigee:'Vente corrigée',panier_annule:'Panier annulé',vente_supprimee:'Vente supprimée',panier_supprime:'Panier supprimé',createur_fusionne:'Fiches fusionnées',createur_supprime:'Fiche supprimée',reponses_mo:'Réglages (réponses de Mo)',facture_generee:'Facture générée',facture_envoyee:'Facture envoyée',facture_annulee:'Facture annulée',loyers_pointes:'Loyers pointés',loyer_depointe:'Pointage annulé',loyers_relances:'Relances loyer',versements_fichier:'Fichier de virements',versements_valides:'Versements validés',versements_lot_annule:'Fichier de virements annulé'};
 function gjLibelle(a){return GJ_ACTIONS[a]||(/^(migration|etape|liens_)/.test(a)?'Migration du Sheet':a);}
 async function gjCharger(){
   $('gjErr').classList.add('hide');
@@ -2594,8 +2609,9 @@ $('gfVues').addEventListener('click',e=>{
   $('gfVues').querySelectorAll('[data-vue]').forEach(x=>x.classList.toggle('on',x===v));
   ['Fac','Enc','Ver'].forEach(k=>$('gVue'+k).classList.toggle('hide',v.dataset.vue!==k));
   if(v.dataset.vue==='Enc'&&(!GE.charge||GE.mois!==$('gfMois').value))geCharger();
+  if(v.dataset.vue==='Ver'&&(!GW.charge||GW.mois!==$('gfMois').value))gwCharger();
 });
-$('gfMois').addEventListener('change',()=>{GE.charge=false;if(!$('gVueEnc').classList.contains('hide'))geCharger();});
+$('gfMois').addEventListener('change',()=>{GE.charge=false;GW.charge=false;GW.choix={};if(!$('gVueEnc').classList.contains('hide'))geCharger();if(!$('gVueVer').classList.contains('hide'))gwCharger();});
 
 /* démo : loyers en mémoire */
 const DEMO_E=(function(){
@@ -2609,6 +2625,105 @@ const DEMO_E=(function(){
     if(action==='gestion_paiements_pointer'){p.lignes.forEach(l=>pay.push({id:'P'+(++n),idCreateur:l.idCreateur,mois:l.mois,montant:Number(String(l.montant).replace(',','.')),date:l.date,source:l.source,ref:l.ref||'',statut:'ok'}));return {ok:true,pointes:p.lignes.length,ignores:0,appris:p.lignes.filter(l=>l.source==='banque').length};}
     if(action==='gestion_paiement_annuler'){pay.find(x=>x.id===p.idPaiement).statut='annule';return {ok:true};}
     if(action==='gestion_relancer')return {ok:true,envoyes:p.ids.length,erreurs:[]};
+    return {ok:false,message:'Action inconnue (démo).'};
+  };
+})();
+/* ===================== FACTURATION ▸ À VERSER ===================== */
+const GW={data:null,charge:false,mois:'',choix:{}};
+const GW_ST={pret:['actif','prêt à virer'],fichier:['preavis','dans un fichier'],verse:['inactif','versé'],iban:['gv-neg','IBAN manquant'],reporte:['gv-neg','reporté · loyer non reçu'],attente:['preavis','en attente du loyer']};
+async function gwCharger(){
+  $('gwErr').classList.add('hide');
+  try{
+    const r=await API.gestion('gestion_versements',{mois:$('gfMois').value});
+    if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide du serveur');
+    GW.data=r;GW.charge=true;GW.mois=r.mois;gwRender();
+  }catch(e){$('gwErr').classList.remove('hide');$('gwErr').textContent='⚠️ Versements indisponibles : '+((e&&e.message)||e);}
+}
+function gwRender(){
+  const D=GW.data,L=D.lignes,par=s=>L.filter(l=>l.statut===s),som=a=>FMT.eur(a.reduce((t,l)=>t+l.net,0));
+  const prets=par('pret'),bloques=L.filter(l=>['iban','reporte','attente'].includes(l.statut)),fichiers=par('fichier');
+  $('gwKpis').innerHTML=[['Net à verser',som(L.filter(l=>l.statut!=='verse')),'ventes '+D.moisVentes+' et reports'],['Prêts à virer',som(prets),prets.length+' virement'+(prets.length>1?'s':'')],
+    ['Bloqués',som(bloques),bloques.length+' (loyer non reçu, IBAN)'],['Versés',som(par('verse')),par('verse').length+' ce mois-ci']]
+    .map(([k,v,s])=>`<div class="gc-place"><div class="k"><span>${k}</span></div><div class="v">${v}</div><div class="l">${s}</div></div>`).join('');
+  const w=[];
+  if(D.sansFacture.length)w.push(`Factures ${deMois(D.libelle)} pas encore générées : rien ne peut être versé à <b>${D.sansFacture.map(FMT.esc).join(', ')}</b>.`);
+  if(par('iban').length)w.push(`IBAN manquant ou invalide : <b>${par('iban').map(l=>FMT.esc(l.nom)).join(', ')}</b> (à compléter dans Gestion ▸ Créateurs).`);
+  if(par('reporte').length)w.push(`Reportés, loyer non reçu : <b>${par('reporte').map(l=>FMT.esc(l.nom)+' ('+FMT.eur(l.net)+')').join(', ')}</b>. Ils restent proposés tant qu'ils ne sont pas versés.`);
+  const lots=[...new Set(fichiers.map(l=>l.versement.lot))];
+  lots.forEach(lot=>{const ls=fichiers.filter(l=>l.versement.lot===lot);w.push(`Fichier du ${fmtD(ls[0].versement.fichierLe)} : ${ls.length} virement${ls.length>1?'s':''} (${som(ls)}) en attente de validation à la banque. <a href="#" data-gwa="valider" data-lot="${FMT.esc(lot)}">J'ai validé ces virements à la banque</a> · <a href="#" data-gwa="annuler-lot" data-lot="${FMT.esc(lot)}">Le fichier n'a pas été utilisé</a>`);});
+  $('gwWarn').innerHTML=w.map(x=>`<div class="warn" style="margin:0 0 10px">${x}</div>`).join('');
+  prets.forEach(l=>{if(GW.choix[l.numero]==null)GW.choix[l.numero]=true;});
+  const nb=prets.filter(l=>GW.choix[l.numero]).length;
+  $('gwFichier').disabled=!nb;$('gwFichier').textContent='Fichier de virements groupés'+(nb?' ('+nb+' · '+som(prets.filter(l=>GW.choix[l.numero]))+')':'');
+  $('gwTitre').textContent='Versements · ventes '+D.moisVentes;
+  $('gwTbl').innerHTML='<thead><tr><th></th><th>Créateur</th><th>Ventes</th><th>Frais</th><th>Commission</th><th>Net à verser</th><th>IBAN</th><th>Loyer</th><th>Statut</th><th></th></tr></thead><tbody>'+
+    (L.length?L.map(l=>{
+      const [cl,lib]=GW_ST[l.statut];
+      const report=l.mois!==D.mois?` <span class="pill">report ${FMT.esc(geLibMois(l.mois).split(' ')[0])}</span>`:'';
+      return `<tr data-n="${FMT.esc(l.numero)}"><td>${l.statut==='pret'?`<input type="checkbox" data-gwk="choix"${GW.choix[l.numero]?' checked':''}>`:''}</td>`+
+        `<td><b>${FMT.esc(l.nom)}</b>${report}<span class="gc-sub">facture ${FMT.esc(l.numero)}</span></td><td class="r">${FMT.eur(l.ventes)}</td><td class="r">− ${FMT.eur(l.frais)}</td>`+
+        `<td class="r">${l.commission?'− '+FMT.eur(l.commission):'<span class="muted">—</span>'}</td><td class="r"><b>${FMT.eur(l.net)}</b></td>`+
+        `<td>${l.ibanOk?'<span class="muted">•••• '+FMT.esc(l.ibanFin)+'</span>':'<b style="color:var(--neg)">manquant</b>'}</td>`+
+        `<td>${l.loyer<=0?'<span class="muted">—</span>':l.loyerOk?'<span class="gc-st actif">reçu</span>':'<span class="gc-st gv-neg">non reçu</span>'}</td>`+
+        `<td><span class="gc-st ${cl}">${lib}</span>${l.versement&&l.versement.verseLe?'<span class="gc-sub">le '+fmtD(l.versement.verseLe)+'</span>':''}</td>`+
+        `<td>${['pret','fichier','reporte','attente','iban'].includes(l.statut)?'<button class="btn-dl" data-gwa="verse">Marquer versé</button>':''}</td></tr>`;
+    }).join(''):'<tr><td colspan="10" class="muted" style="text-align:center;padding:20px">Rien à verser : génère d\'abord les factures du mois.</td></tr>')+'</tbody>';
+}
+function gwTelecharger(nom,texte){
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([texte],{type:'application/xml'}));a.download=nom;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
+}
+$('gVueVer').addEventListener('change',e=>{const tr=e.target.closest('tr[data-n]');if(tr&&e.target.dataset.gwk==='choix'){GW.choix[tr.dataset.n]=e.target.checked;gwRender();}});
+$('gVueVer').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-gwa]');if(!b)return;e.preventDefault();
+  try{
+    if(b.dataset.gwa==='valider'){
+      if(!confirm('Tu as bien importé ce fichier dans l\'espace pro de la banque et validé les virements ?'))return;
+      const r=await API.gestion('gestion_versements_valider',{lot:b.dataset.lot});if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide');toast(r.nb+' virement'+(r.nb>1?'s':'')+' marqué'+(r.nb>1?'s':'')+' versé'+(r.nb>1?'s':''));
+    }else if(b.dataset.gwa==='annuler-lot'){
+      const motif=prompt('Ce fichier n\'a pas été utilisé à la banque : ses virements redeviennent « prêts ». Motif :','fichier non importé');if(!motif)return;
+      const r=await API.gestion('gestion_versements_annuler_lot',{lot:b.dataset.lot,motif});if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide');toast('Fichier annulé');
+    }else if(b.dataset.gwa==='verse'){
+      const l=GW.data.lignes.find(x=>x.numero===b.closest('tr').dataset.n);
+      let malgre=false;
+      if(!l.loyerOk){if(!confirm(`Le loyer de ${l.nom} n'est pas reçu : normalement son versement est reporté.\n\nMarquer quand même ${FMT.eur(l.net)} comme versé ?`))return;malgre=true;}
+      else if(!confirm(`Marquer comme versé le virement de ${FMT.eur(l.net)} à ${l.nom} (fait à la main dans l'appli bancaire) ?`))return;
+      const r=await API.gestion('gestion_versements_valider',{mois:GW.data.mois,numero:l.numero,malgreLoyer:malgre});if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide');toast('Versement de '+l.nom+' noté');
+    }
+    await gwCharger();
+  }catch(err){toast((err&&err.message)||String(err),true);}
+});
+$('gwFichier').addEventListener('click',async()=>{
+  const L=GW.data.lignes.filter(l=>l.statut==='pret'&&GW.choix[l.numero]);if(!L.length)return;
+  const total=L.reduce((s,l)=>s+l.net,0);
+  if(!confirm(`Préparer le fichier de ${L.length} virement${L.length>1?'s':''} (${FMT.eur(total)}) ?\n\nIl se télécharge sur cet appareil : importe-le ensuite dans l'espace pro du CIC. Le site ne fait lui-même aucun paiement.`))return;
+  const b=$('gwFichier'),t=b.textContent;b.disabled=true;b.textContent='…';
+  try{
+    const r=await API.gestion('gestion_versements_fichier',{mois:GW.data.mois,numeros:L.map(l=>l.numero)});
+    if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide du serveur');
+    gwTelecharger(r.nom,r.xml);
+    $('gwDetail').innerHTML=`<div class="gc-h4">Fichier ${FMT.esc(r.nom)} · ${r.nb} virement${r.nb>1?'s':''} · ${FMT.eur(r.total)}</div>`+
+      `<div class="gc-why" style="margin-top:0">Si l'import de fichier n'est pas disponible dans l'espace CIC, les mêmes virements à saisir à la main :</div>`+
+      `<div class="tblwrap"><table class="gw-detail"><tbody>${r.detail.map(d=>`<tr><td>${FMT.esc(d.nom)}</td><td class="muted">•••• ${FMT.esc(d.ibanFin)}</td><td class="r"><b>${FMT.eur(d.montant)}</b></td><td class="muted">${FMT.esc(d.libelle)}</td></tr>`).join('')}</tbody></table></div>`;
+    toast('Fichier téléchargé : '+r.nb+' virement'+(r.nb>1?'s':''));
+    await gwCharger();
+  }catch(err){toast((err&&err.message)||String(err),true);b.disabled=false;b.textContent=t;}
+});
+$('gwRefresh').addEventListener('click',()=>gwCharger());
+
+/* démo : versements en mémoire */
+const DEMO_W=(function(){
+  const vers={};
+  return async function(action,p){
+    const [y,m]=String(p.mois||'2026-10').split('-').map(Number),lib=MOIS_LONG[m-1]+' '+y,libV=MOIS_LONG[(m+10)%12]+' '+(m===1?y-1:y);
+    const base=[['26-10-001','C004','Jackline',512,8.96,75.65,true,true],['26-10-002','C005','NYU',264,4.62,39.01,true,false],['26-10-003','C003','riri',58,1.02,0,false,true]];
+    if(action==='gestion_versements')return {ok:true,mois:p.mois,libelle:lib,moisVentes:libV,aujourdhui:aujourdhui(),sansFacture:['Studio Looleï'],lignes:base.map(([numero,id,nom,ventes,frais,commission,ibanOk,loyerOk])=>{
+      const v=vers[numero],net=round2(ventes-frais-commission);
+      return {numero,mois:p.mois,idCreateur:id,nom,nomLegal:'',ibanFin:ibanOk?'0189':'',ibanOk,ventes,frais,commission,net,loyer:68,loyerRecu:loyerOk?68:0,loyerOk,versement:v||null,
+        statut:v?v.statut:!ibanOk?'iban':!loyerOk?'reporte':'pret'};})};
+    if(action==='gestion_versements_fichier'){const lot='LOT-DEMO';p.numeros.forEach(n=>vers[n]={statut:'fichier',lot,fichierLe:aujourdhui(),verseLe:''});return {ok:true,lot,nb:p.numeros.length,total:0,nom:'13H59-virements-demo.xml',xml:'<Document/>',detail:p.numeros.map(n=>({nom:n,ibanFin:'0189',montant:0,libelle:'13H59 VENTES'}))};}
+    if(action==='gestion_versements_valider'){if(p.lot)Object.values(vers).filter(v=>v.lot===p.lot).forEach(v=>{v.statut='verse';v.verseLe=aujourdhui();});else vers[p.numero]={statut:'verse',lot:'MANUEL',verseLe:aujourdhui()};return {ok:true,nb:1};}
+    if(action==='gestion_versements_annuler_lot'){Object.keys(vers).filter(k=>vers[k].lot===p.lot).forEach(k=>delete vers[k]);return {ok:true,nb:1};}
     return {ok:false,message:'Action inconnue (démo).'};
   };
 })();

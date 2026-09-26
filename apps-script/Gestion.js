@@ -10,7 +10,7 @@ const CHAMPS_CREATEUR_MODIFIABLES = [
 ];
 
 /** Actions qui ne font que lire (pas de verrou). gestion_createurs écrit les statuts : elle garde le verrou. */
-const LECTURES_SEULES = ['gestion_candidatures', 'gestion_ventes', 'gestion_reglages', 'gestion_journal', 'gestion_factures', 'gestion_facture_apercu', 'gestion_facture_pdf', 'gestion_encaissements'];
+const LECTURES_SEULES = ['gestion_candidatures', 'gestion_ventes', 'gestion_reglages', 'gestion_journal', 'gestion_factures', 'gestion_facture_apercu', 'gestion_facture_pdf', 'gestion_encaissements', 'gestion_versements'];
 
 /** Point d'entrée des actions « gestion_* ». */
 function _gestion(body) {
@@ -50,7 +50,11 @@ function _gestion(body) {
     gestion_encaissements: _gEncaissements,
     gestion_paiements_pointer: _gPaiementsPointer,
     gestion_paiement_annuler: _gPaiementAnnuler,
-    gestion_relancer: _gRelancer
+    gestion_relancer: _gRelancer,
+    gestion_versements: _gVersements,
+    gestion_versements_fichier: _gVersementsFichier,
+    gestion_versements_valider: _gVersementsValider,
+    gestion_versements_annuler_lot: _gVersementsAnnulerLot
   };
   const f = actions[body.action];
   if (!f) return { ok: false, message: 'Action inconnue.' };
