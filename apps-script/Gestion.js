@@ -20,6 +20,7 @@ function _gestion(body) {
     gestion_createurs: _gCreateurs,
     gestion_createur_maj: _gCreateurMaj,
     gestion_createur_creer: _gCreateurCreer,
+    gestion_createur_fusionner: _gCreateurFusionner,
     gestion_preavis: _gPreavis,
     gestion_preavis_annuler: _gPreavisAnnuler,
     gestion_changer_stand: _gChangerStand,
@@ -91,9 +92,12 @@ function _ajouterLigne(t, valeurs) {
   t.sh.appendRow(ligne);
   t.lignes.push(ligne);
 }
+function _maxId(t, champ, prefixe) {
+  return t.lignes.reduce(function (m, r) { const x = new RegExp('^' + prefixe + '(\\d+)$').exec(String(_val(t, r, champ))); return x ? Math.max(m, +x[1]) : m; }, 0);
+}
+/** Prochain identifiant ; un identifiant supprimé (fiche fusionnée) n'est jamais réattribué. */
 function _prochainId(t, champ, prefixe) {
-  const max = t.lignes.reduce(function (m, r) { const x = new RegExp('^' + prefixe + '(\\d+)$').exec(String(_val(t, r, champ))); return x ? Math.max(m, +x[1]) : m; }, 0);
-  return prefixe + String(max + 1).padStart(3, '0');
+  return prefixe + String(Math.max(_maxId(t, champ, prefixe), _dernierId('DERNIER_ID_' + prefixe)) + 1).padStart(3, '0');
 }
 /** Auteur des lignes du journal : prénom saisi sur le site (nettoyé pour ne jamais être lu comme une formule). */
 let _auteurJournal = 'gestion (site)';
@@ -299,6 +303,72 @@ function _gCreateurCreer(body) {
                       benevole: false, rc_pro: false, cree_le: new Date(), modifie_le: new Date() });
   _journaliser('createur_creer', id + ' ' + nom + detail);
   return { ok: true, id: id };
+}
+
+/**
+ * Fusionne une fiche en double (id) dans la bonne fiche (vers) : ventes, emplacements et
+ * candidatures passent sur « vers », ses champs vides sont complétés, puis le doublon est
+ * supprimé. Son identifiant n'est jamais réattribué et le journal garde une copie de la fiche.
+ */
+function _gCreateurFusionner(body) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const de = String(body.id || ''), vers = String(body.vers || '');
+  if (!de || !vers || de === vers) throw new Error('Choisis la fiche dans laquelle tout rattacher.');
+  const tC = _tableau(ss, SHEET_CREATEURS);
+  const indice = function (id) {
+    const i = tC.lignes.findIndex(function (r) { return String(_val(tC, r, 'id_createur')) === id; });
+    if (i < 0) throw new Error('Créateur introuvable : « ' + id + ' ».');
+    return i;
+  };
+  const iDe = indice(de), iVers = indice(vers), rDe = tC.lignes[iDe], rVers = tC.lignes[iVers];
+  const nomDe = _nomPropre(_val(tC, rDe, 'nom')), nomVers = _nomPropre(_val(tC, rVers, 'nom'));
+
+  const tE = _tableau(ss, SHEET_EMPLACEMENTS), auj = _aujourdhui();
+  const enCours = function (id) {
+    return tE.lignes.some(function (r) { const fin = _val(tE, r, 'fin'); return String(_val(tE, r, 'id_createur')) === id && (!(fin instanceof Date) || fin >= auj); });
+  };
+  if (enCours(de) && enCours(vers)) throw new Error("Les deux fiches ont un emplacement en cours : termine d'abord celui du doublon (un créateur = un seul stand).");
+
+  // Ventes : une seule lecture et une seule écriture de la colonne id_createur.
+  const shV = _onglet(ss, SHEET_VENTES), hV = _headerMap(shV), n = shV.getLastRow() - 1;
+  let nbVentes = 0;
+  if (n > 0) {
+    const col = shV.getRange(2, hV.map['id_createur'] + 1, n, 1), v = col.getValues();
+    v.forEach(function (r) { if (String(r[0]) === de) { r[0] = vers; nbVentes++; } });
+    if (nbVentes) col.setValues(v);
+  }
+  let nbE = 0;
+  tE.lignes.forEach(function (r, i) { if (String(_val(tE, r, 'id_createur')) === de) { r[tE.M['id_createur']] = vers; _ecrireLigne(tE, i, r); nbE++; } });
+  let nbK = 0;
+  if (ss.getSheetByName(SHEET_CANDIDATURES)) {
+    const tK = _tableau(ss, SHEET_CANDIDATURES);
+    tK.lignes.forEach(function (r, i) { if (String(_val(tK, r, 'id_createur')) === de) { r[tK.M['id_createur']] = vers; _ecrireLigne(tK, i, r); nbK++; } });
+  }
+
+  // La bonne fiche récupère ce qui lui manque.
+  const completes = [];
+  ['email', 'nom_legal', 'telephone', 'adresse', 'code_postal', 'ville', 'siret', 'iban', 'instagram', 'adhesion_payee_le', 'categorie', 'perms_prevues'].forEach(function (k) {
+    if (tC.M[k] == null) return;
+    const a = rVers[tC.M[k]], b = rDe[tC.M[k]];
+    if ((a === '' || a == null) && b !== '' && b != null) { rVers[tC.M[k]] = b; completes.push(k); }
+  });
+  if (_norm(_val(tC, rDe, 'statut')) === 'actif') rVers[tC.M['statut']] = 'actif';
+  if (tC.M['modifie_le'] != null) rVers[tC.M['modifie_le']] = new Date();
+  _ecrireLigne(tC, iVers, rVers);
+
+  // Copie du doublon pour le journal (IBAN masqué), puis suppression de sa ligne.
+  const copie = Object.keys(tC.M).filter(function (k) { const x = rDe[tC.M[k]]; return k && x !== '' && x != null && x !== false; }).map(function (k) {
+    const x = rDe[tC.M[k]];
+    return k + '=' + (k === 'iban' ? '••••' + String(x).slice(-4) : x instanceof Date ? _iso(x) : x);
+  }).join(', ');
+  PropertiesService.getScriptProperties().setProperty('DERNIER_ID_C', String(Math.max(_maxId(tC, 'id_createur', 'C'), _dernierId('DERNIER_ID_C'))));
+  tC.sh.deleteRow(iDe + 2);
+
+  _journaliser('createur_fusionne', de + ' « ' + nomDe + ' » → ' + vers + ' « ' + nomVers + ' » : ' + nbVentes + ' vente(s), ' + nbE + ' emplacement(s), ' +
+    nbK + ' candidature(s)' + (completes.length ? ' · complété : ' + completes.join(', ') : '') + ' | fiche supprimée : ' + copie);
+  SpreadsheetApp.flush();
+  _synchroniserStatuts(ss);
+  return { ok: true, ventes: nbVentes, emplacements: nbE, candidatures: nbK, completes: completes };
 }
 
 /* ---------- Emplacements ---------- */

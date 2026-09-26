@@ -425,3 +425,86 @@ function _etape7(apercu) {
     (sansHorodatage.length ? '\nLignes sans horodatage ignorées (saisies à la main, pas des réponses au formulaire) :\n  - ' + sansHorodatage.join('\n  - ') : '') +
     (aVerifier.length ? '\nRapprochements par le nom, à vérifier :\n  - ' + aVerifier.join('\n  - ') : ''));
 }
+
+/*************************************************************
+ *  RÉPONSES DE MO (26/09/2026) — à lancer une fois
+ *   apercuReponsesMo()   : liste ce qui serait fait, n'écrit RIEN
+ *   appliquerReponsesMo() : nouvelles catégories (les anciennes regroupées
+ *                           sont désactivées et les créateurs / candidatures
+ *                           qui les avaient sont rattachés à la nouvelle),
+ *                           codes de facture des stands LSI / LSU / LGS / LSF
+ *************************************************************/
+
+const CATEGORIES_MO = [
+  // code, libellé, exemples
+  ['bijoux',        'Bijoux',             "boucles d'oreilles, colliers, bagues"],
+  ['illustration',  'Illustration',       'affiches, cartes, papeterie, stickers'],
+  ['deco',          'Décoration',         "céramique, lampes, bougies, déco d'intérieur"],
+  ['accessoires',   'Accessoires',        'textiles, accessoires cheveux, sacs, pochettes'],
+  ['friperie',      'Friperie',           'seconde main, vintage'],
+  ['beaute',        'Beauté & bien-être', 'crèmes, savons, cosmétiques'],
+  ['customisation', 'Customisation',      'création de vêtements, broderie']
+];
+/** Anciennes catégories regroupées dans une nouvelle (« » = plus de catégorie, à choisir dans la fiche). */
+const REGROUPEMENT_MO = { papeterie: 'illustration', ceramique: 'deco', textile: 'accessoires', enfants: '', art: '' };
+const REFS_FACTURE_MO = { illu: 'LSI', unique: 'LSU', grand: 'LGS', friperie: 'LSF' };
+
+function apercuReponsesMo() { _reponsesMo(true); }
+function appliquerReponsesMo() { _reponsesMo(false); }
+
+function _reponsesMo(apercu) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), bilan = [];
+  // 1) catégories
+  const tCat = _tableau(ss, SHEET_CATEGORIES);
+  CATEGORIES_MO.forEach(function (c, i) {
+    const j = tCat.lignes.findIndex(function (r) { return String(_val(tCat, r, 'code')) === c[0]; });
+    const valeurs = { code: c[0], libelle: c[1], exemples: c[2], ordre: i + 1, actif: true };
+    if (j < 0) {
+      bilan.push('catégorie ajoutée : ' + c[1]);
+      if (!apercu) _ajouterLigne(tCat, valeurs);
+    } else {
+      const r = tCat.lignes[j], avant = _val(tCat, r, 'libelle');
+      Object.keys(valeurs).forEach(function (k) { if (tCat.M[k] != null) r[tCat.M[k]] = valeurs[k]; });
+      if (String(avant) !== c[1]) bilan.push('catégorie renommée : ' + avant + ' → ' + c[1]);
+      if (!apercu) _ecrireLigne(tCat, j, r);
+    }
+  });
+  Object.keys(REGROUPEMENT_MO).forEach(function (code, i) {
+    const j = tCat.lignes.findIndex(function (r) { return String(_val(tCat, r, 'code')) === code; });
+    if (j < 0) return;
+    const r = tCat.lignes[j];
+    r[tCat.M['actif']] = false; r[tCat.M['ordre']] = 90 + i;
+    bilan.push('catégorie désactivée : ' + _val(tCat, r, 'libelle') + (REGROUPEMENT_MO[code] ? ' (regroupée dans ' + REGROUPEMENT_MO[code] + ')' : ''));
+    if (!apercu) _ecrireLigne(tCat, j, r);
+  });
+  const jShop = tCat.lignes.findIndex(function (r) { return String(_val(tCat, r, 'code')) === 'shop'; });
+  if (jShop >= 0 && !apercu) { const r = tCat.lignes[jShop]; r[tCat.M['ordre']] = CATEGORIES_MO.length + 1; _ecrireLigne(tCat, jShop, r); }
+  if (!apercu) { const s = tCat.sh; s.getRange(2, tCat.M['actif'] + 1, Math.max(1, s.getLastRow() - 1), 1).insertCheckboxes(); }
+
+  // 2) créateurs et candidatures des catégories regroupées
+  [[SHEET_CREATEURS, 'id_createur', 'nom'], [SHEET_CANDIDATURES, 'id_candidature', 'marque']].forEach(function (o) {
+    if (!ss.getSheetByName(o[0])) return;
+    const t = _tableau(ss, o[0]), changes = [];
+    t.lignes.forEach(function (r, i) {
+      const c = String(_val(t, r, 'categorie') || '');
+      if (!Object.prototype.hasOwnProperty.call(REGROUPEMENT_MO, c)) return;
+      r[t.M['categorie']] = REGROUPEMENT_MO[c];
+      changes.push(_val(t, r, o[2]) + ' : ' + c + ' → ' + (REGROUPEMENT_MO[c] || '(à choisir)'));
+      if (!apercu) _ecrireLigne(t, i, r);
+    });
+    bilan.push(o[0] + ' : ' + changes.length + ' fiche(s) changée(s) de catégorie' + (changes.length ? ' — ' + changes.join(' ; ') : ''));
+  });
+
+  // 3) codes de facture des stands
+  const tS = _tableau(ss, SHEET_STANDS);
+  tS.lignes.forEach(function (r, i) {
+    const code = String(_val(tS, r, 'code')), ref = REFS_FACTURE_MO[code];
+    if (!ref || String(_val(tS, r, 'ref_facture')) === ref) return;
+    r[tS.M['ref_facture']] = ref;
+    bilan.push('stand ' + code + ' : code facture ' + ref);
+    if (!apercu) _ecrireLigne(tS, i, r);
+  });
+
+  if (!apercu) _journaliser('reponses_mo', bilan.join(' | '), Session.getEffectiveUser().getEmail());
+  Logger.log((apercu ? "APERÇU — rien n'a été écrit.\n" : '✅ Réponses de Mo appliquées.\n') + bilan.map(function (l) { return '• ' + l; }).join('\n'));
+}

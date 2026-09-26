@@ -369,6 +369,7 @@
     <div class="card"><div class="cardhead"><h2>Récapitulatif (par <span id="gDimLabel">semaine</span>)</h2><button class="btn-dl" data-tbl="gRecap" data-name="recap_gestion">⬇︎ CSV</button></div><div class="tblwrap"><table id="gRecap"></table></div></div>
     <div class="card"><div class="cardhead"><h2>Détail des ventes <span id="gDetailNote" class="muted" style="font-weight:400;font-size:12px"></span></h2><button class="btn-dl" data-type="detail-g" data-name="detail_gestion">⬇︎ CSV</button></div><div class="tblwrap"><table id="gDetail"></table></div></div>
     </div>
+    <datalist id="gerantes"><option value="Mo"><option value="Caro"><option value="Solenne"></datalist>
     <div id="gCreat" class="hide">
       <div id="gcErr" class="warn hide"></div>
       <div class="card">
@@ -383,7 +384,7 @@
             <div><label>Catégorie</label><select id="gcNCat"></select></div>
             <div><label>Stand (facultatif)</label><select id="gcNStand"></select></div>
             <div><label>Arrivée en boutique</label><input id="gcNDebut" type="date"></div>
-            <div><label>Accueil par</label><input id="gcNAccueil" placeholder="Caro"></div>
+            <div><label>Accueil par</label><input id="gcNAccueil" placeholder="Caro" list="gerantes"></div>
           </div>
           <div class="gc-acts"><button class="btn btn-accent" id="gcNOk">Créer le créateur</button><button class="btn btn-ghost" id="gcNAnnuler">Annuler</button></div>
           <div class="gc-why">Le créateur apparaît dans la caisse à partir de sa date d'arrivée. Sans stand, il est créé « inactif ».</div>
@@ -876,14 +877,28 @@ function showTab(tab){
   $('viewGestion').classList.toggle('hide',tab!=='gestion');
   if(tab==='caisse'&&!caisseLoaded) initCaisse();
 }
+/* format compact : une ligne = un tableau, noms des créateurs à part */
+function lignesDonnees(r){
+  if(!r.compact)return r.rows||[];
+  const c=r.compact;
+  return c.lignes.map(l=>{const o={};c.colonnes.forEach((k,i)=>o[k]=l[i]);o.createur=c.noms[o.idCreateur]||o.idCreateur;return o;});
+}
+/* Relit les ventes pour les tableaux de bord après un renommage, une fusion ou une correction :
+   pas besoin de se reconnecter pour voir le nouveau nom ou les montants corrigés. */
+async function rechargerDonnees(){
+  try{
+    const r=await API.data(S.pwd);if(!r||!r.ok)return;
+    S.rows=lignesDonnees(r);CALC.indexerMois(S.rows);
+    if(peut('createur'))initCreateur();
+    if(peut('gestion'))initGestion();
+  }catch(e){/* les tableaux gardent les anciennes données jusqu'à la prochaine connexion */}
+}
 async function login(){
   const pwd=$('pwd').value;$('btnLogin').disabled=true;$('btnLogin').textContent='…';
   try{
     const r=await API.data(pwd);
     if(!r.ok){toast(r.message||'Erreur',true);return;}
-    /* format compact : une ligne = un tableau, noms des créateurs à part */
-    if(r.compact){const c=r.compact;r.rows=c.lignes.map(l=>{const o={};c.colonnes.forEach((k,i)=>o[k]=l[i]);o.createur=c.noms[o.idCreateur]||o.idCreateur;return o;});}
-    S.rows=r.rows||[];S.role=r.role;S.pwd=pwd;
+    S.rows=lignesDonnees(r);S.role=r.role;S.pwd=pwd;
     /* taux mensuel figé sur chaque ligne, calculé sur TOUTES les données :
        les filtres de date et la granularité d'affichage ne peuvent plus le fausser */
     CALC.indexerMois(S.rows);
@@ -929,7 +944,7 @@ function initCreateur(){
   createurSel=makeSingle($('fCreateur'),{values:createurs,onChange:renderCreateur});
   const dates=S.rows.map(r=>r.date).sort();
   if(dates.length){$('fDu').value=dates[0];$('fAu').value=dates[dates.length-1];}
-  ['fDu','fAu','fDim'].forEach(id=>$(id).addEventListener('change',renderCreateur));
+  if(!S.ecouteCreateur){S.ecouteCreateur=true;['fDu','fAu','fDim'].forEach(id=>$(id).addEventListener('change',renderCreateur));}
   renderCreateur();
 }
 function renderCreateur(){
@@ -1011,7 +1026,7 @@ function initGestion(){
   G.selReduc  =makeMulti($('gReduc'),{title:'Réduction',values:['oui','non'],labels:{oui:'Avec réduction',non:'Sans réduction'},onChange:renderGestion}).getSel();
   G.selPaiement=makeMulti($('gPaiement'),{title:'Paiement',values:paie,onChange:renderGestion}).getSel();
   G.selRemise =makeMulti($('gRemise'),{title:'Remise',values:rem,onChange:renderGestion}).getSel();
-  ['gDu','gAu','gDim','gGroup'].forEach(id=>$(id).addEventListener('change',renderGestion));
+  if(!S.ecouteGestion){S.ecouteGestion=true;['gDu','gAu','gDim','gGroup'].forEach(id=>$(id).addEventListener('change',renderGestion));}
   renderGestion();
 }
 function gestionLignes(){
@@ -1366,7 +1381,7 @@ function gcRenderFiche(){
   }
   if(!e||(e.fin&&e.fin<a)){
     h+=`<div class="muted" style="font-size:13px">Pas d'emplacement en cours.</div><div class="gc-form" style="margin-top:8px"><div><label>Nouvel emplacement</label><select id="gcNeStand">${GC.data.stands.map(s=>`<option value="${FMT.esc(s.code)}">${FMT.esc(s.libelle)} · ${Math.max(0,s.places-gcOccupation(s.code,a,''))} libre(s)</option>`).join('')}</select></div>`+
-      `<div><label>Arrivée le</label><input type="date" id="gcNeDebut" value="${a}"></div><div><label>Accueil par</label><input id="gcNeAccueil" placeholder="Caro"></div></div>`+
+      `<div><label>Arrivée le</label><input type="date" id="gcNeDebut" value="${a}"></div><div><label>Accueil par</label><input id="gcNeAccueil" placeholder="Caro" list="gerantes"></div></div>`+
       `<div class="gc-acts"><button class="btn btn-accent" data-a="emplacement">Créer l'emplacement</button></div>`;
   }
   if(hist.length) h+=`<div class="gc-why">Historique : ${hist.map(x=>FMT.esc(gcStand(x.stand))+' du '+fmtD(x.debut)+(x.fin?' au '+fmtD(x.fin):'')).join(' · ')}</div>`;
@@ -1379,6 +1394,9 @@ function gcRenderFiche(){
     `<div><label>Permanences prévues / mois</label><input data-k="permsPrevues" type="number" min="0" step="0.5" value="${FMT.esc(c.permsPrevues)}"></div>`+
     `<div style="align-self:end"><label class="gc-check"><input type="checkbox" data-k="rcPro"${c.rcPro?' checked':''}> Attestation RC Pro reçue</label></div></div>`+
     `<div class="gc-acts"><button class="btn btn-accent" data-a="enregistrer">Enregistrer la fiche</button></div>`+
+    `<div class="gc-h4">Fiche en double ?</div><div class="gc-why" style="margin-top:0">Si cette fiche et une autre sont le même créateur (ancien nom, faute de frappe), rattache tout à la bonne fiche : ventes, emplacements et candidatures. Les infos manquantes de la bonne fiche sont complétées, puis cette fiche-ci est supprimée.</div>`+
+    `<div class="gc-form" style="margin-top:8px"><div class="full"><label>Tout rattacher à</label><select id="gcFusVers"><option value="">— Choisis la bonne fiche —</option>${GC.data.createurs.filter(x=>x.id!==c.id).sort((x,y)=>x.nom.localeCompare(y.nom,'fr',{sensitivity:'base'})).map(x=>`<option value="${FMT.esc(x.id)}">${FMT.esc(x.nom)} · ${FMT.esc(x.id)} · ${x.nbVentes} vente${x.nbVentes>1?'s':''}${x.statut==='actif'?'':' · inactif'}</option>`).join('')}</select></div></div>`+
+    `<div class="gc-acts"><button class="btn btn-danger" data-a="fusionner">Fusionner dans la fiche choisie</button></div>`+
     `<div class="gc-why">${statutAuto?'Le statut suit les emplacements : actif pendant un emplacement, inactif après le départ. ':''}Chaque modification est notée dans l'onglet « journal » du Sheet${c.modifieLe?' · dernière le '+fmtD(c.modifieLe):''}.</div>`;
   F.innerHTML=h;
   const pr=$('gcPrRecu');if(pr)pr.addEventListener('change',()=>{$('gcPrFin').value=pr.value?fmtD(plusUnMois(pr.value)):'';});
@@ -1401,7 +1419,9 @@ async function gcAppel(btn,action,params,msg){
   try{
     const r=await API.gestion(action,params);
     if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
-    toast(msg(r));await gcCharger(true);return r;
+    toast(msg(r));await gcCharger(true);
+    if(action==='gestion_createur_fusionner'||(action==='gestion_createur_maj'&&params.champs&&'nom' in params.champs))rechargerDonnees();
+    return r;
   }catch(e){toast((e&&e.message)||String(e),true);}
   finally{if(btn.isConnected){btn.disabled=false;btn.textContent=t;}}
 }
@@ -1424,6 +1444,10 @@ $('gCreat').addEventListener('click',e=>{
   }else if(a==='changer'){
     const stand=$('gcCsStand').value,date=$('gcCsDate').value;if(!stand||!date){toast('Choisis un stand et une date.',true);return;}
     gcAppel(b,'gestion_changer_stand',{idCreateur:c.id,stand,date},()=>c.nom+' passe en '+gcStand(stand)+' le '+fmtD(date));
+  }else if(a==='fusionner'){
+    const vers=$('gcFusVers').value,cible=GC.data.createurs.find(x=>x.id===vers);if(!cible){toast('Choisis la bonne fiche.',true);return;}
+    if(!confirm(`Rattacher « ${c.nom} » (${c.id}, ${c.nbVentes} vente${c.nbVentes>1?'s':''}) à « ${cible.nom} » (${cible.id}) ?\n\nSes ventes, emplacements et candidatures passent sur « ${cible.nom} », puis la fiche « ${c.nom} » est supprimée. Le journal en garde une copie.`))return;
+    gcAppel(b,'gestion_createur_fusionner',{id:c.id,vers},r=>{GC.sel=vers;GC.filtre='tous';return `« ${c.nom} » rattaché à « ${cible.nom} » : ${r.ventes} vente${r.ventes>1?'s':''}, ${r.emplacements} emplacement${r.emplacements>1?'s':''}`;});
   }else if(a==='emplacement'){
     const stand=$('gcNeStand').value,debut=$('gcNeDebut').value;if(!stand||!debut){toast('Choisis un stand et une date.',true);return;}
     gcAppel(b,'gestion_emplacement_creer',{idCreateur:c.id,stand,debut,accueilPar:$('gcNeAccueil').value.trim()},()=>'Emplacement créé : '+c.nom+' en '+gcStand(stand)+' dès le '+fmtD(debut));
@@ -1480,6 +1504,13 @@ const DEMO_G=(function(){
     switch(action){
       case 'gestion_createurs': return JSON.parse(JSON.stringify(Object.assign({ok:true},st)));
       case 'gestion_createur_maj':{const c=st.createurs.find(x=>x.id===p.id),m=[];Object.keys(p.champs).forEach(k=>{if(k==='iban'){c.ibanFin=String(p.champs.iban).replace(/\s/g,'').slice(-4);m.push(k);return;}let v=p.champs[k];if(k==='instagram'&&v){const u=String(v).trim().replace(/^@/,'').replace(/^https?:\/\/(www\.)?instagram\.com\//,'').split(/[/?]/)[0];v=u?'https://www.instagram.com/'+u+'/':'';}c[CLIENT[k]]=v;m.push(k);});c.modifieLe=aujourdhui();return {ok:true,modifies:m};}
+      case 'gestion_createur_fusionner':{const de=st.createurs.find(x=>x.id===p.id),vers=st.createurs.find(x=>x.id===p.vers);
+        const enCours=id=>st.emplacements.some(e=>e.idCreateur===id&&(!e.fin||e.fin>=st.aujourdhui));
+        if(enCours(de.id)&&enCours(vers.id))return {ok:false,message:"Les deux fiches ont un emplacement en cours : termine d'abord celui du doublon (un créateur = un seul stand)."};
+        let ne=0;st.emplacements.forEach(e=>{if(e.idCreateur===de.id){e.idCreateur=vers.id;ne++;}});
+        vers.ca=round2(vers.ca+de.ca);vers.nbVentes+=de.nbVentes;if(de.derniereVente>vers.derniereVente)vers.derniereVente=de.derniereVente;
+        ['email','nomLegal','telephone','instagram','categorie'].forEach(k=>{if(!vers[k]&&de[k])vers[k]=de[k];});
+        st.createurs=st.createurs.filter(x=>x!==de);return {ok:true,ventes:de.nbVentes,emplacements:ne,candidatures:0,completes:[]};}
       case 'gestion_createur_creer':{if(st.createurs.some(x=>x.nom.toLowerCase()===p.nom.toLowerCase()))return {ok:false,message:'Un autre créateur s\'appelle déjà « '+p.nom+' ».'};const id=nextId(st.createurs,'C');
         if(p.stand){if(occ(p.stand,p.debut,'')>=places(p.stand))return {ok:false,message:'Plus de place libre en « '+p.stand+' ».'};st.emplacements.push({id:nextId(st.emplacements,'E'),idCreateur:id,stand:p.stand,debut:p.debut,fin:'',preavisRecuLe:'',accueilPar:p.accueilPar||'',motifFin:'',remarque:''});}
         st.createurs.push({id,nom:p.nom,email:p.email,statut:p.stand&&p.debut<=st.aujourdhui?'actif':'inactif',categorie:p.categorie,nomLegal:'',telephone:'',adresse:'',codePostal:'',ville:'',siret:'',ibanFin:'',benevole:false,permsPrevues:'',rcPro:false,adhesion:'',instagram:'',creeLe:st.aujourdhui,modifieLe:st.aujourdhui,ca:0,nbVentes:0,derniereVente:''});return {ok:true,id};}
@@ -1572,7 +1603,7 @@ function gkRenderFiche(){
       const cats=GK.data.categories.filter(c=>c.code!=='shop').map(c=>`<option value="${FMT.esc(c.code)}"${c.code===k.categorie?' selected':''}>${FMT.esc(c.libelle)}</option>`).join('');
       const reint=k.createur&&k.createur.statut!=='actif';
       h+=`<div class="gk-retenir"><div class="gc-form"><div><label>Stand</label><select id="gkRStand">${opt}</select></div><div><label>Arrivée en boutique le</label><input type="date" id="gkRDebut" value="${a}"></div>`+
-        `<div><label>Accueil par</label><input id="gkRAccueil" placeholder="Caro" value="${FMT.esc(S.prenom||'')}"></div>`+
+        `<div><label>Accueil par</label><input id="gkRAccueil" placeholder="Caro" list="gerantes" value="${FMT.esc(S.prenom||'')}"></div>`+
         `<div><label>Catégorie</label><select id="gkRCat"${reint?' disabled':''}><option value="">—</option>${cats}</select></div></div>`+
         (reint?`<label class="gc-check" style="margin-top:10px"><input type="checkbox" id="gkRReint" checked> Réintégrer la fiche existante ${FMT.esc(k.createur.id)} ${FMT.esc(k.createur.nom)} (sinon une nouvelle fiche est créée)</label>`:'')+
         (k.createur&&!reint?`<div class="warn" style="margin:10px 0 0">${FMT.esc(k.createur.nom)} est déjà actif en boutique : vérifie avant de créer une deuxième fiche.</div>`:'')+
@@ -1998,7 +2029,7 @@ $('gVentes').addEventListener('click',async e=>{
   try{
     const r=await API.gestion(action,params);
     if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
-    toast(msg(r));if(/supprimer/.test(action))GV.sel=null;await gvCharger();
+    toast(msg(r));if(/supprimer/.test(action))GV.sel=null;await gvCharger();rechargerDonnees();
   }catch(err){toast((err&&err.message)||String(err),true);if(b.isConnected){b.disabled=false;b.textContent=t;}}
 });
 ['gvDu','gvAu','gvCreateur'].forEach(id=>$(id).addEventListener('change',()=>{GV.sel=null;gvCharger();}));
@@ -2012,7 +2043,7 @@ const GJ_ACTIONS={createur_maj:'Fiche créateur modifiée',createur_creer:'Créa
   candidature_retenue:'Candidature retenue',candidature_remarque:'Candidature : remarque',email_envoye:'E-mail envoyé',email_echec:'E-mail non envoyé',email_modele_maj:'E-mail type modifié',
   reglage_categories:'Réglage : catégorie',reglage_stands:'Réglage : stand',reglage_remises:'Réglage : remise',reglage_paiements:'Réglage : paiement',
   reglage_categories_creation:'Catégorie ajoutée',reglage_stands_creation:'Stand ajouté',reglage_remises_creation:'Remise ajoutée',reglage_paiements_creation:'Moyen de paiement ajouté',
-  vente_annulee:'Vente annulée',vente_corrigee:'Vente corrigée',panier_annule:'Panier annulé',vente_supprimee:'Vente supprimée',panier_supprime:'Panier supprimé'};
+  vente_annulee:'Vente annulée',vente_corrigee:'Vente corrigée',panier_annule:'Panier annulé',vente_supprimee:'Vente supprimée',panier_supprime:'Panier supprimé',createur_fusionne:'Fiches fusionnées',reponses_mo:'Réglages (réponses de Mo)'};
 function gjLibelle(a){return GJ_ACTIONS[a]||(/^(migration|etape|liens_)/.test(a)?'Migration du Sheet':a);}
 async function gjCharger(){
   $('gjErr').classList.add('hide');
