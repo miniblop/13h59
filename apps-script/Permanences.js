@@ -9,6 +9,8 @@
  *************************************************************/
 
 const NOM_AGENDA_BENEVOLES = /b[ée]n[ée]vole/i;
+/** Le compte du shop organise les événements (il figure parmi les invités) ; l'équipe n'est pas bénévole. */
+function _horsBenevolat(email, categorie) { return _norm(email) === EMAIL_SHOP || String(categorie) === 'shop'; }
 
 /** { agendas: [...], dedie: true si un agenda « bénévoles » existe (sinon tous les agendas, filtrés sur les bénévoles) }. */
 function _agendasPermanences() {
@@ -22,7 +24,7 @@ function _permanencesDuMois(ss, mois) {
   const src = _agendasPermanences(), parEmail = {}, parMots = {};
   _lireTable(_onglet(ss, SHEET_CREATEURS)).forEach(function (c) {
     // agenda dédié : tout créateur invité compte ; sinon seulement les créateurs marqués bénévoles
-    if (!(src.dedie || c['benevole'] === true)) return;
+    if (!(src.dedie || c['benevole'] === true) || _horsBenevolat(c['email'], c['categorie'])) return;
     const f = { id: String(c['id_createur']), nom: _nomPropre(c['nom']) };
     if (c['email']) parEmail[_norm(c['email'])] = f;
     [c['nom_legal'], c['nom']].forEach(function (n) { const k = _cleMots(n); if (k.indexOf(' ') > 0) (parMots[k] = parMots[k] || []).push(f); });
@@ -104,7 +106,7 @@ function _benevolesAgenda(apercu) {
   src.agendas[0].getEvents(debut, fin).forEach(function (e) {
     e.getGuestList().forEach(function (g) {
       const m = _norm(g.getEmail());
-      if (!m) return;
+      if (!m || m === EMAIL_SHOP) return;
       const x = invites[m] = invites[m] || { email: m, nom: '', nb: 0, derniere: null };
       if (g.getName() && g.getName() !== g.getEmail()) x.nom = g.getName();
       x.nb++;
@@ -114,6 +116,7 @@ function _benevolesAgenda(apercu) {
 
   const tC = _tableau(ss, SHEET_CREATEURS), parEmail = {}, parMots = {};
   tC.lignes.forEach(function (r, i) {
+    if (_horsBenevolat(_val(tC, r, 'email'), _val(tC, r, 'categorie'))) return;
     if (_val(tC, r, 'email')) parEmail[_norm(_val(tC, r, 'email'))] = i;
     [_val(tC, r, 'nom_legal'), _val(tC, r, 'nom')].forEach(function (n) { const k = _cleMots(n); if (k.indexOf(' ') > 0) (parMots[k] = parMots[k] || []).push(i); });
   });
