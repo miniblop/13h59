@@ -80,12 +80,13 @@ function _creerOngletSiAbsent(ss, nom, colonnes) {
   sh.getRange(1, 1, 1, colonnes.length).setValues([colonnes]).setFontWeight('bold');
   sh.setFrozenRows(1);
 }
-/** Modèle d'e-mail « facture » ajouté à l'onglet emails s'il manque. */
-function _modeleFactureSiAbsent(ss) {
+/** Modèle d'e-mail ajouté à l'onglet emails s'il manque (modèles apparus après la création de l'onglet). */
+function _modeleFactureSiAbsent(ss) { _modeleSiAbsent(ss, 'facture'); }
+function _modeleSiAbsent(ss, code) {
   _creerOngletEmails(ss);
   const t = _tableau(ss, SHEET_EMAILS);
-  if (t.lignes.some(function (r) { return String(_val(t, r, 'code')) === 'facture'; })) return;
-  const d = EMAILS_PAR_DEFAUT.filter(function (l) { return l[0] === 'facture'; })[0];
+  if (t.lignes.some(function (r) { return String(_val(t, r, 'code')) === code; })) return;
+  const d = EMAILS_PAR_DEFAUT.filter(function (l) { return l[0] === code; })[0];
   _ajouterLigne(t, { code: d[0], objet: d[1], texte: d[2], actif: d[3], utilise_pour: d[4] });
   t.sh.getRange(t.lignes.length + 1, t.M['actif'] + 1).insertCheckboxes().setValue(true);
 }

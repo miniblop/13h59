@@ -206,6 +206,17 @@
   .gf-mail{border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.6}
   .gf-mail .corps{margin-top:8px;padding-top:8px;border-top:1px solid var(--line);white-space:pre-line}
   @media(max-width:960px){.gf-apercu{grid-template-columns:minmax(0,1fr)}#gfFrame{height:900px}}
+  .ge-vues{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+  .ge-drop{border:1.5px dashed #d6d2ca;border-radius:12px;padding:18px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer;margin-top:12px;line-height:1.5}
+  .ge-drop.over{border-color:var(--ink);background:var(--tot);color:var(--ink)}
+  #geReleve td,#geReleve th{text-align:left}
+  #geReleve td.r{text-align:right}
+  #geReleve select{padding:5px 7px;font-size:12px;width:auto;max-width:190px}
+  #geReleve tr.ge-ignore td{opacity:.55}
+  .ge-lib{white-space:normal!important;min-width:220px;max-width:340px}
+  .ge-lib .gc-sub{font-family:ui-monospace,Consolas,monospace;font-size:10.5px}
+  .ge-pay{display:inline-block;background:var(--tot);border-radius:8px;padding:2px 7px;font-size:12px;margin:1px 3px 1px 0;white-space:nowrap}
+  .ge-pay a{text-decoration:none;color:var(--muted);font-weight:700;margin-left:3px}
   .gv-filtres{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
   #gvTbl tbody tr{cursor:pointer}
   #gvTbl tbody tr:hover td{background:#faf9f7}
@@ -453,6 +464,8 @@
           <div class="gc-acts" style="margin-top:0"><select id="gfMois" style="width:auto"></select><button class="btn-dl" id="gfRefresh">↻ Actualiser</button></div>
         </div>
       </div>
+      <div id="gfVues" class="ge-vues"><span class="gc-chip on" data-vue="Fac">Factures</span><span class="gc-chip" data-vue="Enc">À encaisser · loyers</span><span class="gc-chip" data-vue="Ver">À verser · ventes</span></div>
+      <div id="gVueFac">
       <div class="gc-places" id="gfKpis"></div>
       <div id="gfWarn"></div>
       <div class="card">
@@ -465,6 +478,28 @@
         <div class="card"><div class="cardhead"><h2>Aperçu</h2><span class="muted" id="gfApercuNom" style="font-size:12px"></span></div><iframe id="gfFrame" title="Aperçu de la facture"></iframe></div>
         <div class="card" id="gfMail"><div class="muted">Sélectionne une facture dans la liste.</div></div>
       </div>
+      </div>
+      <div id="gVueEnc" class="hide">
+        <div id="geErr" class="warn hide"></div>
+        <div class="gc-places" id="geKpis"></div>
+        <div id="geWarn"></div>
+        <div class="card">
+          <div class="cardhead"><div><h2>Importer l'extrait de compte</h2><div class="muted" style="font-size:12px;margin-top:4px;line-height:1.5">Le PDF mensuel du CIC. Il est lu dans ton navigateur : il n'est envoyé nulle part. Un virement déjà pointé est reconnu et ne compte jamais deux fois.</div></div>
+            <label class="btn btn-ghost" style="margin:0;text-transform:none;letter-spacing:0;font-size:14px;color:var(--ink);cursor:pointer">Choisir le PDF<input type="file" id="geFichier" accept="application/pdf,.pdf" class="hide"></label></div>
+          <div id="geZone" class="ge-drop">Glisse l'extrait de compte (PDF) ici, ou clique pour le choisir</div>
+          <div id="geResultat" class="hide">
+            <div class="cardhead" style="margin:14px 0 8px"><div class="muted" style="font-size:12px;line-height:1.5" id="geResume"></div><div class="gc-acts" style="margin-top:0"><a href="#" id="geVoirIgnores" style="font-size:12px"></a><button class="btn btn-accent" id="gePointer">Pointer les virements cochés</button></div></div>
+            <div class="tblwrap"><table id="geReleve"></table></div>
+            <div class="gc-why">« Sûr » : payeur déjà connu, ou nom reconnu et montant exact. Vérifie les autres lignes, choisis le créateur si besoin, puis coche. Chaque payeur pointé est retenu pour les mois suivants.</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="cardhead"><h2 id="geTitre">Loyers</h2><button class="btn btn-ghost" id="geRelancer">Relancer les retardataires</button></div>
+          <div class="tblwrap"><table id="geTbl"></table></div>
+          <div class="gc-why">Loyer attendu : celui de la facture du mois si elle est générée, sinon le loyer calculé. « Pointer reçu » pour un paiement vu ailleurs (appli bancaire…). La relance est possible après le 25 du mois précédent.</div>
+        </div>
+      </div>
+      <div id="gVueVer" class="hide"><div class="card"><h2>À verser · ventes</h2><div class="gc-why" style="margin-top:8px">Prochaine étape : le montant à virer à chaque créateur (ventes − frais − commission), bloqué tant que son loyer n'est pas reçu, et le fichier de virements groupés pour la banque.</div></div></div>
     </div>
     <div id="gRegl" class="hide">
       <div id="grErr" class="warn hide"></div>
@@ -713,7 +748,7 @@ const API = {
     return res.json();
   },
   async gestion(action,params){
-    if(DEMO_MODE) return (/^gestion_factures?/.test(action)?DEMO_F:/^gestion_(ventes?|panier|journal)/.test(action)?DEMO_V:action.indexOf('gestion_reglage')===0?DEMO_R:action.indexOf('gestion_candidature')===0||action==='gestion_email_maj'?DEMO_K:DEMO_G)(action,params||{});
+    if(DEMO_MODE) return (/^gestion_(encaissements|paiements?_|relancer)/.test(action)?DEMO_E:/^gestion_factures?/.test(action)?DEMO_F:/^gestion_(ventes?|panier|journal)/.test(action)?DEMO_V:action.indexOf('gestion_reglage')===0?DEMO_R:action.indexOf('gestion_candidature')===0||action==='gestion_email_maj'?DEMO_K:DEMO_G)(action,params||{});
     const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify(Object.assign({action,password:S.pwd,qui:gcPrenom()},params||{}))});
     return res.json();
   },
@@ -1717,7 +1752,8 @@ $('gkLien').addEventListener('click',async()=>{
 /* ---------- E-mails types ---------- */
 const GK_MODELES=[['accuse_reception','Confirmation de candidature','envoyé automatiquement à chaque candidature reçue'],['liste_attente',"Liste d'attente",'bouton « Liste d\'attente »'],
   ['non_retenu','Candidature non retenue','bouton « Non retenue »'],['retenu','Candidature retenue (bienvenue)','bouton « Retenir »'],
-  ['facture','Facture mensuelle','Gestion ▸ Facturation, PDF joint · champs : {marque} {mois} {mois_ventes} {numero}']];
+  ['facture','Facture mensuelle','Gestion ▸ Facturation, PDF joint · champs : {marque} {mois} {mois_ventes} {numero}'],
+  ['relance_loyer','Relance loyer','Facturation ▸ À encaisser · champs : {marque} {mois} {montant}']];
 GK.brouillons={};
 /* aperçu : la candidature ouverte dans Gestion ▸ Candidatures, sinon un exemple */
 function gkCandidatureOuverte(){return GK.data&&GK.data.candidatures.find(x=>x.id===GK.sel);}
@@ -1725,6 +1761,7 @@ function gkExemple(code){
   const k=gkCandidatureOuverte()||{prenom:'Lucie',nom:'Vasseur',marque:'Atelier Lune',standSouhaite:(GR.data.stands[0]||{}).code};
   const st=GR.data.stands.find(x=>x.code===k.standSouhaite);
   if(code==='facture')return {marque:k.marque,mois:'octobre 2026',mois_ventes:'septembre 2026',numero:'26-10-001'};
+  if(code==='relance_loyer')return {marque:k.marque,mois:'octobre 2026',montant:'48,00 €'};
   return {prenom:k.prenom||k.nom||k.marque,marque:k.marque,stand:st?st.libelle:'',date:code==='retenu'?fmtD(isoJour(new Date())):''};
 }
 function gkRemplir(t,v){return String(t).replace(/\{(\w+)\}/g,(x,c)=>v[c]!=null&&v[c]!==''?v[c]:x);}
@@ -2085,7 +2122,7 @@ const GJ_ACTIONS={createur_maj:'Fiche créateur modifiée',createur_creer:'Créa
   candidature_retenue:'Candidature retenue',candidature_remarque:'Candidature : remarque',email_envoye:'E-mail envoyé',email_echec:'E-mail non envoyé',email_modele_maj:'E-mail type modifié',
   reglage_categories:'Réglage : catégorie',reglage_stands:'Réglage : stand',reglage_remises:'Réglage : remise',reglage_paiements:'Réglage : paiement',
   reglage_categories_creation:'Catégorie ajoutée',reglage_stands_creation:'Stand ajouté',reglage_remises_creation:'Remise ajoutée',reglage_paiements_creation:'Moyen de paiement ajouté',
-  vente_annulee:'Vente annulée',vente_corrigee:'Vente corrigée',panier_annule:'Panier annulé',vente_supprimee:'Vente supprimée',panier_supprime:'Panier supprimé',createur_fusionne:'Fiches fusionnées',createur_supprime:'Fiche supprimée',reponses_mo:'Réglages (réponses de Mo)',facture_generee:'Facture générée',facture_envoyee:'Facture envoyée',facture_annulee:'Facture annulée'};
+  vente_annulee:'Vente annulée',vente_corrigee:'Vente corrigée',panier_annule:'Panier annulé',vente_supprimee:'Vente supprimée',panier_supprime:'Panier supprimé',createur_fusionne:'Fiches fusionnées',createur_supprime:'Fiche supprimée',reponses_mo:'Réglages (réponses de Mo)',facture_generee:'Facture générée',facture_envoyee:'Facture envoyée',facture_annulee:'Facture annulée',loyers_pointes:'Loyers pointés',loyer_depointe:'Pointage annulé',loyers_relances:'Relances loyer'};
 function gjLibelle(a){return GJ_ACTIONS[a]||(/^(migration|etape|liens_)/.test(a)?'Migration du Sheet':a);}
 async function gjCharger(){
   $('gjErr').classList.add('hide');
@@ -2299,6 +2336,271 @@ const DEMO_F=(function(){
     if(action==='gestion_facture_envoyer'){const f=Object.values(factures).find(x=>x.numero===p.numero);f.statut='envoyee';f.envoyeeLe=aujourdhui();return {ok:true};}
     if(action==='gestion_facture_annuler'){const k=Object.keys(factures).find(k=>factures[k].numero===p.numero);delete factures[k];return {ok:true};}
     if(action==='gestion_facture_pdf')return {ok:true,url:'about:blank'};
+    return {ok:false,message:'Action inconnue (démo).'};
+  };
+})();
+/* Lecture d'un extrait de compte CIC (PDF texte, pas un scan) avec pdf.js.
+   Colonnes : Date | Date valeur | Opération | Débit | Crédit. Une opération commence par
+   une date ; les lignes suivantes sans date complètent son libellé. Débit ou crédit se
+   décide par la position du montant, comparée aux en-têtes « Débit » / « Crédit ». */
+async function lireReleveCIC(pdf){
+  const ops=[];let cur=null;
+  const montant=s=>/^\d{1,3}(\.\d{3})*,\d{2}$/.test(s)?Number(s.replace(/\./g,'').replace(',','.')):null;
+  for(let n=1;n<=pdf.numPages;n++){
+    const page=await pdf.getPage(n),tc=await page.getTextContent();
+    const items=tc.items.filter(it=>it.str&&it.str.trim()).map(it=>({s:it.str.trim(),x:it.transform[4],y:Math.round(it.transform[5]),w:it.width||0}));
+    // lignes : même hauteur (à 2 points près), de haut en bas, de gauche à droite
+    const lignes=[];
+    items.sort((a,b)=>b.y-a.y||a.x-b.x).forEach(it=>{const l=lignes.find(l=>Math.abs(l.y-it.y)<=2);if(l)l.items.push(it);else lignes.push({y:it.y,items:[it]});});
+    lignes.forEach(l=>l.items.sort((a,b)=>a.x-b.x));
+    const entete=lignes.find(l=>l.items.some(i=>/^D[ée]bit/i.test(i.s))&&l.items.some(i=>/^Cr[ée]dit/i.test(i.s)));
+    if(!entete)continue;
+    const xd=entete.items.find(i=>/^D[ée]bit/i.test(i.s)),xc=entete.items.find(i=>/^Cr[ée]dit/i.test(i.s));
+    const milieu=(xd.x+xd.w+xc.x)/2;            // montant aligné à droite : on compare sa fin à la frontière des colonnes
+    const xOp=(entete.items.find(i=>/^Op[ée]ration/i.test(i.s))||{x:0}).x;
+    /* marge gauche (code vertical « KV.… ») ignorée ; le libellé commence après la colonne « Date valeur » */
+    const dDate=entete.items.find(i=>/^Date$/i.test(i.s))||entete.items[0],dVal=entete.items.find(i=>/^Date valeur/i.test(i.s));
+    const xMin=dDate.x-20,xLib=dVal?dVal.x+dVal.w-5:xOp-20;
+    lignes.filter(l=>l.y<entete.y).forEach(l=>{
+      l.items=l.items.filter(i=>i.x>=xMin);if(!l.items.length)return;
+      const txt=l.items.map(i=>i.s).join(' ');
+      if(/^(SOLDE|Total des mouvements|R[ée]f\s*:|Information sur|\(G[ED]\)|www\.|<<|Page \d|Sous r[ée]serve|QXBAN|Vous disposez|d'un m[êe]me|votre espace|KV\.)/i.test(txt)){cur=null;return;}
+      const d=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(l.items[0].s);
+      const m=l.items.map(i=>({i,v:montant(i.s)})).filter(o=>o.v!=null&&o.i.x>xOp+150);
+      const lib=l.items.filter(i=>i.x>=xLib&&!(m.some(o=>o.i===i))).map(i=>i.s).join(' ').trim();
+      if(d){
+        const a=m[m.length-1];
+        cur={date:d[3]+'-'+d[2]+'-'+d[1],libelle:lib,details:[],montant:a?a.v:null,sens:a?((a.i.x+a.i.w)>milieu?'credit':'debit'):null};
+        ops.push(cur);
+      }else if(cur&&lib){cur.details.push(lib);}
+    });
+  }
+  return ops.filter(o=>o.montant!=null).map(o=>Object.assign(o,{texte:[o.libelle].concat(o.details).join(' · ')}));
+}
+/* Rapprochement d'un extrait de compte avec les loyers : pour chaque crédit, le créateur
+   (payeur appris, nom légal, marque), le mois du loyer (libellé, sinon date) et un niveau
+   de confiance. Rien n'est enregistré ici : la personne valide ce qu'elle veut pointer. */
+const RA_IGNORER=[[/RAPYD/,'paiements par carte (TPE)'],[/HELLOASSO/,'adhésions (HelloAsso)'],[/SOUTIEN ASSO/,'aide ou subvention'],
+  [/\bVIR(EMENT)? DE COLLECTIF 13H59\b/,'virement interne'],[/TROP ?PER[CÇ]U/,'remboursement de trop-perçu']];
+const RA_MOIS=[['JANVIER','JANV'],['FEVRIER','FEV'],['MARS'],['AVRIL','AVR'],['MAI'],['JUIN'],['JUILLET','JUIL'],['AOUT'],['SEPTEMBRE','SEPT'],['OCTOBRE','OCT'],['NOVEMBRE','NOV'],['DECEMBRE','DEC']];
+function raNorm(s){return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();}
+/** Même clé que _cleMots côté serveur : mots en minuscules, sans accents, triés. */
+function raMots(s){return String(s||'').normalize('NFC').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').split(/[^a-z0-9]+/).filter(Boolean).sort().join(' ');}
+function raPayeur(op){
+  const d=op.details.find(x=>!/^(VIR|NOT PROVIDED|ENVOYE)/.test(raNorm(x)));
+  const brut=d&&raNorm(d).split(' ').length>=2?d:op.libelle;
+  return raNorm(brut).replace(/^(VIR(EMENT)?( INST(ANTANE)?)?( DE)?|VIR\.)\s+/,'').replace(/\b(MME|MLLE|MELLE|MLE|ML|M|MR|MADAME|MONSIEUR|MADEMOISELLE|EI)\b/g,' ').replace(/\s+/g,' ').trim();
+}
+/** Mois du loyer payé : un mois écrit dans le libellé, sinon le mois suivant après le 15. */
+function raMois(op){
+  const t=' '+raNorm(op.texte)+' ',y=+op.date.slice(0,4),m=+op.date.slice(5,7);
+  const k=RA_MOIS.findIndex(noms=>noms.some(n=>t.includes(' '+n+' ')));
+  let yy=y,mm;
+  if(k>=0){mm=k+1;if(mm<m-6)yy=y+1;else if(mm>m+6)yy=y-1;}
+  else{mm=+op.date.slice(8,10)>=15?m+1:m;if(mm>12){mm=1;yy=y+1;}}
+  return yy+'-'+String(mm).padStart(2,'0');
+}
+function raRef(op){return op.date+'|'+op.montant.toFixed(2)+'|'+raNorm(op.texte).slice(0,80);}
+/** data : { createurs:[{id,nom,nomLegal}], payeurs:{cle:id}, refs:[…], mois, lignes:[{idCreateur,loyer,reste}] } */
+function rapprocher(ops,data){
+  const attendus={};(data.lignes||[]).forEach(l=>attendus[l.idCreateur]=l);
+  const refs=new Set(data.refs||[]);
+  const fiches=(data.createurs||[]).map(c=>({c,legal:raNorm(c.nomLegal).split(' ').filter(w=>w.length>=2),marque:raNorm(c.nom).replace(/ /g,'')}));
+  const res=ops.filter(o=>o.sens==='credit').map(op=>{
+    const t=raNorm(op.texte),ref=raRef(op),payeur=raPayeur(op),mois=raMois(op);
+    const r={op,ref,payeur,mois,idCreateur:'',niveau:'aucune',raison:'',montant:op.montant};
+    if(refs.has(ref)){r.niveau='deja';r.raison='déjà pointé';return r;}
+    const ign=RA_IGNORER.find(([re])=>re.test(t));
+    if(ign){r.niveau='ignore';r.raison=ign[1];return r;}
+    const mots=new Set(t.split(' ')),compact=t.replace(/ /g,'');
+    const scores=fiches.map(f=>{
+      let s=0,pourquoi='';
+      if(data.payeurs&&data.payeurs[raMots(payeur)]===f.c.id){s=100;pourquoi='payeur connu';}
+      else if(f.legal.length>=2&&f.legal.every(w=>mots.has(w))){s=80;pourquoi='nom légal';}
+      else if(f.marque.length>=4&&compact.includes(f.marque)){s=70;pourquoi='nom de marque';}
+      else if(f.legal.length>=2&&f.legal.filter(w=>w.length>=3&&mots.has(w)).length>=2){s=60;pourquoi='nom légal (partiel)';}
+      return {id:f.c.id,s,pourquoi};
+    }).filter(x=>x.s>0).sort((a,b)=>b.s-a.s);
+    const montantOk=id=>{const a=attendus[id];return mois===data.mois&&a&&Math.abs(a.loyer-op.montant)<0.01;};
+    if(scores.length&&!(scores[1]&&scores[1].s===scores[0].s&&scores[1].id!==scores[0].id)){
+      const b=scores[0];r.idCreateur=b.id;r.raison=b.pourquoi+(montantOk(b.id)?' + montant':'');
+      r.niveau=b.s>=100||(b.s>=70&&montantOk(b.id))?'sur':b.s>=60?'probable':'verifier';
+    }else r.raison=scores.length?'plusieurs créateurs possibles':'aucun créateur reconnu';
+    return r;
+  });
+  /* sans nom reconnu : un seul loyer du mois encore dû de ce montant, et pas déjà reconnu ailleurs dans l'extrait ? */
+  const pris=new Set(res.filter(r=>r.idCreateur).map(r=>r.idCreateur));
+  res.filter(r=>r.niveau==='aucune'&&r.raison==='aucun créateur reconnu').forEach(r=>{
+    const c=(data.lignes||[]).filter(l=>r.mois===data.mois&&l.reste>0&&!pris.has(l.idCreateur)&&Math.abs(l.loyer-r.montant)<0.01);
+    if(c.length===1){r.idCreateur=c[0].idCreateur;r.niveau='verifier';r.raison='seulement le montant';pris.add(c[0].idCreateur);}
+  });
+  return res;
+}
+/* ===================== FACTURATION ▸ À ENCAISSER ===================== */
+const GE={data:null,charge:false,ops:null,res:null,mois:''};
+const GE_NIV={sur:['actif','sûr'],probable:['preavis','probable'],verifier:['preavis','à vérifier'],aucune:['inactif','à attribuer'],ignore:['inactif','pas un loyer'],deja:['inactif','déjà pointé']};
+const GE_ST={trop:['gv-neg','trop perçu'],recu:['actif','reçu'],partiel:['preavis','partiel'],attente:['inactif','en attente'],retard:['gv-neg','en retard']};
+function geMoisOptions(centre){
+  const [y,m]=centre.split('-').map(Number),o=[];
+  for(let k=-2;k<=2;k++){const d=new Date(y,m-1+k,1);o.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));}
+  return o;
+}
+function geLibMois(v){const [y,m]=v.split('-').map(Number);return MOIS_LONG[m-1]+' '+y;}
+async function geCharger(){
+  $('geErr').classList.add('hide');
+  try{
+    const r=await API.gestion('gestion_encaissements',{mois:$('gfMois').value});
+    if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide du serveur');
+    GE.data=r;GE.charge=true;GE.mois=r.mois;
+    if(GE.ops)GE.res=rapprocher(GE.ops,r);
+    geRender();
+  }catch(e){$('geErr').classList.remove('hide');$('geErr').textContent='⚠️ Encaissements indisponibles : '+((e&&e.message)||e);}
+}
+function geRender(){
+  const D=GE.data,L=D.lignes,somme=k=>L.reduce((s,l)=>s+l[k],0),ech=fmtD(D.echeance);
+  const enRetard=L.filter(l=>l.statut==='retard'||(l.statut==='partiel'&&D.aujourdhui>D.echeance));
+  const kp=[['Loyers attendus',FMT.eur(somme('loyer')),L.length+' créateur'+(L.length>1?'s':'')+' · '+D.libelle],['Reçus',FMT.eur(somme('recu')),L.filter(l=>l.statut==='recu').length+' à jour'],
+    ['Reste à encaisser',FMT.eur(somme('reste')),L.filter(l=>l.reste>0).length+' créateur(s)'],D.aujourdhui>D.echeance?['En retard',String(enRetard.length),'échéance passée le '+ech]:['Échéance',ech,'loyers attendus du 20 au 25']];
+  $('geKpis').innerHTML=kp.map(([k,v,s])=>`<div class="gc-place"><div class="k"><span>${k}</span></div><div class="v">${v}</div><div class="l">${s}</div></div>`).join('');
+  const nonFig=L.filter(l=>l.benevole&&!l.figee);
+  $('geWarn').innerHTML=nonFig.length?`<div class="warn" style="margin:0 0 10px">Bénévoles dont la facture n'est pas encore générée (loyer affiché sans les permanences) : <b>${nonFig.map(l=>FMT.esc(l.nom)).join(', ')}</b>.</div>`:'';
+  $('geTitre').textContent='Loyers · '+D.libelle;
+  const relancables=enRetard.filter(l=>l.email&&l.reste>0);
+  $('geRelancer').disabled=!(D.aujourdhui>D.echeance)||!relancables.length;
+  $('geRelancer').textContent='Relancer les retardataires'+(D.aujourdhui>D.echeance&&relancables.length?' ('+relancables.length+')':'');
+  $('geRelancer').title=D.aujourdhui>D.echeance?'':'Possible après l\'échéance du '+ech;
+  $('geTbl').innerHTML='<thead><tr><th>Créateur</th><th>Loyer</th><th>Reçu</th><th>Reste</th><th>Statut</th><th>Relance</th><th></th></tr></thead><tbody>'+
+    (L.length?L.map(l=>{
+      const pay=l.paiements.map(p=>`<span class="ge-pay">${FMT.eur(p.montant)} · ${fmtD(p.date).slice(0,5)}${p.source==='manuel'?' · à la main':''} <a href="#" data-gea="depointer" data-p="${FMT.esc(p.id)}" title="Annuler ce pointage">×</a></span>`).join('');
+      const [cl,lib]=GE_ST[l.statut];
+      return `<tr data-c="${FMT.esc(l.idCreateur)}"><td><b>${FMT.esc(l.nom)}</b>${l.benevole?' <span class="gc-st benev">bénévole</span>':''}<span class="gc-sub">${l.figee?'facture '+FMT.esc(l.numero):'facture pas encore générée'}</span></td>`+
+        `<td class="r">${FMT.eur(l.loyer)}</td><td>${pay||'<span class="muted">—</span>'}</td><td class="r">${l.reste>0?FMT.eur(l.reste):'<span class="muted">—</span>'}</td>`+
+        `<td><span class="gc-st ${cl}">${lib}</span></td><td>${l.relanceLe?'<span class="gc-sub" style="display:inline">'+fmtD(l.relanceLe)+'</span>':'<span class="muted">—</span>'}</td>`+
+        `<td>${l.reste>0?'<button class="btn-dl" data-gea="pointer">Pointer reçu</button>':''}</td></tr>`;
+    }).join(''):'<tr><td colspan="7" class="muted" style="text-align:center;padding:20px">Aucun loyer attendu ce mois-ci.</td></tr>')+'</tbody>';
+  geRenderReleve();
+}
+function geRenderReleve(){
+  const R=GE.res;
+  if(!R){$('geResultat').classList.add('hide');return;}
+  $('geResultat').classList.remove('hide');
+  const n=k=>R.filter(r=>r.niveau===k).length;
+  $('geResume').innerHTML=`<b>${R.length}</b> virements reçus dans l'extrait · <b>${n('sur')}</b> sûrs · <b>${n('probable')+n('verifier')}</b> à confirmer · <b>${n('aucune')}</b> à attribuer · ${n('ignore')} écartés (pas des loyers) · ${n('deja')} déjà pointés`;
+  const createurs=GE.data.createurs.slice().sort((a,b)=>a.nom.localeCompare(b.nom,'fr',{sensitivity:'base'}));
+  const optC=id=>'<option value="">— créateur —</option>'+createurs.map(c=>`<option value="${FMT.esc(c.id)}"${c.id===id?' selected':''}>${FMT.esc(c.nom)}${c.actif?'':' (inactif)'}</option>`).join('');
+  const optM=m=>geMoisOptions(GE.mois).concat(geMoisOptions(GE.mois).includes(m)?[]:[m]).map(v=>`<option value="${v}"${v===m?' selected':''}>${geLibMois(v)}</option>`).join('');
+  const visibles=R.map((r,i)=>({r,i})).filter(({r})=>r.niveau!=='deja'&&(r.niveau!=='ignore'||GE.voirIgnores));
+  $('geReleve').innerHTML='<thead><tr><th></th><th>Date</th><th>Montant</th><th>Payeur · libellé</th><th>Créateur</th><th>Loyer de</th><th>Confiance</th></tr></thead><tbody>'+
+    (visibles.length?visibles.map(({r,i})=>{
+      const fige=r.niveau==='ignore';
+      if(r.coche==null)r.coche=r.niveau==='sur';
+      const [cl,lib]=GE_NIV[r.niveau];
+      return `<tr data-i="${i}" class="${fige?'ge-ignore':''}"><td><input type="checkbox" data-gek="coche"${r.coche?' checked':''}${fige?' disabled':''}></td><td>${fmtD(r.op.date).slice(0,5)}</td><td class="r"><b>${FMT.eur(r.montant)}</b></td>`+
+        `<td class="ge-lib"><b>${FMT.esc(r.payeur)}</b><span class="gc-sub">${FMT.esc(r.op.texte)}</span></td>`+
+        `<td>${fige?'—':`<select data-gek="createur">${optC(r.idCreateur)}</select>`}</td><td>${fige?'—':`<select data-gek="mois">${optM(r.mois)}</select>`}</td>`+
+        `<td><span class="gc-st ${cl}">${lib}</span><span class="gc-sub">${FMT.esc(r.raison)}</span></td></tr>`;
+    }).join(''):'<tr><td colspan="7" class="muted" style="text-align:center;padding:20px">Tout est déjà pointé.</td></tr>')+'</tbody>';
+  const nb=R.filter(r=>r.coche&&r.idCreateur&&r.niveau!=='ignore'&&r.niveau!=='deja').length;
+  $('gePointer').disabled=!nb;$('gePointer').textContent='Pointer les virements cochés'+(nb?' ('+nb+')':'');
+  $('geVoirIgnores').textContent=GE.voirIgnores?'Masquer les virements écartés':'Voir les virements écartés ('+n('ignore')+')';
+}
+async function geChargerPdfjs(){
+  if(window.pdfjsLib)return window.pdfjsLib;
+  await new Promise((ok,ko)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=ok;s.onerror=()=>ko(new Error('lecteur PDF indisponible (connexion ?)'));document.head.appendChild(s);});
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  return window.pdfjsLib;
+}
+async function geLireFichier(f){
+  if(!f)return;
+  if(!/\.pdf$/i.test(f.name)&&f.type!=='application/pdf'){toast('Choisis l\'extrait de compte au format PDF.',true);return;}
+  $('geZone').textContent='Lecture de « '+f.name+' »…';
+  try{
+    const lib=await geChargerPdfjs(),pdf=await lib.getDocument({data:new Uint8Array(await f.arrayBuffer())}).promise;
+    const ops=await lireReleveCIC(pdf);
+    if(!ops.length)throw new Error("aucune opération trouvée : est-ce bien un extrait de compte CIC (PDF texte, pas un scan) ?");
+    GE.ops=ops;GE.res=rapprocher(ops,GE.data);GE.voirIgnores=false;
+    const cr=ops.filter(o=>o.sens==='credit'),de=ops.filter(o=>o.sens==='debit'),s=a=>FMT.eur(a.reduce((t,o)=>t+o.montant,0));
+    $('geZone').innerHTML=`« ${FMT.esc(f.name)} » lu : ${cr.length} crédits (${s(cr)}) et ${de.length} débits (${s(de)}). Compare avec le « Total des mouvements » du relevé. <a href="#" id="geAutre">Autre fichier</a>`;
+    geRenderReleve();
+  }catch(e){$('geZone').textContent='Lecture impossible : '+((e&&e.message)||e);}
+}
+$('geFichier').addEventListener('change',e=>geLireFichier(e.target.files[0]));
+['dragover','dragenter'].forEach(t=>$('geZone').addEventListener(t,e=>{e.preventDefault();$('geZone').classList.add('over');}));
+['dragleave','drop'].forEach(t=>$('geZone').addEventListener(t,()=>$('geZone').classList.remove('over')));
+$('geZone').addEventListener('drop',e=>{e.preventDefault();geLireFichier(e.dataTransfer.files[0]);});
+$('geZone').addEventListener('click',e=>{if(e.target.id==='geAutre'){e.preventDefault();$('geFichier').click();}else if(!GE.res)$('geFichier').click();});
+$('geReleve').addEventListener('change',e=>{
+  const tr=e.target.closest('tr[data-i]');if(!tr)return;
+  const r=GE.res[+tr.dataset.i],k=e.target.dataset.gek;
+  if(k==='coche')r.coche=e.target.checked;
+  if(k==='createur'){r.idCreateur=e.target.value;r.coche=!!e.target.value;if(r.niveau==='aucune'&&r.idCreateur){r.niveau='verifier';r.raison='attribué à la main';}}
+  if(k==='mois')r.mois=e.target.value;
+  geRenderReleve();
+});
+$('geVoirIgnores').addEventListener('click',e=>{e.preventDefault();GE.voirIgnores=!GE.voirIgnores;geRenderReleve();});
+$('gePointer').addEventListener('click',async()=>{
+  const L=GE.res.filter(r=>r.coche&&r.idCreateur&&r.niveau!=='ignore'&&r.niveau!=='deja');if(!L.length)return;
+  const total=L.reduce((s,r)=>s+r.montant,0);
+  if(!confirm(`Pointer ${L.length} virement${L.length>1?'s':''} (${FMT.eur(total)}) comme loyers reçus ?\n\nLes noms de payeurs sont retenus : le mois prochain, ces virements seront reconnus d'office.`))return;
+  const b=$('gePointer'),t=b.textContent;b.disabled=true;b.textContent='…';
+  try{
+    const r=await API.gestion('gestion_paiements_pointer',{lignes:L.map(x=>({idCreateur:x.idCreateur,mois:x.mois,montant:x.montant,date:x.op.date,source:'banque',libelle:x.op.texte,ref:x.ref,payeur:x.payeur}))});
+    if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide du serveur');
+    toast(r.pointes+' loyer'+(r.pointes>1?'s':'')+' pointé'+(r.pointes>1?'s':'')+(r.appris?' · '+r.appris+' payeur'+(r.appris>1?'s':'')+' retenu'+(r.appris>1?'s':''):''));
+    await geCharger();
+  }catch(err){toast((err&&err.message)||String(err),true);b.disabled=false;b.textContent=t;}
+});
+$('gVueEnc').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-gea]');if(!b)return;e.preventDefault();
+  const l=GE.data.lignes.find(x=>x.idCreateur===b.closest('tr').dataset.c);
+  try{
+    if(b.dataset.gea==='pointer'){
+      const m=prompt(`Loyer reçu de ${l.nom} (${GE.data.libelle}) — montant :`,String(l.reste).replace('.',','));if(!m)return;
+      const d=prompt('Reçu le (jj/mm/aaaa) :',fmtD(GE.data.aujourdhui));if(!d)return;
+      const x=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(d.trim());if(!x){toast('Date au format jj/mm/aaaa.',true);return;}
+      const r=await API.gestion('gestion_paiements_pointer',{lignes:[{idCreateur:l.idCreateur,mois:GE.data.mois,montant:m,date:x[3]+'-'+x[2]+'-'+x[1],source:'manuel',libelle:'pointé à la main'}]});
+      if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide');toast('Loyer de '+l.nom+' pointé');
+    }else if(b.dataset.gea==='depointer'){
+      const motif=prompt('Annuler ce pointage ? Motif :','erreur de pointage');if(!motif)return;
+      const r=await API.gestion('gestion_paiement_annuler',{idPaiement:b.dataset.p,motif});
+      if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide');toast('Pointage annulé');
+    }
+    await geCharger();
+  }catch(err){toast((err&&err.message)||String(err),true);}
+});
+$('geRelancer').addEventListener('click',async()=>{
+  const D=GE.data,L=D.lignes.filter(l=>(l.statut==='retard'||l.statut==='partiel')&&l.email&&l.reste>0);if(!L.length)return;
+  if(!confirm(`Envoyer un e-mail de rappel à ${L.length} créateur${L.length>1?'s':''} ?\n\n${L.map(l=>'· '+l.nom+' : '+FMT.eur(l.reste)+(l.relanceLe?' (déjà relancé le '+fmtD(l.relanceLe)+')':'')).join('\n')}\n\nTexte : Réglages ▸ E-mails types ▸ « Relance loyer ».`))return;
+  const b=$('geRelancer'),t=b.textContent;b.disabled=true;b.textContent='Envoi…';
+  try{
+    const r=await API.gestion('gestion_relancer',{mois:D.mois,ids:L.map(l=>l.idCreateur)});
+    if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide');
+    toast(r.envoyes+' rappel'+(r.envoyes>1?'s':'')+' envoyé'+(r.envoyes>1?'s':'')+(r.erreurs.length?' · '+r.erreurs.length+' en erreur':''),!!r.erreurs.length);
+    if(r.erreurs.length)$('geWarn').insertAdjacentHTML('afterbegin','<div class="warn" style="margin:0 0 10px">'+r.erreurs.map(FMT.esc).join('<br>')+'</div>');
+    await geCharger();
+  }catch(err){toast((err&&err.message)||String(err),true);b.disabled=false;b.textContent=t;}
+});
+/* vues de la facturation */
+$('gfVues').addEventListener('click',e=>{
+  const v=e.target.closest('[data-vue]');if(!v)return;
+  $('gfVues').querySelectorAll('[data-vue]').forEach(x=>x.classList.toggle('on',x===v));
+  ['Fac','Enc','Ver'].forEach(k=>$('gVue'+k).classList.toggle('hide',v.dataset.vue!==k));
+  if(v.dataset.vue==='Enc'&&(!GE.charge||GE.mois!==$('gfMois').value))geCharger();
+});
+$('gfMois').addEventListener('change',()=>{GE.charge=false;if(!$('gVueEnc').classList.contains('hide'))geCharger();});
+
+/* démo : loyers en mémoire */
+const DEMO_E=(function(){
+  const pay=[];let n=0;
+  const lignes=mois=>[['C004','Jackline',68],['C005','NYU',48],['C003','riri',28],['C007','Studio Looleï',28]].map(([id,nom,loyer])=>{
+    const p=pay.filter(x=>x.idCreateur===id&&x.mois===mois&&x.statut==='ok'),recu=p.reduce((s,x)=>s+x.montant,0),brut=round2(loyer-recu),reste=Math.max(0,brut);
+    return {idCreateur:id,nom,email:nom.toLowerCase()+'@exemple.fr',loyer,figee:false,numero:'',benevole:id==='C007',recu,reste,paiements:p.map(x=>({id:x.id,date:x.date,montant:x.montant,source:x.source,libelle:''})),statut:brut<-0.009?'trop':brut<=0?'recu':recu>0?'partiel':'retard',relanceLe:''};});
+  return async function(action,p){
+    if(action==='gestion_encaissements'){const [y,m]=p.mois.split('-').map(Number);return {ok:true,mois:p.mois,libelle:MOIS_LONG[m-1]+' '+y,echeance:isoJour(new Date(y,m-2,25)),aujourdhui:aujourdhui(),lignes:lignes(p.mois),
+      createurs:[['C004','Jackline','Sara Baillet'],['C005','NYU','Inès Benali'],['C003','riri',''],['C007','Studio Looleï','Léa Marin']].map(([id,nom,nomLegal])=>({id,nom,nomLegal,actif:true})),payeurs:{},refs:pay.map(x=>x.ref).filter(Boolean)};}
+    if(action==='gestion_paiements_pointer'){p.lignes.forEach(l=>pay.push({id:'P'+(++n),idCreateur:l.idCreateur,mois:l.mois,montant:Number(String(l.montant).replace(',','.')),date:l.date,source:l.source,ref:l.ref||'',statut:'ok'}));return {ok:true,pointes:p.lignes.length,ignores:0,appris:p.lignes.filter(l=>l.source==='banque').length};}
+    if(action==='gestion_paiement_annuler'){pay.find(x=>x.id===p.idPaiement).statut='annule';return {ok:true};}
+    if(action==='gestion_relancer')return {ok:true,envoyes:p.ids.length,erreurs:[]};
     return {ok:false,message:'Action inconnue (démo).'};
   };
 })();

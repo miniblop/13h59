@@ -64,7 +64,11 @@ const EMAILS_PAR_DEFAUT = [
   ['facture', 'Collectif 13H59 · ta facture · {mois}',
     "Bonjour {marque},\n\nTu trouveras ci-joint ta facture n° {numero} (loyer : {mois}). En page 2, le détail de tes ventes ({mois_ventes}) et le calcul de ton virement.\n\n" +
     "Pour toute question, réponds simplement à cet e-mail.\n\nÀ très vite à la boutique,\nL'équipe du 13H59 Shop",
-    true, 'Gestion ▸ Facturation : bouton « Envoyer » (facture en pièce jointe).']
+    true, 'Gestion ▸ Facturation : bouton « Envoyer » (facture en pièce jointe).'],
+  ['relance_loyer', 'Collectif 13H59 · ton loyer · {mois}',
+    "Bonjour {marque},\n\nSauf erreur de notre part, nous n'avons pas encore reçu ton loyer ({mois}) : il reste {montant} à régler. " +
+    "Le loyer se paie par virement entre le 20 et le 25 du mois précédent.\n\nSi le virement est déjà parti, ne tiens pas compte de ce message.\n\nMerci !\nL'équipe du 13H59 Shop",
+    true, 'Gestion ▸ Facturation ▸ À encaisser : bouton « Relancer les retardataires ».']
 ];
 
 /** Crée l'onglet `emails` avec les textes par défaut s'il n'existe pas. */
@@ -100,8 +104,10 @@ function _emailsParDefaut() {
 /** Champs utilisables dans chaque modèle ({date} n'a de sens que pour l'arrivée d'un créateur retenu). */
 const CHAMPS_EMAIL = ['prenom', 'marque', 'stand', 'date'];
 const CHAMPS_EMAIL_FACTURE = ['marque', 'mois', 'mois_ventes', 'numero'];
+const CHAMPS_EMAIL_RELANCE = ['marque', 'mois', 'montant'];
 function _champsAutorises(code) {
   if (code === 'facture') return CHAMPS_EMAIL_FACTURE;
+  if (code === 'relance_loyer') return CHAMPS_EMAIL_RELANCE;
   return CHAMPS_EMAIL.filter(function (k) { return k !== 'date' || code === 'retenu'; });
 }
 function _champsEmailInvalides(code, s) {
