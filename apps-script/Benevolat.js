@@ -199,3 +199,121 @@ function _gBenevolatRemarque(body) {
   _ecrireLigne(tB, i, r);
   return { ok: true };
 }
+
+/* ---------- Gestion ▸ Bénévolat ▸ Planning (agenda BÉNÉVOLES) ----------
+ * Le site lit les permanences du mois dans l'agenda et peut en poser ou en retirer.
+ * Poser = créer un événement invitant le ou la bénévole avec l'e-mail de sa fiche :
+ * Google lui envoie l'invitation. Les filles peuvent toujours modifier l'agenda à la main.
+ * Il faut le droit « Apporter des modifications aux événements » sur l'agenda BÉNÉVOLES. */
+
+const CRENEAUX_HEURES = { matin: [11, 15], apres_midi: [15, 19], journee: [11, 19] };
+
+function _agendaBenevoles() {
+  const src = _agendasPermanences();
+  if (!src.dedie) throw new Error("Aucun agenda dont le nom contient « bénévole » n'est visible par le compte du site.");
+  return src.agendas[0];
+}
+/** Créneau d'un événement : journée (≥ 6 h ou toute la journée), sinon matin ou après-midi selon l'heure de début. */
+function _creneauEvenement(e) {
+  if (e.isAllDayEvent() || (e.getEndTime() - e.getStartTime()) / 36e5 >= 6) return 'journee';
+  return e.getStartTime().getHours() < 13 ? 'matin' : 'apres_midi';
+}
+
+function _gBenevolatPlanning(body) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), mois = String(body.mois || ''), b = _moisBornes(mois);
+  const g = _gBenevolat();
+  const stands = {};
+  g.stands.forEach(function (s) { stands[s.code] = s; });
+  const tC = _tableau(ss, SHEET_CREATEURS), emailDe = {};
+  tC.lignes.forEach(function (r) { emailDe[String(_val(tC, r, 'id_createur'))] = _norm(_val(tC, r, 'email')); });
+  // disponibilités : la demande la plus récente de chaque créateur
+  const dispoDe = {};
+  g.demandes.slice().sort(function (x, y) { return String(x.majLe || x.recueLe).localeCompare(String(y.majLe || y.recueLe)); })
+    .forEach(function (d) { if (d.idCreateur) dispoDe[d.idCreateur] = d.disponibilites; });
+  const benevoles = g.createurs.filter(function (c) { return c.benevole && !_horsBenevolat(emailDe[c.id], ''); }).map(function (c) {
+    const s = stands[c.stand];
+    return { id: c.id, nom: c.nom, stand: c.stand, quota: s ? s.perms : null, permsPrevues: c.permsPrevues, email: emailDe[c.id] || '', disponibilites: dispoDe[c.id] || '' };
+  });
+  const parEmail = {}, parMots = {};
+  benevoles.forEach(function (c) { if (c.email) parEmail[c.email] = c; const k = _cleMots(c.nom); if (k) (parMots[k] = parMots[k] || []).push(c); });
+
+  let agenda, evenements = [], agendaErreur = '';
+  try {
+    agenda = _agendaBenevoles();
+    const fin = new Date(b.fin.getFullYear(), b.fin.getMonth(), b.fin.getDate() + 1);
+    evenements = agenda.getEvents(b.debut, fin).map(function (e) {
+      const invites = e.getGuestList().map(function (x) { return { email: _norm(x.getEmail()), nom: x.getName() }; });
+      const qui = [];
+      invites.forEach(function (x) {
+        const c = parEmail[x.email] || (x.nom && parMots[_cleMots(x.nom)] && parMots[_cleMots(x.nom)].length === 1 ? parMots[_cleMots(x.nom)][0] : null);
+        if (c && qui.indexOf(c.id) < 0) qui.push(c.id);
+      });
+      const creneau = _creneauEvenement(e);
+      return { id: e.getId(), date: _jourIso(e.getStartTime()), creneau: creneau, jours: creneau === 'journee' ? 1 : 0.5,
+        heure: e.isAllDayEvent() ? '' : _heure(e.getStartTime()) + '-' + _heure(e.getEndTime()), titre: e.getTitle(),
+        benevoles: qui, invites: qui.length ? [] : invites.map(function (x) { return x.email; }).filter(function (m) { return m !== EMAIL_SHOP; }),
+        recurrent: e.isRecurringEvent() };
+    });
+  } catch (e) {
+    agendaErreur = String(e && e.message ? e.message : e);
+  }
+  return { ok: true, mois: mois, libelle: b.libelle, aujourdhui: g.aujourdhui, agenda: agenda ? agenda.getName() : '', agendaErreur: agendaErreur,
+    benevoles: benevoles, evenements: evenements };
+}
+
+function _gBenevolatPoser(body) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(body.date || ''));
+  if (!m) throw new Error('Date invalide.');
+  const jour = new Date(+m[1], +m[2] - 1, +m[3]);
+  if (jour.getDay() < 2) throw new Error('La boutique est fermée le dimanche et le lundi.');
+  const h = CRENEAUX_HEURES[body.creneau];
+  if (!h) throw new Error('Créneau inconnu.');
+  const c = _lireTable(_onglet(ss, SHEET_CREATEURS)).filter(function (r) { return String(r['id_createur']) === String(body.idCreateur); })[0];
+  if (!c) throw new Error('Créateur inconnu : « ' + body.idCreateur + ' ».');
+  if (c['benevole'] !== true) throw new Error(_nomPropre(c['nom']) + " n'est pas cochée bénévole : retiens d'abord sa demande (ou coche la case sur sa fiche).");
+  const email = _email(c['email']);
+  if (!email) throw new Error(_nomPropre(c['nom']) + " n'a pas d'adresse e-mail valide sur sa fiche : impossible de l'inviter.");
+  const agenda = _agendaBenevoles();
+  const debut = new Date(+m[1], +m[2] - 1, +m[3], h[0]), fin = new Date(+m[1], +m[2] - 1, +m[3], h[1]);
+  const deja = agenda.getEventsForDay(jour).filter(function (e) { return e.getGuestList().some(function (g) { return _norm(g.getEmail()) === email; }); });
+  if (deja.length) throw new Error(_nomPropre(c['nom']) + ' a déjà une permanence ce jour-là (' + deja[0].getTitle() + ').');
+  let e;
+  try {
+    e = agenda.createEvent('Permanence ' + _nomPropre(c['nom']), debut, fin, {
+      guests: email, sendInvites: fin > new Date(), description: 'Permanence posée depuis le site 13H59 par ' + _signataire() + '.'
+    });
+  } catch (err) {
+    throw new Error("Impossible d'écrire dans l'agenda « " + agenda.getName() + ' » : le compte du site doit avoir le droit « Apporter des modifications aux événements » sur cet agenda. (' + (err && err.message ? err.message : err) + ')');
+  }
+  CacheService.getScriptCache().remove('permanences_' + m[1] + '-' + m[2]);
+  _journaliser('permanence_posee', _nomPropre(c['nom']) + ' (' + c['id_createur'] + ') · ' + _dateFr(jour) + ' · ' + h[0] + 'h-' + h[1] + 'h');
+  return { ok: true, id: e.getId(), invitation: fin > new Date() };
+}
+
+function _gBenevolatRetirer(body) {
+  const agenda = _agendaBenevoles(), e = agenda.getEventById(String(body.idEvenement || ''));
+  if (!e) throw new Error("Permanence introuvable dans l'agenda (déjà supprimée ?) : actualise.");
+  if (e.isRecurringEvent()) throw new Error('Permanence répétée (événement récurrent) : modifie-la directement dans Google Agenda.');
+  const titre = e.getTitle(), jour = e.getStartTime(), heure = e.isAllDayEvent() ? '' : ' · ' + _heure(e.getStartTime()) + '-' + _heure(e.getEndTime());
+  try { e.deleteEvent(); } catch (err) {
+    throw new Error("Impossible de modifier l'agenda « " + agenda.getName() + ' » : le compte du site doit avoir le droit « Apporter des modifications aux événements ». (' + (err && err.message ? err.message : err) + ')');
+  }
+  CacheService.getScriptCache().remove('permanences_' + _jourIso(jour).slice(0, 7));
+  _journaliser('permanence_retiree', titre + ' · ' + _dateFr(jour) + heure);
+  return { ok: true };
+}
+
+/** À lancer depuis l'éditeur : autorise l'écriture dans l'agenda et vérifie les droits sur l'agenda BÉNÉVOLES.
+ *  Le test crée puis supprime aussitôt un événement sans invité daté du 1er janvier 2000 (invisible). */
+function autoriserPlanning() {
+  const agenda = _agendaBenevoles();
+  Logger.log('Agenda : « ' + agenda.getName() + ' » · compte : ' + Session.getEffectiveUser().getEmail());
+  try {
+    const e = agenda.createEvent('Test 13H59 (supprimé aussitôt)', new Date(2000, 0, 1, 11), new Date(2000, 0, 1, 12));
+    e.deleteEvent();
+    Logger.log('✅ Droits OK : le site peut poser et retirer des permanences.');
+  } catch (err) {
+    Logger.log('❌ Lecture seule : il faut le droit « Apporter des modifications aux événements » sur « ' + agenda.getName() + ' » (à donner depuis le compte du shop). Détail : ' + (err && err.message ? err.message : err));
+  }
+}

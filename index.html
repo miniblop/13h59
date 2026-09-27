@@ -223,6 +223,24 @@
   #gwTbl td.r{text-align:right}
   .gw-detail td{font-size:12px;text-align:left}
   .gw-detail td.r{text-align:right}
+  .gbp-cal{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+  .gbp-tete{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;padding:0 2px}
+  .gbp-j{border:1px solid var(--line);border-radius:10px;padding:6px;min-height:86px;background:var(--card)}
+  .gbp-j.hors{border:none;background:transparent}
+  .gbp-j.passe{background:var(--tot)}
+  .gbp-j.auj{border-color:var(--ink)}
+  .gbp-d{display:flex;align-items:center;justify-content:space-between;font-weight:800;font-size:13px}
+  .gbp-jn{display:none}
+  .gbp-add{border:1px solid var(--line);background:none;border-radius:999px;width:22px;height:22px;line-height:18px;cursor:pointer;font-weight:700;color:var(--muted);padding:0}
+  .gbp-add:hover{border-color:var(--ink);color:var(--ink)}
+  .gbp-p{display:flex;align-items:flex-start;justify-content:space-between;gap:4px;margin-top:5px;background:#eef6f0;border-radius:8px;padding:4px 6px;font-size:12px;font-weight:700;line-height:1.3}
+  .gbp-p small{display:block;font-weight:400;color:var(--muted);font-size:11px}
+  .gbp-p.inconnu{background:var(--chip);color:var(--muted)}
+  .gbp-p button{border:none;background:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 2px;line-height:1}
+  .gbp-p button:hover{color:var(--neg)}
+  .gbp-poser{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px;background:var(--tot)}
+  #gbpTbl td.r,#gbpTbl th.r{text-align:right}
+  @media(max-width:560px){.gbp-cal{grid-template-columns:1fr}.gbp-tete,.gbp-j.hors{display:none}.gbp-jn{display:inline}.gbp-j{min-height:0}}
   .gv-filtres{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
   #gvTbl tbody tr{cursor:pointer}
   #gvTbl tbody tr:hover td{background:#faf9f7}
@@ -559,6 +577,8 @@
           <div class="gc-acts" style="margin-top:0"><button class="btn-dl" id="gbLienPublic">⧉ Copier le lien public</button><button class="btn-dl" id="gbRefresh">↻ Actualiser</button></div>
         </div>
       </div>
+      <div id="gbVues" class="ge-vues"><span class="gc-chip on" data-vue="Dem">Demandes</span><span class="gc-chip" data-vue="Pla">Planning du mois</span></div>
+      <div id="gbVueDem">
       <div class="gc-main">
         <div class="card">
           <div id="gbChips"></div>
@@ -566,6 +586,18 @@
           <div class="tblwrap gc-list"><table id="gbTbl"></table></div>
         </div>
         <div class="card" id="gbFiche"><div class="muted">Sélectionne une demande dans la liste.</div></div>
+      </div>
+      </div>
+      <div id="gbVuePla" class="hide">
+        <div id="gbpErr" class="warn hide"></div>
+        <div class="card">
+          <div class="cardhead"><div style="display:flex;align-items:center;gap:8px"><button class="btn-dl" id="gbpPrec" title="Mois précédent">‹</button><h2 id="gbpTitre" style="margin:0">Planning</h2><button class="btn-dl" id="gbpSuiv" title="Mois suivant">›</button></div><div class="gc-acts" style="margin-top:0"><button class="btn-dl" id="gbpRefresh">↻ Actualiser</button></div></div>
+          <div class="muted" style="font-size:12px;margin-bottom:10px" id="gbpResume"></div>
+          <div id="gbpPoser"></div>
+          <div class="gbp-cal" id="gbpCal"></div>
+          <div class="gc-why">Lu dans l'agenda BÉNÉVOLES : ce que les filles y ajoutent à la main apparaît aussi. « + » pose une permanence et invite la personne ; « × » la retire de l'agenda. Une journée compte pour 1, une demi-journée pour 0,5 ; la facturation relit l'agenda.</div>
+        </div>
+        <div class="card"><h2>Bénévoles du mois</h2><div class="tblwrap"><table id="gbpTbl"></table></div></div>
       </div>
     </div>
   </div>
@@ -2166,7 +2198,7 @@ const GJ_ACTIONS={createur_maj:'Fiche créateur modifiée',createur_creer:'Créa
   candidature_retenue:'Candidature retenue',candidature_remarque:'Candidature : remarque',email_envoye:'E-mail envoyé',email_echec:'E-mail non envoyé',email_modele_maj:'E-mail type modifié',
   reglage_categories:'Réglage : catégorie',reglage_stands:'Réglage : stand',reglage_remises:'Réglage : remise',reglage_paiements:'Réglage : paiement',
   reglage_categories_creation:'Catégorie ajoutée',reglage_stands_creation:'Stand ajouté',reglage_remises_creation:'Remise ajoutée',reglage_paiements_creation:'Moyen de paiement ajouté',
-  vente_annulee:'Vente annulée',vente_corrigee:'Vente corrigée',panier_annule:'Panier annulé',vente_supprimee:'Vente supprimée',panier_supprime:'Panier supprimé',createur_fusionne:'Fiches fusionnées',createur_supprime:'Fiche supprimée',reponses_mo:'Réglages (réponses de Mo)',facture_generee:'Facture générée',facture_envoyee:'Facture envoyée',facture_annulee:'Facture annulée',loyers_pointes:'Loyers pointés',loyer_depointe:'Pointage annulé',loyers_relances:'Relances loyer',versements_fichier:'Fichier de virements',versements_valides:'Versements validés',versements_lot_annule:'Fichier de virements annulé',benevolat_recu:'Demande de bénévolat reçue',benevolat_maj:'Demande de bénévolat mise à jour',benevolat_statut:'Bénévolat : décision',benevolat_lien:'Bénévolat : fiche rattachée'};
+  vente_annulee:'Vente annulée',vente_corrigee:'Vente corrigée',panier_annule:'Panier annulé',vente_supprimee:'Vente supprimée',panier_supprime:'Panier supprimé',createur_fusionne:'Fiches fusionnées',createur_supprime:'Fiche supprimée',reponses_mo:'Réglages (réponses de Mo)',facture_generee:'Facture générée',facture_envoyee:'Facture envoyée',facture_annulee:'Facture annulée',loyers_pointes:'Loyers pointés',loyer_depointe:'Pointage annulé',loyers_relances:'Relances loyer',versements_fichier:'Fichier de virements',versements_valides:'Versements validés',versements_lot_annule:'Fichier de virements annulé',benevolat_recu:'Demande de bénévolat reçue',benevolat_maj:'Demande de bénévolat mise à jour',benevolat_statut:'Bénévolat : décision',benevolat_lien:'Bénévolat : fiche rattachée',permanence_posee:'Permanence posée',permanence_retiree:'Permanence retirée'};
 function gjLibelle(a){return GJ_ACTIONS[a]||(/^(migration|etape|liens_)/.test(a)?'Migration du Sheet':a);}
 async function gjCharger(){
   $('gjErr').classList.add('hide');
@@ -2867,13 +2899,131 @@ $('gbLienPublic').addEventListener('click',async()=>{
   try{await navigator.clipboard.writeText(url);toast('Lien copié : '+url);}catch(e){prompt('Lien de la page bénévolat :',url);}
 });
 
+/* ---------- Bénévolat ▸ Planning du mois (agenda BÉNÉVOLES) ---------- */
+const GBP={data:null,mois:'',poser:null,charge:false};
+const GBP_CREN={matin:'Matin',apres_midi:'Après-midi',journee:'Journée'};
+const GBP_JOURS=['mar','mer','jeu','ven','sam'],GBP_JLIB=['Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+function gbpMoisCourant(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+function gbpDecaler(mois,n){const [y,m]=mois.split('-').map(Number),d=new Date(y,m-1+n,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+function gbpLibMois(mois){const [y,m]=mois.split('-').map(Number);const s=new Date(y,m-1,1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});return s.charAt(0).toUpperCase()+s.slice(1);}
+function gbpJourLib(iso){const [y,m,d]=iso.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});}
+function gbpBen(id){return GBP.data.benevoles.find(b=>b.id===id);}
+
+async function gbpCharger(){
+  if(!GBP.mois)GBP.mois=gbpMoisCourant();
+  $('gbpErr').classList.add('hide');$('gbpTitre').textContent='Planning · '+gbpLibMois(GBP.mois);
+  $('gbpCal').innerHTML='<div class="muted" style="grid-column:1/-1;padding:18px 0">Lecture de l\'agenda…</div>';
+  try{
+    const r=await API.gestion('gestion_benevolat_planning',{mois:GBP.mois});
+    if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
+    GBP.data=r;GBP.charge=true;gbpRender();
+  }catch(e){$('gbpErr').classList.remove('hide');$('gbpErr').textContent='⚠️ Planning indisponible : '+((e&&e.message)||e);$('gbpCal').innerHTML='';}
+}
+function gbpRender(){
+  const D=GBP.data,[y,m]=GBP.mois.split('-').map(Number),nbJ=new Date(y,m,0).getDate(),auj=D.aujourdhui;
+  if(D.agendaErreur){$('gbpErr').classList.remove('hide');$('gbpErr').textContent='⚠️ Agenda illisible : '+D.agendaErreur;}
+  /* permanences par jour et par bénévole */
+  const parJour={},posees={};
+  D.evenements.forEach(ev=>{(parJour[ev.date]=parJour[ev.date]||[]).push(ev);ev.benevoles.forEach(id=>{posees[id]=(posees[id]||0)+ev.jours;});});
+  const ouverts=[];for(let d=1;d<=nbJ;d++){const j=new Date(y,m-1,d).getDay();if(j>=2)ouverts.push(GBP.mois+'-'+String(d).padStart(2,'0'));}
+  const couverts=ouverts.filter(j=>(parJour[j]||[]).length).length,nbBen=Object.keys(posees).length;
+  $('gbpResume').innerHTML=`${D.agenda?'Agenda « '+FMT.esc(D.agenda)+' »':''} · <b>${nbBen}</b> bénévole${nbBen>1?'s':''} ce mois (4 au plus) · <b>${FMT.num(Object.values(posees).reduce((a,b)=>a+b,0))}</b> permanence(s) posée(s) · ${couverts} jour${couverts>1?'s':''} d'ouverture sur ${ouverts.length} avec au moins une permanence`;
+  /* formulaire « poser » */
+  const P=GBP.poser;
+  if(P){
+    const [py,pm,pd]=P.date.split('-').map(Number),js=GBP_JOURS[new Date(py,pm-1,pd).getDay()-2];
+    const dispo=b=>{const o={};String(b.disponibilites||'').split(/\s+/).forEach(x=>{const [j,c]=x.split(':');if(j)o[j]=c;});return o[js];};
+    const dispos=D.benevoles.filter(b=>dispo(b)),autres=D.benevoles.filter(b=>!dispo(b));
+    const opt=b=>`<option value="${FMT.esc(b.id)}"${b.id===P.id?' selected':''}${b.email?'':' disabled'}>${FMT.esc(b.nom)}${dispo(b)?' · dispo '+GBP_CREN[dispo(b)].toLowerCase():''} · ${FMT.num(posees[b.id]||0)}/${b.quota==null?'—':FMT.num(b.quota)} ce mois${b.email?'':' · pas d\'e-mail'}</option>`;
+    $('gbpPoser').innerHTML=`<div class="gbp-poser"><div class="gc-h4" style="margin-top:0">Poser une permanence · ${FMT.esc(gbpJourLib(P.date))}</div>`+
+      (D.benevoles.length?`<div class="gc-form"><div><label>Bénévole</label><select id="gbpQui"><option value="">— choisir —</option>${dispos.length?'<optgroup label="Disponibles ce jour-là">'+dispos.map(opt).join('')+'</optgroup>':''}${autres.length?'<optgroup label="Autres bénévoles">'+autres.map(opt).join('')+'</optgroup>':''}</select></div>`+
+        `<div><label>Créneau</label><select id="gbpCren">${Object.keys(GBP_CREN).map(c=>`<option value="${c}"${c===P.creneau?' selected':''}>${GBP_CREN[c]} · ${{matin:'11 h – 15 h',apres_midi:'15 h – 19 h',journee:'11 h – 19 h'}[c]}</option>`).join('')}</select></div></div>`+
+        `<div class="gc-acts"><button class="btn btn-accent" data-p="poser">Poser et inviter</button><button class="btn btn-ghost" data-p="fermer">Annuler</button></div>`+
+        `<div class="gc-why">Crée l'événement dans l'agenda et invite la personne avec l'e-mail de sa fiche : Google lui envoie l'invitation.</div>`
+        :`<div class="muted">Aucune fiche cochée « bénévole » : retiens d'abord une demande.</div><div class="gc-acts"><button class="btn btn-ghost" data-p="fermer">Fermer</button></div>`)+'</div>';
+  }else $('gbpPoser').innerHTML='';
+  let h=GBP_JLIB.map(l=>`<div class="gbp-tete">${l}</div>`).join('');
+  /* semaines du mardi au samedi : on part du mardi de la semaine du 1er (le mardi suivant si le mois commence un dimanche ou un lundi) */
+  const premier=new Date(y,m-1,1),d=new Date(y,m-1,1);
+  if(premier.getDay()<2)while(d.getDay()!==2)d.setDate(d.getDate()+1);else while(d.getDay()!==2)d.setDate(d.getDate()-1);
+  const fin=new Date(y,m,0);
+  while(d<=fin){
+    for(let k=0;k<5;k++){
+      const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()+k),iso=isoJour(x),dans=x.getMonth()===m-1;
+      if(!dans){h+='<div class="gbp-j hors"></div>';continue;}
+      const evs=(parJour[iso]||[]).slice().sort((a,b)=>a.heure.localeCompare(b.heure));
+      h+=`<div class="gbp-j${iso<auj?' passe':''}${iso===auj?' auj':''}"><div class="gbp-d"><span class="gbp-jn">${GBP_JLIB[k]} </span>${x.getDate()}<button class="gbp-add" data-p="ouvrir" data-d="${iso}" title="Poser une permanence">+</button></div>`+
+        evs.map(ev=>{
+          const noms=ev.benevoles.map(id=>{const b=gbpBen(id);return b?b.nom:id;}).join(', ');
+          return `<div class="gbp-p${ev.benevoles.length?'':' inconnu'}" title="${FMT.esc(ev.titre+(ev.heure?' · '+ev.heure:'')+(ev.invites.length?' · invité : '+ev.invites.join(', '):''))}">`+
+            `<span>${FMT.esc(noms||ev.titre)}<small>${GBP_CREN[ev.creneau]}${ev.heure?' · '+ev.heure:''}</small></span>`+
+            (ev.recurrent?'':`<button data-p="retirer" data-e="${FMT.esc(ev.id)}" title="Retirer">×</button>`)+'</div>';
+        }).join('')+'</div>';
+    }
+    d.setDate(d.getDate()+7);
+  }
+  $('gbpCal').innerHTML=h;
+  /* bénévoles du mois */
+  const cr=o=>String(o||'').split(/\s+/).filter(Boolean).map(x=>{const [j,c]=x.split(':');return GBP_JLIB[GBP_JOURS.indexOf(j)].slice(0,3)+'. '+(c==='journee'?'journée':c==='matin'?'matin':'ap.-midi');}).join(', ');
+  $('gbpTbl').innerHTML='<thead><tr><th>Bénévole</th><th>Stand</th><th class="r">Posées</th><th class="r">Loyer offert à</th><th>Disponibilités</th></tr></thead><tbody>'+
+    (D.benevoles.length?D.benevoles.slice().sort((a,b)=>a.nom.localeCompare(b.nom,'fr')).map(b=>{
+      const p=posees[b.id]||0,ok=b.quota!=null&&p>=b.quota;
+      return `<tr><td><b>${FMT.esc(b.nom)}</b>${b.email?'':' <span class="gc-st preavis">pas d\'e-mail</span>'}${b.permsPrevues?`<span class="gc-sub">${FMT.num(b.permsPrevues)} prévue(s) par mois</span>`:''}</td>`+
+        `<td>${b.stand?'<span class="pill">'+FMT.esc(gcStand(b.stand))+'</span>':'<span class="gc-ko">aucun</span>'}</td>`+
+        `<td class="r"><span class="${ok?'gc-ok':p?'':'muted'}">${FMT.num(p)}</span></td><td class="r">${b.quota==null?'—':FMT.num(b.quota)}</td><td>${FMT.esc(cr(b.disponibilites))||'<span class="muted">—</span>'}</td></tr>`;
+    }).join(''):'<tr><td colspan="5" class="muted" style="text-align:center;padding:18px">Aucune fiche cochée « bénévole ».</td></tr>')+'</tbody>';
+}
+$('gbVuePla').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-p]');if(!b||b.disabled)return;
+  e.preventDefault();
+  const a=b.dataset.p;
+  if(a==='ouvrir'){GBP.poser={date:b.dataset.d,creneau:'journee',id:''};gbpRender();$('gbpPoser').scrollIntoView({behavior:'smooth',block:'center'});return;}
+  if(a==='fermer'){GBP.poser=null;gbpRender();return;}
+  if(a==='poser'){
+    const id=$('gbpQui').value,creneau=$('gbpCren').value,ben=gbpBen(id);
+    if(!id){toast('Choisis un·e bénévole.',true);return;}
+    const deja=new Set(GBP.data.evenements.flatMap(ev=>ev.benevoles));
+    if(!deja.has(id)&&deja.size>=4&&!confirm('Il y a déjà '+deja.size+' bénévoles ce mois-ci (4 au plus). Ajouter quand même '+ben.nom+' ?'))return;
+    const t=b.textContent;b.disabled=true;b.textContent='…';
+    try{
+      const r=await API.gestion('gestion_benevolat_poser',{date:GBP.poser.date,creneau,idCreateur:id});
+      if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
+      toast('Permanence posée : '+ben.nom+(r.invitation?' · invitation envoyée':''));GBP.poser=null;await gbpCharger();
+    }catch(err){toast((err&&err.message)||String(err),true);if(b.isConnected){b.disabled=false;b.textContent=t;}}
+    return;
+  }
+  if(a==='retirer'){
+    const ev=GBP.data.evenements.find(x=>x.id===b.dataset.e);if(!ev)return;
+    if(!confirm('Retirer « '+ev.titre+' » du '+gbpJourLib(ev.date)+' ?\n\nL\'événement est supprimé de l\'agenda ; Google prévient la personne invitée.'))return;
+    b.disabled=true;
+    try{
+      const r=await API.gestion('gestion_benevolat_retirer',{idEvenement:ev.id});
+      if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
+      toast('Permanence retirée');await gbpCharger();
+    }catch(err){toast((err&&err.message)||String(err),true);if(b.isConnected)b.disabled=false;}
+  }
+});
+$('gbpPrec').addEventListener('click',()=>{GBP.mois=gbpDecaler(GBP.mois||gbpMoisCourant(),-1);GBP.poser=null;gbpCharger();});
+$('gbpSuiv').addEventListener('click',()=>{GBP.mois=gbpDecaler(GBP.mois||gbpMoisCourant(),1);GBP.poser=null;gbpCharger();});
+$('gbpRefresh').addEventListener('click',()=>gbpCharger());
+$('gbVues').addEventListener('click',e=>{
+  const v=e.target.closest('[data-vue]');if(!v)return;
+  $('gbVues').querySelectorAll('[data-vue]').forEach(x=>x.classList.toggle('on',x===v));
+  $('gbVueDem').classList.toggle('hide',v.dataset.vue!=='Dem');$('gbVuePla').classList.toggle('hide',v.dataset.vue!=='Pla');
+  if(v.dataset.vue==='Pla'&&!GBP.charge)gbpCharger();
+});
+
 /* démo : même logique que le serveur, en mémoire */
 const DEMO_B=(function(){
   let st=null;
   const init=async()=>{
     const g=await DEMO_G('gestion_createurs',{}),j=n=>isoJour(new Date(Date.now()-n*864e5));
     const standDe=id=>{const e=g.emplacements.find(x=>x.idCreateur===id&&gcActifLe(x,g.aujourdhui));return e?e.stand:'';};
-    st={createurs:g.createurs.map(c=>({id:c.id,nom:c.nom,statut:c.statut,stand:standDe(c.id),benevole:!!c.benevole,permsPrevues:c.permsPrevues||''})),
+    const mc=aujourdhui().slice(0,7),mardi=n=>{const [y,m]=mc.split('-').map(Number),d=new Date(y,m-1,1);while(d.getDay()!==2)d.setDate(d.getDate()+1);d.setDate(d.getDate()+7*n);return isoJour(d);};
+    st={nEv:3,evts:[{id:'ev1',date:mardi(0),creneau:'journee',jours:1,heure:'11:00-19:00',titre:'Permanence Jackline',benevoles:['C004'],invites:[],recurrent:false},
+        {id:'ev2',date:mardi(1),creneau:'matin',jours:0.5,heure:'11:00-15:00',titre:'Permanence Jackline',benevoles:['C004'],invites:[],recurrent:false},
+        {id:'ev3',date:mardi(2),creneau:'apres_midi',jours:0.5,heure:'15:00-19:00',titre:'Perm Lou',benevoles:[],invites:['lou@autre-adresse.fr'],recurrent:false}],
+      createurs:g.createurs.map(c=>({id:c.id,nom:c.nom,email:c.email,statut:c.statut,stand:standDe(c.id),benevole:!!c.benevole||c.id==='C004',permsPrevues:c.permsPrevues||(c.id==='C004'?2:'')})),
       stands:[{code:'illu',libelle:'Stand illustration',loyer:28,perms:2,max:2},{code:'unique',libelle:'Stand unique',loyer:48,perms:2,max:3},{code:'grand',libelle:'Grand stand',loyer:68,perms:4,max:4}],
       demandes:[
         {id:'BV001',recueLe:j(20),majLe:'',nom:'Jackline Martin',marque:'Jackline',email:'jackline@exemple.fr',idCreateur:'C004',stand:'illu',perms:2,disponibilites:'mar:journee jeu:matin',formation:'habitude',statut:'retenu',traiteeLe:j(18),traiteePar:'Mo',remarque:'',source:'site'},
@@ -2888,6 +3038,19 @@ const DEMO_B=(function(){
     switch(action){
       case 'gestion_benevolat':return JSON.parse(JSON.stringify({ok:true,aujourdhui:aujourdhui(),demandes:avecFiche(),stands:st.stands,createurs:st.createurs}));
       case 'gestion_benevolat_lier':d.idCreateur=p.idCreateur||'';return {ok:true};
+      case 'gestion_benevolat_planning':{
+        const disp={};st.demandes.forEach(x=>{if(x.idCreateur)disp[x.idCreateur]=x.disponibilites;});
+        const benevoles=st.createurs.filter(c=>c.benevole).map(c=>{const s=st.stands.find(x=>x.code===c.stand);return {id:c.id,nom:c.nom,stand:c.stand,quota:s?s.perms:null,permsPrevues:c.permsPrevues,email:c.email,disponibilites:disp[c.id]||''};});
+        return JSON.parse(JSON.stringify({ok:true,mois:p.mois,aujourdhui:aujourdhui(),agenda:'BÉNÉVOLES',agendaErreur:'',benevoles,evenements:st.evts.filter(x=>x.date.slice(0,7)===p.mois)}));}
+      case 'gestion_benevolat_poser':{
+        const c=st.createurs.find(x=>x.id===p.idCreateur),[y,m,j]=p.date.split('-').map(Number);
+        if(new Date(y,m-1,j).getDay()<2)return {ok:false,message:'La boutique est fermée le dimanche et le lundi.'};
+        if(!c.benevole)return {ok:false,message:c.nom+" n'est pas cochée bénévole."};
+        if(st.evts.some(x=>x.date===p.date&&x.benevoles.includes(c.id)))return {ok:false,message:c.nom+' a déjà une permanence ce jour-là.'};
+        const h={matin:'11:00-15:00',apres_midi:'15:00-19:00',journee:'11:00-19:00'}[p.creneau];
+        st.evts.push({id:'ev'+(++st.nEv),date:p.date,creneau:p.creneau,jours:p.creneau==='journee'?1:0.5,heure:h,titre:'Permanence '+c.nom,benevoles:[c.id],invites:[],recurrent:false});
+        return {ok:true,invitation:p.date>=aujourdhui()};}
+      case 'gestion_benevolat_retirer':{const i=st.evts.findIndex(x=>x.id===p.idEvenement);if(i<0)return {ok:false,message:'Permanence introuvable.'};st.evts.splice(i,1);return {ok:true};}
       case 'gestion_benevolat_remarque':d.remarque=p.remarque;return {ok:true};
       case 'gestion_benevolat_statut':{
         if(p.statut==='retenu'){const c=st.createurs.find(x=>x.id===d.idCreateur);if(!c)return {ok:false,message:"Rattache d'abord la demande à une fiche créateur."};c.benevole=true;c.permsPrevues=p.perms||d.perms;}
