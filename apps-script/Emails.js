@@ -68,7 +68,13 @@ const EMAILS_PAR_DEFAUT = [
   ['relance_loyer', 'Collectif 13H59 · ton loyer · {mois}',
     "Bonjour {marque},\n\nSauf erreur de notre part, nous n'avons pas encore reçu ton loyer ({mois}) : il reste {montant} à régler. " +
     "Le loyer se paie par virement entre le 20 et le 25 du mois précédent.\n\nSi le virement est déjà parti, ne tiens pas compte de ce message.\n\nMerci !\nL'équipe du 13H59 Shop",
-    true, 'Gestion ▸ Facturation ▸ À encaisser : bouton « Relancer les retardataires ».']
+    true, 'Gestion ▸ Facturation ▸ À encaisser : bouton « Relancer les retardataires ».'],
+  ['benevolat_recu', 'Ta demande de bénévolat au 13H59 Shop',
+    "Bonjour {prenom},\n\nMerci d'avoir pris le temps de nous transmettre tes disponibilités pour tenir la boutique ({marque}, {stand}) !\n\n" +
+    "On te répond au plus vite pour organiser tes permanences et ta formation. Avant ta première permanence, un passage en boutique est prévu " +
+    "pour te former avec une gérante et te remettre les clés ; le contrat de bénévolat se signe ce jour-là.\n\n" +
+    "Pour toute question, réponds simplement à cet e-mail.\n\nÀ très vite,\nL'équipe du 13H59 Shop",
+    true, 'Page bénévolat : envoyé automatiquement à chaque demande reçue.']
 ];
 
 /** Crée l'onglet `emails` avec les textes par défaut s'il n'existe pas. */

@@ -143,8 +143,9 @@ function _calculFacture(ctx, r, permsFaites, permsDemandees) {
   // Bénévole : loyer réduit selon les permanences faites.
   if (benevole && standPrincipal) {
     const duStand = standPrincipal.perms != null ? standPrincipal.perms : (PERMS_PAR_DEFAUT[standPrincipal.code] != null ? PERMS_PAR_DEFAUT[standPrincipal.code] : null);
-    const deLaFiche = Number(_val(tC, r, 'perms_prevues')) > 0 ? Number(_val(tC, r, 'perms_prevues')) : null;
-    permsRequises = duStand == null ? null : Number(permsDemandees) > 0 ? Number(permsDemandees) : (deLaFiche || duStand);
+    // Loyer offert au nombre de permanences du stand ; en faire moins le réduit d'autant (formulaire bénévolat).
+    // « Permanences prévues » sur la fiche sert au planning : elle ne baisse pas ce seuil.
+    permsRequises = duStand == null ? null : Number(permsDemandees) > 0 ? Number(permsDemandees) : duStand;
     if (permsRequises == null) alertes.push('pas de bénévolat sur ce stand : loyer dû en entier');
     else {
       const faites = Math.max(0, Number(permsFaites) || 0);

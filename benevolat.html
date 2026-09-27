@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>13H59 SHOP — Bénévolat</title>
+<meta name="description" content="Tu exposes au 13H59 Shop et tu aimerais tenir la boutique ? Propose tes permanences.">
+<style>
+  :root{
+    --bg:#f6f6f4; --card:#fff; --ink:#0f0f0f; --muted:#9a978f; --line:#eae7e1;
+    --accent:#0f0f0f; --band:#000; --pos:#1f8a4c; --neg:#c0392b; --chip:#f0efec; --tot:#f3f1ec;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+  .band{background:var(--band);color:#fff;text-align:center;font-weight:800;letter-spacing:4px;font-size:26px;padding:18px}
+  .wrap{max-width:720px;margin:0 auto;padding:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+  h1{margin:0;font-size:20px;line-height:1.3}
+  h2{margin:0 0 12px;font-size:15px;display:flex;align-items:center;gap:8px}
+  h2 .n{display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--band);color:#fff;font-size:12px;align-items:center;justify-content:center;flex:0 0 auto}
+  .muted{color:var(--muted)}
+  .lead{margin:8px 0 0;line-height:1.6;color:#4a4843}
+  label{display:block;font-size:11px;color:var(--muted);font-weight:700;margin:0 0 5px;letter-spacing:.4px;text-transform:uppercase}
+  input,textarea{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:10px;font-size:15px;background:#fff;color:var(--ink);outline:none;font-family:inherit}
+  input:focus,textarea:focus{border-color:#c9c6bf;box-shadow:0 0 0 3px rgba(0,0,0,.06)}
+  .bad{border-color:#e5b9b3!important;background:#fdf6f5!important}
+  textarea{min-height:110px;resize:vertical;line-height:1.5}
+  .f{margin-bottom:12px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .err{color:var(--neg);font-size:12px;margin-top:5px}
+  .hint{color:var(--muted);font-size:12px;margin-top:6px;line-height:1.5}
+  .stands{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stand{border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;user-select:none;transition:.12s;position:relative}
+  .stand:hover{border-color:#cfccc5}
+  .stand:focus-visible,.cats span:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .stand.on{background:var(--band);border-color:var(--band);color:#fff}
+  .stand .t{font-weight:800;line-height:1.35}
+  .stand .p{font-size:20px;font-weight:800;margin-top:4px}
+  .stand .p small{font-size:12px;font-weight:600;opacity:.7}
+  .stand .d{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.45}
+  .stand.on .d{color:#cfcfcf}
+  .stand .full{display:inline-block;margin-bottom:6px;font-size:10px;font-weight:800;background:#fbf3e2;color:#8a6d3b;border-radius:999px;padding:2px 7px}
+  .cats{display:flex;flex-wrap:wrap;gap:8px}
+  .cats span{border:1px solid var(--line);border-radius:999px;padding:7px 13px;font-weight:700;font-size:13px;cursor:pointer;user-select:none}
+  .cats span:hover{border-color:#cfccc5}
+  .cats span.on{background:var(--band);border-color:var(--band);color:#fff}
+  .cats.bad span{border-color:#e5b9b3}
+  .btn{border:none;border-radius:10px;padding:13px 16px;font-weight:700;cursor:pointer;font-size:15px;width:100%}
+  .btn-accent{background:var(--accent);color:#fff}.btn-accent:hover{background:#000}
+  .btn[disabled]{opacity:.5;cursor:wait}
+  .check{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;cursor:pointer;margin-bottom:10px;text-transform:none;letter-spacing:0;color:var(--ink);font-weight:400}
+  .check input{width:18px;height:18px;margin:2px 0 0;flex:0 0 auto;accent-color:#111}
+  .note{background:var(--tot);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.55;color:#4a4843}
+  .done{text-align:center;padding:32px 20px}
+  .done .ic{width:54px;height:54px;border-radius:50%;background:#eef6f0;color:var(--pos);display:inline-flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;margin-bottom:12px}
+  .piege{position:absolute;left:-5000px;width:1px;height:1px;overflow:hidden}
+  .chargement{color:var(--muted);font-size:13px;padding:6px 0}
+  .foot{text-align:center;color:var(--muted);font-size:12px;padding:6px 0 24px;line-height:1.6}
+  a{color:var(--ink);font-weight:600;text-decoration:underline;text-decoration-color:#cfccc5;text-decoration-thickness:1px;text-underline-offset:3px}
+  a:hover{text-decoration-color:var(--ink)}
+  .foot a{color:inherit;font-weight:400}
+  .hide{display:none!important}
+  @media(max-width:560px){
+    .band{font-size:20px;letter-spacing:2px;padding:14px}
+    .wrap{padding:12px}
+    .card{padding:16px;border-radius:14px}
+    .grid2,.stands{grid-template-columns:1fr}
+  }
+  .intro{line-height:1.65;color:#4a4843}
+  .intro h3{font-size:13px;margin:14px 0 4px;color:var(--ink)}
+  .intro ul{margin:0;padding-left:18px}
+  .intro p{margin:8px 0 0}
+  .choix{display:flex;flex-wrap:wrap;gap:8px}
+  .choix span{border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-weight:700;font-size:13px;cursor:pointer;user-select:none}
+  .choix span:hover{border-color:#cfccc5}
+  .choix span.on{background:var(--band);border-color:var(--band);color:#fff}
+  .choix span:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .choix.bad span{border-color:#e5b9b3}
+  .dispos{width:100%;border-collapse:collapse}
+  .dispos td{padding:6px 0;border-top:1px solid var(--line);vertical-align:middle}
+  .dispos tr:first-child td{border-top:none}
+  .dispos td.j{font-weight:700;width:92px}
+  .dispos .choix span{padding:6px 11px;font-size:12px}
+  .dispos.bad td.j{color:var(--neg)}
+  @media(max-width:560px){ .dispos td.j{display:block;width:auto;border-top:none;padding-bottom:0} .dispos td{display:block} .dispos tr{display:block;border-top:1px solid var(--line);padding:6px 0} .dispos tr:first-child{border-top:none} }
+</style>
+</head>
+<body>
+<div class="band">13H59 SHOP</div>
+
+<div class="wrap">
+  <div id="vForm">
+    <div class="card">
+      <h1>Bénévolat</h1>
+      <div class="intro">
+        <p>Si tu es ici, c'est que tu es intéressé·e par le bénévolat dans notre belle boutique !</p>
+        <h3>Ta mission</h3>
+        <ul><li>Accueillir la clientèle</li><li>Encaisser les clients</li><li>Entretenir la boutique : le comptoir, la friperie, l'entretien et le ménage</li></ul>
+        <h3>En contrepartie de tes permanences</h3>
+        <ul><li>Pas de loyer à verser le mois concerné</li><li>Aucune commission sur tes ventes le mois concerné</li></ul>
+        <h3>À ta disposition dans notre cuisine équipée</h3>
+        <p style="margin-top:0">Frigo, micro-ondes, lave-vaisselle, machine à café et café, bouilloire et thé.</p>
+        <p><b>Le plus :</b> être créateur présent te permet de fidéliser ta clientèle et de présenter tes produits. Pendant tes permanences, tu peux travailler sur tes projets personnels ou professionnels (dessin, création de bijoux ou autre qui ne demande pas beaucoup de matériel) : nous te laissons libre de créer, sans oublier les missions demandées.</p>
+        <h3>Les permanences selon ton stand</h3>
+        <ul id="bRepartition"><li>Grand stand 68 € : 4 permanences maximum par mois</li><li>Stand unique 48 € : 2 à 3 permanences par mois, selon les besoins de répartition</li><li>Stand illustration 28 € : 2 permanences par mois</li></ul>
+        <p>Si tu souhaites faire moins de permanences qu'indiqué, ton loyer est réduit d'autant, toujours sans commission. Par exemple, grand stand avec 2 permanences : loyer de 34 € au lieu de 68 €, sans commission le mois concerné.</p>
+        <p>Avant ta première permanence, un passage en boutique est prévu pour te former avec une gérante et te remettre les clés. Un contrat de bénévolat est à signer ce jour-là.</p>
+        <p><b>Nous prenons 4 bénévoles maximum par mois</b> : si vous êtes nombreux, vous serez réparti·es sur plusieurs mois.</p>
+        <p class="muted">Boutique ouverte du mardi au samedi, de 11 h à 19 h.</p>
+      </div>
+    </div>
+
+    <form id="formB" novalidate>
+      <div class="card">
+        <h2><span class="n">1</span>Toi</h2>
+        <div class="f"><label for="bNom">Ton nom et prénom</label><input id="bNom" autocomplete="name" maxlength="80" placeholder="Lucie Vasseur"><div class="err hide"></div></div>
+        <div class="f"><label for="bMarque">Ton nom de créateur·rice</label><input id="bMarque" maxlength="80" placeholder="Atelier Lune"><div class="err hide"></div></div>
+        <div class="f"><label for="bEmail">Adresse e-mail</label><input id="bEmail" type="email" autocomplete="email" maxlength="120" placeholder="lucie@exemple.fr"><div class="err hide"></div><div class="hint">Celle que tu utilises avec le shop : c'est à cette adresse que tu recevras les invitations de l'agenda des permanences.</div></div>
+        <div class="f"><label>Ton stand actuel</label><div class="choix" id="bStands" role="radiogroup" aria-label="Stand"><span class="chargement">Chargement…</span></div><div class="err hide" id="bStandErr"></div></div>
+        <div class="f"><label>Combien de permanences souhaites-tu faire par mois ?</label><div class="choix" id="bPerms" role="radiogroup" aria-label="Permanences par mois"><span class="muted" style="border:none;padding:6px 0;cursor:default;font-weight:400">Choisis d'abord ton stand.</span></div><div class="err hide" id="bPermsErr"></div><div class="hint" id="bPermsHint"></div></div>
+        <div class="piege" aria-hidden="true"><label for="bSite">Ne pas remplir</label><input id="bSite" tabindex="-1" autocomplete="off"></div>
+      </div>
+
+      <div class="card">
+        <h2><span class="n">2</span>Tes disponibilités dans la semaine</h2>
+        <table class="dispos" id="bDispos"></table>
+        <div class="err hide" id="bDisposErr"></div>
+        <div class="hint">Une permanence d'une demi-journée compte pour une demi-permanence.</div>
+      </div>
+
+      <div class="card">
+        <h2><span class="n">3</span>Es-tu à l'aise pour tenir une boutique ?</h2>
+        <div class="choix" id="bFormation" role="radiogroup" aria-label="Formation">
+          <span role="radio" tabindex="0" aria-checked="false" data-v="habitude">J'ai l'habitude</span>
+          <span role="radio" tabindex="0" aria-checked="false" data-v="formation">J'ai besoin d'une journée complète d'observation et de formation</span>
+        </div>
+        <div class="err hide" id="bFormationErr"></div>
+        <button class="btn btn-accent" type="submit" id="bEnvoyer" style="margin-top:18px">Envoyer</button>
+        <div class="err hide" id="bGlobal" style="text-align:center"></div>
+      </div>
+    </form>
+  </div>
+
+  <div class="card done hide" id="vFin">
+    <div class="ic">✓</div>
+    <h1>Merci <span id="bFinPrenom"></span> !</h1>
+    <p class="muted" style="line-height:1.6;margin:10px 0 0" id="bFinTexte"></p>
+  </div>
+
+  <div class="foot">Collectif 13H59 · 27 rue du Plat, 59800 Lille · <a href="mailto:13h59shop@gmail.com">13h59shop@gmail.com</a> · <a href="https://www.instagram.com/13h59_shop/" target="_blank" rel="noopener">@13h59_shop</a></div>
+</div>
+
+<script>
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwKx5Wr_N24BPfisZM74sgZcldr-L3TSZHjPJ3WDIGaENIVa3ANVWRn5UgPTOVCeMeObw/exec';
+/* ?demo : la page fonctionne sans serveur (pour la tester sans rien écrire) */
+const DEMO = new URLSearchParams(location.search).has('demo');
+const OUVERTURE = Date.now();
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const JOURS = [['mar','Mardi'],['mer','Mercredi'],['jeu','Jeudi'],['ven','Vendredi'],['sam','Samedi']];
+const CRENEAUX = [['matin','11 h – 15 h'],['apres_midi','15 h – 19 h'],['journee','La journée']];
+let STANDS = [], stand = null, perms = null, formation = null;
+const dispos = {};
+
+async function appeler(action, params){
+  if (DEMO) return demo(action, params || {});
+  const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action }, params || {})) });
+  return res.json();
+}
+const puce = (v, lib, on, attr) => '<span role="radio" tabindex="0" aria-checked="' + on + '" class="' + (on ? 'on' : '') + '" ' + attr + '="' + esc(v) + '">' + esc(lib) + '</span>';
+
+function renderStands(){
+  $('bStands').innerHTML = STANDS.map(s => puce(s.code, s.libelle + ' · ' + s.loyer + ' €', s.code === stand, 'data-s')).join('');
+  const s = STANDS.find(x => x.code === stand);
+  if (!s) return;
+  const n = []; for (let i = s.max; i >= 1; i--) n.push(i);
+  if (perms > s.max) perms = null;
+  $('bPerms').innerHTML = n.map(i => puce(i, i + ' permanence' + (i > 1 ? 's' : ''), i === perms, 'data-p')).join('');
+  $('bPermsHint').textContent = perms && perms < s.perms
+    ? 'Loyer réduit : ' + (Math.round(s.loyer * (1 - perms / s.perms) * 100) / 100).toString().replace('.', ',') + ' € au lieu de ' + s.loyer + ' €, sans commission.'
+    : 'Loyer offert à partir de ' + s.perms + ' permanence' + (s.perms > 1 ? 's' : '') + ' dans le mois, sans commission.';
+}
+function renderDispos(){
+  $('bDispos').innerHTML = JOURS.map(([j, lib]) => '<tr><td class="j">' + lib + '</td><td><div class="choix" data-j="' + j + '">' +
+    CRENEAUX.map(([c, l]) => puce(c, l, dispos[j] === c, 'data-c')).join('') + '</div></td></tr>').join('');
+}
+renderDispos();
+
+document.addEventListener('click', e => {
+  const x = e.target.closest('#bStands [data-s]');
+  if (x) { stand = x.dataset.s; renderStands(); $('bStandErr').classList.add('hide'); $('bStands').classList.remove('bad'); return; }
+  const p = e.target.closest('#bPerms [data-p]');
+  if (p) { perms = Number(p.dataset.p); renderStands(); $('bPermsErr').classList.add('hide'); return; }
+  const c = e.target.closest('#bDispos [data-c]');
+  if (c) { const j = c.parentElement.dataset.j; dispos[j] = dispos[j] === c.dataset.c ? undefined : c.dataset.c; renderDispos(); $('bDisposErr').classList.add('hide'); $('bDispos').classList.remove('bad'); return; }
+  const f = e.target.closest('#bFormation [data-v]');
+  if (f) { formation = f.dataset.v; $('bFormation').querySelectorAll('[data-v]').forEach(y => { y.classList.toggle('on', y === f); y.setAttribute('aria-checked', y === f); }); $('bFormationErr').classList.add('hide'); $('bFormation').classList.remove('bad'); }
+});
+document.addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.choix [role="radio"]')) { e.preventDefault(); const k = e.target.parentElement.id || e.target.parentElement.dataset.j; e.target.click(); const box = $(k) || document.querySelector('[data-j="' + k + '"]'); const on = box && box.querySelector('.on'); if (on) on.focus(); }
+});
+
+(async function charger(){
+  try {
+    const r = await appeler('benevolat_infos');
+    if (!r.ok) throw new Error(r.message || 'réponse invalide');
+    STANDS = r.stands;
+    renderStands();
+  } catch (e) {
+    $('bGlobal').innerHTML = "Le formulaire n'a pas pu se charger. Réessaie dans un instant, ou écris-nous à <a href=\"mailto:13h59shop@gmail.com\">13h59shop@gmail.com</a>.";
+    $('bGlobal').classList.remove('hide');
+    $('bEnvoyer').disabled = true;
+  }
+})();
+
+/* ---------- Vérifications ---------- */
+function setErr(el, msg){
+  const box = el.parentElement.querySelector('.err');
+  el.classList.toggle('bad', !!msg);
+  if (box) { box.textContent = msg || ''; box.classList.toggle('hide', !msg); }
+  return !msg;
+}
+function erreurBloc(id, err, msg){ $(err).textContent = msg; $(err).classList.remove('hide'); $(id).classList.add('bad'); return false; }
+const EMAIL = /^[^\s@'"<>]+@[^\s@'"<>]+\.[A-Za-z]{2,}$/;
+const REGLES = {
+  bNom:    v => v ? '' : 'Indique ton nom et prénom.',
+  bMarque: v => v ? '' : 'Indique ton nom de créateur·rice.',
+  bEmail:  v => EMAIL.test(v) ? '' : 'Adresse e-mail invalide.'
+};
+Object.keys(REGLES).forEach(id => {
+  $(id).addEventListener('blur', () => { if ($(id).value.trim()) setErr($(id), REGLES[id]($(id).value.trim())); });
+  $(id).addEventListener('input', () => { if ($(id).classList.contains('bad')) setErr($(id), REGLES[id]($(id).value.trim())); });
+});
+
+$('formB').addEventListener('submit', async e => {
+  e.preventDefault();
+  let ok = Object.keys(REGLES).map(id => setErr($(id), REGLES[id]($(id).value.trim()))).every(Boolean);
+  if (!stand) ok = erreurBloc('bStands', 'bStandErr', 'Choisis ton stand.') && ok;
+  if (stand && !perms) { $('bPermsErr').textContent = 'Choisis un nombre de permanences.'; $('bPermsErr').classList.remove('hide'); ok = false; }
+  const dispo = JOURS.map(([j]) => dispos[j] ? j + ':' + dispos[j] : '').filter(Boolean).join(' ');
+  if (!dispo) ok = erreurBloc('bDispos', 'bDisposErr', 'Indique au moins une disponibilité.') && ok;
+  if (!formation) ok = erreurBloc('bFormation', 'bFormationErr', 'Choisis une réponse.') && ok;
+  $('bGlobal').textContent = ok ? '' : 'Quelques champs sont à compléter (en rouge).';
+  $('bGlobal').classList.toggle('hide', ok);
+  if (!ok) { const b = document.querySelector('#formB .bad, #formB .err:not(.hide)'); if (b) b.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+
+  const btn = $('bEnvoyer'); btn.disabled = true; btn.textContent = 'Envoi…';
+  try {
+    const v = id => $(id).value.trim();
+    const r = await appeler('benevolat_envoyer', {
+      nom: v('bNom'), marque: v('bMarque'), email: v('bEmail'), stand, perms, disponibilites: dispo, formation,
+      site: $('bSite').value, duree: Date.now() - OUVERTURE
+    });
+    if (!r.ok) throw new Error(r.message || "L'envoi a échoué.");
+    $('bFinPrenom').textContent = v('bNom').split(' ')[0];
+    $('bFinTexte').innerHTML = (r.deja ? "Tu nous avais déjà écrit avec cette adresse : on a <b>mis à jour ta demande</b>.<br>" : "Tu vas recevoir un e-mail de confirmation (pense à regarder tes spams).<br>") +
+      "On te répond au plus vite pour organiser tes permanences et ta formation. On espère que cette expérience de bénévolat te plaira !";
+    $('vForm').classList.add('hide'); $('vFin').classList.remove('hide'); window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (err) {
+    $('bGlobal').textContent = (err && err.message) || "L'envoi a échoué : réessaie dans un instant.";
+    $('bGlobal').classList.remove('hide');
+    btn.disabled = false; btn.textContent = 'Envoyer';
+  }
+});
+
+/* ---------- Démo (?demo) : aucune donnée envoyée ---------- */
+function demo(action, p){
+  return new Promise(ok => setTimeout(() => ok(action === 'benevolat_infos' ? {
+    ok: true,
+    stands: [
+      { code: 'illu', libelle: 'Stand illustration', loyer: 28, perms: 2, max: 2 },
+      { code: 'unique', libelle: 'Stand unique', loyer: 48, perms: 2, max: 3 },
+      { code: 'grand', libelle: 'Grand stand', loyer: 68, perms: 4, max: 4 }
+    ]
+  } : p.site ? { ok: true } : p.duree < 4000 ? { ok: false, message: 'Envoi trop rapide : relis ta demande puis renvoie-la.' }
+    : { ok: true, deja: /deja@/.test(p.email) }), 400));
+}
+</script>
+</body>
+</html>
