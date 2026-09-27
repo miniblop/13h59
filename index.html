@@ -241,6 +241,51 @@
   .gbp-poser{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px;background:var(--tot)}
   #gbpTbl td.r,#gbpTbl th.r{text-align:right}
   @media(max-width:560px){.gbp-cal{grid-template-columns:1fr}.gbp-tete,.gbp-j.hors{display:none}.gbp-jn{display:inline}.gbp-j{min-height:0}}
+  .gbi-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px}
+  .gbi-kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+  .gbi-kpi .k{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  .gbi-kpi .v{font-size:22px;font-weight:800;margin-top:4px}
+  .gbi-kpi .v.pos{color:var(--pos)}.gbi-kpi .v.neg{color:var(--neg)}
+  .gbi-kpi .s{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.4}
+  .gbi-titre{font-size:18px;font-weight:800;margin-bottom:4px}
+  .gbi-svg{width:100%;height:auto;display:block}
+  .gbi-svg .ax{font-size:10px;fill:#9a978f}
+  .gbi-leg{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);margin-top:8px}
+  .gbi-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+  .gbi-leg i.ligne{height:3px;vertical-align:2px}
+  .gbi-tbl{width:100%;border-collapse:collapse;font-size:13px}
+  .gbi-tbl th,.gbi-tbl td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+  .gbi-tbl th{font-size:11px;color:var(--muted);font-weight:700}
+  .gbi-tbl .r{text-align:right}
+  .gbi-tbl tr.sec td{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);padding-top:14px}
+  .gbi-tbl tr.tot td{font-weight:700;background:var(--tot)}
+  .gbi-tbl tr.res td{font-weight:800;border-top:2px solid var(--ink)}
+  .gbi-tbl tr.poste td:first-child{padding-left:20px;color:#55524c;font-weight:400}
+  .gbi-tbl tr.cat td{font-weight:600}
+  .gbi-mois td,.gbi-mois th{font-size:12px;padding:5px 6px}
+  .gbi-mois .est{color:var(--muted)}
+  .gbi-mois .fut{font-style:italic}
+  .gbi-mois th.fut{color:#c9c6bf}
+  .gbi-clic{cursor:pointer}.gbi-clic:hover{background:var(--chip)}
+  .gbi-pt{color:var(--ink);font-weight:800}
+  .gbi-grille{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+  .gbi-bloc{font-size:13px;line-height:1.55}
+  .gbi-gros{font-size:22px;font-weight:800}
+  .gbi-mini{width:100%;border-collapse:collapse}.gbi-mini td{padding:4px 0;border-bottom:1px solid var(--line)}.gbi-mini .r{text-align:right}
+  .gbi-poser{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0;background:var(--tot)}
+  #gbiExercice{width:auto}
+  @media(max-width:560px){.gbi-kpis{grid-template-columns:1fr 1fr}.gbi-grille{grid-template-columns:1fr}.gbi-kpi .v{font-size:18px}}
+  @media print{
+    body.print-bilan *{visibility:hidden}
+    body.print-bilan #gbiRapport,body.print-bilan #gbiRapport *{visibility:visible}
+    body.print-bilan #gbiRapport{position:absolute;left:0;top:0;width:100%}
+    body.print-bilan .gbi-noprint{display:none!important}
+    body.print-bilan #gbiRapport .card{break-inside:avoid;border:none;box-shadow:none;padding:6px 0;margin:0 0 10px}
+    body.print-bilan .tblwrap{overflow:visible}
+    body.print-bilan .gbi-mois td,body.print-bilan .gbi-mois th{font-size:7.5px;padding:2px 3px}
+    body.print-bilan .gbi-kpi{break-inside:avoid}
+    @page{size:A4 landscape;margin:12mm}
+  }
   .gv-filtres{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
   #gvTbl tbody tr{cursor:pointer}
   #gvTbl tbody tr:hover td{background:#faf9f7}
@@ -390,6 +435,8 @@
   <div id="viewGestion" class="hide">
     <div class="subtabs" id="gSubtabs"><div class="subtab active" data-sub="stats">Statistiques</div><div class="subtab" data-sub="createurs">Créateurs</div><div class="subtab" data-sub="candidatures">Candidatures</div><div class="subtab" data-sub="benevolat">Bénévolat</div><div class="subtab" data-sub="ventes">Ventes</div><div class="subtab" data-sub="journal">Journal</div><div class="subtab" data-sub="facturation">Facturation</div><div class="subtab" data-sub="reglages">Réglages</div></div>
     <div id="gStats">
+    <div id="gsVues" class="ge-vues"><span class="gc-chip on" data-vue="Mon">Monitoring</span><span class="gc-chip" data-vue="Bil">Bilan annuel</span></div>
+    <div id="gsMon">
     <div class="card">
       <h2>Espace gestion</h2>
       <div class="filters" style="margin-top:12px">
@@ -412,6 +459,14 @@
     <div id="gTables"></div>
     <div class="card"><div class="cardhead"><h2>Récapitulatif (par <span id="gDimLabel">semaine</span>)</h2><button class="btn-dl" data-tbl="gRecap" data-name="recap_gestion">⬇︎ CSV</button></div><div class="tblwrap"><table id="gRecap"></table></div></div>
     <div class="card"><div class="cardhead"><h2>Détail des ventes <span id="gDetailNote" class="muted" style="font-weight:400;font-size:12px"></span></h2><button class="btn-dl" data-type="detail-g" data-name="detail_gestion">⬇︎ CSV</button></div><div class="tblwrap"><table id="gDetail"></table></div></div>
+    </div>
+    <div id="gsBil" class="hide">
+      <div id="gbiErr" class="warn hide"></div>
+      <div class="card gbi-noprint"><div class="cardhead" style="margin-bottom:0"><div><h2>Bilan annuel</h2><div class="muted" style="font-size:12px;margin-top:4px">Compte de résultat de l'association, trésorerie et indicateurs, à présenter à une banque, un financeur ou en assemblée générale.</div></div>
+        <div class="gc-acts" style="margin-top:0"><select id="gbiExercice"></select><button class="btn-dl" data-g="params">Paramètres</button><button class="btn-dl" data-g="imprimer">Imprimer / PDF</button><button class="btn-dl" data-g="actualiser">↻ Actualiser</button></div></div></div>
+      <div class="card gbi-noprint hide" id="gbiParamsCard"><h2>Paramètres du bilan</h2><div id="gbiParams"></div></div>
+      <div id="gbiRapport"></div>
+    </div>
     </div>
     <datalist id="gerantes"><option value="Mo"><option value="Caro"><option value="Solenne"></datalist>
     <div id="gCreat" class="hide">
@@ -816,7 +871,7 @@ const API = {
     return res.json();
   },
   async gestion(action,params){
-    if(DEMO_MODE) return (/^gestion_benevolat/.test(action)?DEMO_B:/^gestion_versements/.test(action)?DEMO_W:/^gestion_(encaissements|paiements?_|relancer)/.test(action)?DEMO_E:/^gestion_factures?/.test(action)?DEMO_F:/^gestion_(ventes?|panier|journal)/.test(action)?DEMO_V:action.indexOf('gestion_reglage')===0?DEMO_R:action.indexOf('gestion_candidature')===0||action==='gestion_email_maj'?DEMO_K:DEMO_G)(action,params||{});
+    if(DEMO_MODE) return (/^gestion_bilan/.test(action)?DEMO_BI:/^gestion_benevolat/.test(action)?DEMO_B:/^gestion_versements/.test(action)?DEMO_W:/^gestion_(encaissements|paiements?_|relancer)/.test(action)?DEMO_E:/^gestion_factures?/.test(action)?DEMO_F:/^gestion_(ventes?|panier|journal)/.test(action)?DEMO_V:action.indexOf('gestion_reglage')===0?DEMO_R:action.indexOf('gestion_candidature')===0||action==='gestion_email_maj'?DEMO_K:DEMO_G)(action,params||{});
     const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify(Object.assign({action,password:S.pwd,qui:gcPrenom()},params||{}))});
     return res.json();
   },
@@ -2198,7 +2253,7 @@ const GJ_ACTIONS={createur_maj:'Fiche créateur modifiée',createur_creer:'Créa
   candidature_retenue:'Candidature retenue',candidature_remarque:'Candidature : remarque',email_envoye:'E-mail envoyé',email_echec:'E-mail non envoyé',email_modele_maj:'E-mail type modifié',
   reglage_categories:'Réglage : catégorie',reglage_stands:'Réglage : stand',reglage_remises:'Réglage : remise',reglage_paiements:'Réglage : paiement',
   reglage_categories_creation:'Catégorie ajoutée',reglage_stands_creation:'Stand ajouté',reglage_remises_creation:'Remise ajoutée',reglage_paiements_creation:'Moyen de paiement ajouté',
-  vente_annulee:'Vente annulée',vente_corrigee:'Vente corrigée',panier_annule:'Panier annulé',vente_supprimee:'Vente supprimée',panier_supprime:'Panier supprimé',createur_fusionne:'Fiches fusionnées',createur_supprime:'Fiche supprimée',reponses_mo:'Réglages (réponses de Mo)',facture_generee:'Facture générée',facture_envoyee:'Facture envoyée',facture_annulee:'Facture annulée',loyers_pointes:'Loyers pointés',loyer_depointe:'Pointage annulé',loyers_relances:'Relances loyer',versements_fichier:'Fichier de virements',versements_valides:'Versements validés',versements_lot_annule:'Fichier de virements annulé',benevolat_recu:'Demande de bénévolat reçue',benevolat_maj:'Demande de bénévolat mise à jour',benevolat_statut:'Bénévolat : décision',benevolat_lien:'Bénévolat : fiche rattachée',permanence_posee:'Permanence posée',permanence_retiree:'Permanence retirée'};
+  vente_annulee:'Vente annulée',vente_corrigee:'Vente corrigée',panier_annule:'Panier annulé',vente_supprimee:'Vente supprimée',panier_supprime:'Panier supprimé',createur_fusionne:'Fiches fusionnées',createur_supprime:'Fiche supprimée',reponses_mo:'Réglages (réponses de Mo)',facture_generee:'Facture générée',facture_envoyee:'Facture envoyée',facture_annulee:'Facture annulée',loyers_pointes:'Loyers pointés',loyer_depointe:'Pointage annulé',loyers_relances:'Relances loyer',versements_fichier:'Fichier de virements',versements_valides:'Versements validés',versements_lot_annule:'Fichier de virements annulé',benevolat_recu:'Demande de bénévolat reçue',benevolat_maj:'Demande de bénévolat mise à jour',benevolat_statut:'Bénévolat : décision',benevolat_lien:'Bénévolat : fiche rattachée',permanence_posee:'Permanence posée',permanence_retiree:'Permanence retirée',bilan_charge:'Bilan : poste de charges',bilan_charge_supprimee:'Bilan : poste supprimé',bilan_reel:'Bilan : montant réel',bilan_recette:'Bilan : recette saisie',bilan_exercice:'Bilan : exercice',bilan_parametre:'Bilan : paramètre',bilan_import:'Bilan : reprise GESTION COMPTABLE'};
 function gjLibelle(a){return GJ_ACTIONS[a]||(/^(migration|etape|liens_)/.test(a)?'Migration du Sheet':a);}
 async function gjCharger(){
   $('gjErr').classList.add('hide');
@@ -3055,6 +3110,375 @@ const DEMO_B=(function(){
       case 'gestion_benevolat_statut':{
         if(p.statut==='retenu'){const c=st.createurs.find(x=>x.id===d.idCreateur);if(!c)return {ok:false,message:"Rattache d'abord la demande à une fiche créateur."};c.benevole=true;c.permsPrevues=p.perms||d.perms;}
         d.statut=p.statut;d.traiteeLe=p.statut==='a_traiter'?'':aujourdhui();d.traiteePar=p.statut==='a_traiter'?'':(S.prenom||'démo');return {ok:true};}
+    }
+    return {ok:false,message:'Action inconnue.'};
+  };
+})();
+
+/* ===================== GESTION ▸ STATISTIQUES ▸ BILAN ANNUEL ===================== */
+const GBI={data:null,exercice:'',charge:false,edit:null,poste:null,apercu:null,detail:false};
+const GBI_COUL={loyers:'#0f0f0f',commissions:'#55524c',vente_shop:'#8c8880',adhesions:'#bdb9b1',subventions:'#3f7a55',dons:'#7fa98a',ateliers:'#b4cdb9',autres:'#ddd9d2'};
+const GBI_CHARGE='#d98c80',GBI_LIGNE='#1f8a4c';
+const GBI_SRC={saisi:'saisi',factures:'factures',estime:'estimé',calcule:'calculé'};
+const GBI_NAT={charge:'Charge',pret:'Prêt (remboursement)',investissement:'Investissement (amorti)',garantie:'Dépôt de garantie'};
+const GBI_FREQ={mensuel:'par mois',annuel:'par an (réparti sur 12 mois)',ponctuel:'une fois'};
+const gbiR2=x=>Math.round((x+1e-9)*100)/100;
+const gbiEur=x=>FMT.eur(gbiR2(x));
+const gbiEur0=x=>(Math.round(x)).toLocaleString('fr-FR')+' €';
+function gbiMoisCourt(m){const [y,mo]=m.split('-').map(Number);return new Date(y,mo-1,1).toLocaleDateString('fr-FR',{month:'short'}).replace('.','')+' '+String(y).slice(2);}
+function gbiMoisLong(m){const [y,mo]=m.split('-').map(Number);const s=new Date(y,mo-1,1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});return s.charAt(0).toUpperCase()+s.slice(1);}
+function gbiRec(m){return Object.values(m.recettes).reduce((s,r)=>s+r.montant,0);}
+function gbiCh(m){return Object.values(m.charges).reduce((s,v)=>s+v,0)+m.amortissements;}
+function gbiLibCat(c){const x=GBI.data.categories.find(k=>k[0]===c);return x?x[1]:c;}
+function gbiLibRec(t){const x=GBI.data.typesRecettes.find(k=>k[0]===t);return x?x[1]:t;}
+
+async function gbiCharger(){
+  $('gbiErr').classList.add('hide');
+  $('gbiRapport').innerHTML='<div class="card"><div class="muted">Calcul du bilan…</div></div>';
+  try{
+    const r=await API.gestion('gestion_bilan',{exercice:GBI.exercice});
+    if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
+    GBI.data=r;GBI.exercice=r.exercice.code;GBI.charge=true;
+    $('gbiExercice').innerHTML=r.exercices.map(e=>`<option value="${FMT.esc(e.code)}"${e.code===r.exercice.code?' selected':''}>${FMT.esc(e.libelle)}</option>`).join('');
+    gbiRender();gbiRenderParams();
+    if(r.importPossible)$('gbiParamsCard').classList.remove('hide');
+  }catch(e){$('gbiErr').classList.remove('hide');$('gbiErr').textContent='⚠️ Bilan indisponible : '+((e&&e.message)||e);$('gbiRapport').innerHTML='';}
+}
+
+/* synthèse d'un ensemble de mois */
+function gbiSynthese(mois){
+  const s={rec:{},cat:{},amort:0,treso:{apports:0,remboursements:0,investissements:0,garanties:0},ca:0,ventes:0,paniers:0,createurs:0,occ:0,places:0,vides:0,ben:0,benConnu:0,imp:0,impConnu:0,heures:0,heuresConnues:false,n:mois.length,loyers:0,occMois:0};
+  mois.forEach(m=>{
+    Object.entries(m.recettes).forEach(([k,r])=>s.rec[k]=(s.rec[k]||0)+r.montant);
+    Object.entries(m.charges).forEach(([k,v])=>s.cat[k]=(s.cat[k]||0)+v);
+    s.amort+=m.amortissements;Object.keys(s.treso).forEach(k=>s.treso[k]+=m.tresorerie[k]);
+    s.ca+=m.activite.ca;s.ventes+=m.activite.ventes;s.paniers+=m.activite.paniers;s.createurs+=m.activite.createurs;
+    const o=Object.values(m.activite.occupes).reduce((a,b)=>a+b,0),p=Object.values(m.activite.places).reduce((a,b)=>a+b,0);
+    s.occ+=o;s.places+=p;s.vides+=m.manque.standsVides;
+    if(m.manque.benevoles!=null){s.ben+=m.manque.benevoles;s.benConnu++;}
+    if(m.manque.impayes!=null){s.imp+=m.manque.impayes;s.impConnu++;}
+    if(m.benevolat){s.heures+=m.benevolat.heures;s.heuresConnues=true;}
+    s.loyers+=m.recettes.loyers?m.recettes.loyers.montant:0;
+  });
+  s.totRec=Object.values(s.rec).reduce((a,b)=>a+b,0);
+  s.totCh=Object.values(s.cat).reduce((a,b)=>a+b,0)+s.amort;
+  s.resultat=s.totRec-s.totCh;
+  s.varTreso=s.resultat+s.amort+s.treso.apports-s.treso.remboursements-s.treso.investissements-s.treso.garanties;
+  return s;
+}
+
+function gbiRender(){
+  const R=GBI.data,M=R.mois,ex=R.exercice;
+  /* exercice pas encore commencé : tout est prévisionnel, une seule colonne */
+  const previsionnel=!M.some(m=>!m.futur);
+  const real=previsionnel?M:M.filter(m=>!m.futur),fut=previsionnel?[]:M.filter(m=>m.futur);
+  const S=gbiSynthese(real),T=gbiSynthese(M),P=R.precedent?gbiSynthese(R.precedent.mois):null;
+  const dernier=real.length?real[real.length-1].mois:'';
+  let h='';
+  /* en-tête (imprimé) */
+  h+=`<div class="card gbi-entete"><div class="gbi-titre">${FMT.esc(R.asso.nom)} · Bilan de l'${FMT.esc(ex.libelle.replace(/^Exercice/,'exercice'))}</div>`+
+    `<div class="muted" style="font-size:12px;line-height:1.6">${gbiMoisLong(ex.debut)} → ${gbiMoisLong(ex.fin)} · Association loi 1901 · ${FMT.esc(R.asso.adresse)}, ${FMT.esc(R.asso.ville)} · SIRET ${FMT.esc(R.asso.siret)} · NAF ${FMT.esc(R.asso.naf)}<br>`+
+    `${previsionnel?'Budget prévisionnel : charges prévues et loyers des stands occupés à ce jour.':fut.length?`Réalisé jusqu'à ${gbiMoisLong(dernier).toLowerCase()} ; ${fut.length} mois à venir en prévision (charges prévues, loyers des stands occupés).`:'Exercice complet.'} Édité le ${new Date().toLocaleDateString('fr-FR')}.</div></div>`;
+  /* indicateurs clés */
+  const tuile=(lib,v,sous,cls)=>`<div class="gbi-kpi"><div class="k">${lib}</div><div class="v ${cls||''}">${v}</div>${sous?`<div class="s">${sous}</div>`:''}</div>`;
+  /* exercices de durées différentes : on compare les moyennes par mois */
+  const vsP=(a,b)=>{if(!P||!b||!S.n||!P.n)return '';const x=a/S.n,y=b/P.n,v=Math.round((x-y)/Math.abs(y)*100);return ` · ${v>=0?'+':''}${v} % par mois vs ${FMT.esc(R.precedent.exercice.code)}`;};
+  h+='<div class="gbi-kpis">'+
+    tuile('Recettes de l\'association',gbiEur0(S.totRec),(fut.length?'projection '+gbiEur0(T.totRec):'')+vsP(S.totRec,P&&P.totRec))+
+    tuile('Charges',gbiEur0(S.totCh),(fut.length?'projection '+gbiEur0(T.totCh):'')+vsP(S.totCh,P&&P.totCh))+
+    tuile(S.resultat>=0?'Excédent':'Déficit',gbiEur0(S.resultat),fut.length?'projection '+gbiEur0(T.resultat):'',S.resultat>=0?'pos':'neg')+
+    tuile('Variation de trésorerie',gbiEur0(S.varTreso),'résultat, prêts et investissements',S.varTreso>=0?'pos':'neg')+
+    tuile('Ventes des créateurs',gbiEur0(S.ca),'volume d\'activité de la boutique'+vsP(S.ca,P&&P.ca))+
+    tuile('Remplissage des stands',S.places?Math.round(S.occ/S.places*100)+' %':'—',S.n?Math.round(S.occ/S.n)+' stands occupés en moyenne':'')+
+    '</div>';
+  /* graphique */
+  h+=`<div class="card"><div class="cardhead"><h2>Recettes et charges, mois par mois</h2></div><div id="gbiChart"></div>${gbiLegende(M)}</div>`;
+  /* compte de résultat */
+  const col=(s,k,f)=>s?`<td class="r">${gbiEur(f(s))}</td>`:'';
+  const ligneCR=(lib,f,cls)=>`<tr class="${cls||''}"><td>${lib}</td>${col(S,0,f)}${fut.length?col(T,0,f):''}${P?col(P,0,f):''}<td class="r muted">${S.totRec?Math.round(f(S)/S.totRec*100)+' %':''}</td></tr>`;
+  const types=R.typesRecettes.map(t=>t[0]).filter(t=>[S,T,P].some(s=>s&&s.rec[t]));
+  const cats=R.categories.map(c=>c[0]).filter(c=>[S,T,P].some(s=>s&&s.cat[c]));
+  h+=`<div class="card"><div class="cardhead"><h2>Compte de résultat</h2></div><div class="tblwrap"><table class="gbi-tbl"><thead><tr><th></th><th class="r">${previsionnel?'Prévisionnel':'Réalisé'+(dernier?' (→ '+gbiMoisCourt(dernier)+')':'')}<br><span style="font-weight:400">${S.n} mois</span></th>${fut.length?`<th class="r">Projection fin d'exercice<br><span style="font-weight:400">${T.n} mois</span></th>`:''}${P?`<th class="r">${FMT.esc(R.precedent.exercice.libelle)}<br><span style="font-weight:400">${P.n} mois</span></th>`:''}<th class="r">% recettes</th></tr></thead><tbody>`+
+    '<tr class="sec"><td colspan="5">Recettes</td></tr>'+types.map(t=>ligneCR(FMT.esc(gbiLibRec(t)),s=>s.rec[t]||0)).join('')+ligneCR('Total des recettes',s=>s.totRec,'tot')+
+    '<tr class="sec"><td colspan="5">Charges</td></tr>'+cats.map(c=>ligneCR(FMT.esc(gbiLibCat(c)),s=>s.cat[c]||0)).join('')+
+    ([S,T,P].some(s=>s&&s.amort)?ligneCR('Amortissement des investissements',s=>s.amort):'')+ligneCR('Total des charges',s=>s.totCh,'tot')+
+    ligneCR('<b>Résultat (excédent ou déficit)</b>',s=>s.resultat,'res')+'</tbody></table></div>'+
+    '<div class="gc-why">Les ventes des créateurs ne sont pas des recettes de l\'association : elle les encaisse pour leur compte et les leur reverse. Les frais de carte bancaire, refacturés aux créateurs, sont neutres. Les commissions d\'un mois sont celles facturées ce mois-là, sur les ventes du mois précédent.</div></div>';
+  /* trésorerie */
+  const lt=(lib,f,signe)=>`<tr><td>${lib}</td><td class="r">${signe||''}${gbiEur(f(S))}</td>${fut.length?`<td class="r">${signe||''}${gbiEur(f(T))}</td>`:''}${P?`<td class="r">${signe||''}${gbiEur(f(P))}</td>`:''}</tr>`;
+  h+=`<div class="card"><div class="cardhead"><h2>Trésorerie</h2></div><div class="tblwrap"><table class="gbi-tbl"><thead><tr><th></th><th class="r">${previsionnel?'Prévisionnel':'Réalisé'}</th>${fut.length?'<th class="r">Projection</th>':''}${P?`<th class="r">${FMT.esc(R.precedent.exercice.libelle)}</th>`:''}</tr></thead><tbody>`+
+    lt('Résultat',s=>s.resultat)+lt('+ Amortissements (sans sortie d\'argent)',s=>s.amort)+lt('+ Prêts reçus',s=>s.treso.apports)+
+    lt('− Remboursements de prêts',s=>s.treso.remboursements)+lt('− Investissements payés',s=>s.treso.investissements)+lt('− Dépôts de garantie',s=>s.treso.garanties)+
+    `<tr class="res"><td><b>Variation de trésorerie</b></td><td class="r"><b>${gbiEur(S.varTreso)}</b></td>${fut.length?`<td class="r">${gbiEur(T.varTreso)}</td>`:''}${P?`<td class="r">${gbiEur(P.varTreso)}</td>`:''}</tr></tbody></table></div>`+
+    '<div class="gc-why">Rembourser un prêt n\'est pas une charge : c\'est une sortie de trésorerie. Un investissement (travaux) est réparti en charges sur sa durée d\'amortissement.</div></div>';
+  /* activité et indicateurs */
+  const chMoy=S.n?S.totCh/S.n:0,autresMoy=S.n?(S.totRec-S.loyers)/S.n:0,loyerParStand=S.occ?S.loyers/S.occ:0;
+  const seuil=loyerParStand?Math.ceil(Math.max(0,chMoy-autresMoy)/loyerParStand):null,occMoy=S.n?S.occ/S.n:0,placesMoy=S.n?S.places/S.n:0;
+  const smic=R.parametres.smic_horaire||0;
+  h+=`<div class="card"><div class="cardhead"><h2>Activité et indicateurs</h2></div><div class="gbi-grille">`+
+    `<div class="gbi-bloc"><div class="gc-h4" style="margin-top:0">Seuil de rentabilité</div>${seuil!=null?`<div class="gbi-gros">${seuil} stands</div><div class="muted">occupés chaque mois pour couvrir les charges (${gbiEur0(chMoy)} par mois en moyenne, moins ${gbiEur0(autresMoy)} de commissions et autres recettes ; loyer moyen ${gbiEur0(loyerParStand)} par stand). Occupés en moyenne : <b>${occMoy.toFixed(1).replace('.',',')}</b> sur ${Math.round(placesMoy)} places${seuil<=occMoy?' : <span class="gc-ok">au-dessus du seuil</span>':' : <span class="gc-ko">en dessous du seuil</span>'}.</div>`:'<div class="muted">Pas encore de loyers sur la période.</div>'}</div>`+
+    `<div class="gbi-bloc"><div class="gc-h4" style="margin-top:0">Manque à gagner</div><table class="gbi-mini"><tr><td>Stands vides</td><td class="r">${gbiEur0(S.vides)}</td></tr>`+
+      `<tr><td>Loyers offerts aux bénévoles</td><td class="r">${S.benConnu?gbiEur0(S.ben)+(S.benConnu<S.n?' <span class="muted">('+S.benConnu+' mois facturés)</span>':''):'<span class="muted">connu avec les factures</span>'}</td></tr>`+
+      `<tr><td>Loyers impayés</td><td class="r">${S.impConnu?gbiEur0(S.imp):'<span class="muted">connu avec les factures</span>'}</td></tr></table><div class="muted" style="font-size:12px;margin-top:6px">Ce que la boutique rapporterait pleine, bénévolat et retards compris.</div></div>`+
+    `<div class="gbi-bloc"><div class="gc-h4" style="margin-top:0">Ventes en boutique</div><table class="gbi-mini"><tr><td>Ventes des créateurs</td><td class="r">${gbiEur0(S.ca)}</td></tr><tr><td>Paniers</td><td class="r">${FMT.num(S.paniers)}</td></tr>`+
+      `<tr><td>Panier moyen</td><td class="r">${S.paniers?gbiEur(S.ca/S.paniers):'—'}</td></tr><tr><td>Créateurs ayant vendu, par mois</td><td class="r">${S.n?Math.round(S.createurs/S.n):'—'}</td></tr></table></div>`+
+    `<div class="gbi-bloc"><div class="gc-h4" style="margin-top:0">Bénévolat valorisé</div>${S.heuresConnues?`<div class="gbi-gros">${gbiEur0(S.heures*smic)}</div><div class="muted">${FMT.num(Math.round(S.heures))} heures de permanence (agenda BÉNÉVOLES) × SMIC horaire ${gbiEur(smic)}. Contribution volontaire en nature : elle ne figure pas dans le résultat.</div>`:'<div class="muted">Agenda BÉNÉVOLES illisible pour le moment.</div>'}</div>`+
+    '</div></div>';
+  /* détail mensuel */
+  h+=`<div class="card"><div class="cardhead"><h2>Détail mois par mois</h2><div class="gc-acts gbi-noprint" style="margin-top:0"><button class="btn-dl" data-g="detail">${GBI.detail?'Masquer les postes':'Afficher les postes'}</button></div></div>`+
+    `<div id="gbiEdit" class="gbi-noprint"></div><div class="tblwrap"><table class="gbi-tbl gbi-mois" id="gbiMois">${gbiTableMois(M)}</table></div>`+
+    '<div class="gc-why gbi-noprint">Clique un montant pour le corriger : un montant saisi remplace le calcul du site (recettes) ou le montant prévu (charges). En gris : estimé ou calculé ; point : saisi ; italique : mois à venir.</div></div>';
+  $('gbiRapport').innerHTML=h;
+  gbiChart(M);
+}
+function gbiLegende(M){
+  const types=GBI.data.typesRecettes.map(t=>t[0]).filter(t=>M.some(m=>m.recettes[t]&&m.recettes[t].montant));
+  return '<div class="gbi-leg">'+types.map(t=>`<span><i style="background:${GBI_COUL[t]}"></i>${FMT.esc(gbiLibRec(t))}</span>`).join('')+
+    `<span><i style="background:${GBI_CHARGE}"></i>Charges</span><span><i class="ligne" style="background:${GBI_LIGNE}"></i>Résultat cumulé</span>${M.some(m=>m.futur)?'<span><i style="background:repeating-linear-gradient(45deg,#ccc 0 2px,#fff 2px 4px)"></i>Prévision</span>':''}</div>`;
+}
+function gbiChart(M){
+  const W=760,H=280,pl=54,pr=12,pt=14,pb=34,n=M.length,types=GBI.data.typesRecettes.map(t=>t[0]);
+  const rec=M.map(gbiRec),ch=M.map(gbiCh);let c=0;const cum=M.map((m,i)=>c+=rec[i]-ch[i]);
+  const max=Math.max(1,...rec,...ch,...cum),min=Math.min(0,...cum);
+  const pas=(()=>{const r=(max-min)/4,e=Math.pow(10,Math.floor(Math.log10(r))),f=r/e;return (f<=1?1:f<=2?2:f<=5?5:10)*e;})();
+  const hi=Math.ceil(max/pas)*pas,lo=Math.floor(min/pas)*pas;
+  const y=v=>pt+(hi-v)/(hi-lo)*(H-pt-pb),bw=(W-pl-pr)/n,bar=Math.min(18,bw*0.34);
+  let s=`<svg viewBox="0 0 ${W} ${H}" class="gbi-svg" role="img" aria-label="Recettes, charges et résultat cumulé par mois">`;
+  s+=`<defs><pattern id="gbiHach" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="2" height="4" fill="#fff" opacity=".55"/></pattern></defs>`;
+  for(let v=lo;v<=hi+1e-6;v+=pas)s+=`<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}" stroke="${v===0?'#9a978f':'#eae7e1'}" stroke-width="1"/><text x="${pl-6}" y="${y(v)+4}" text-anchor="end" class="ax">${(v/1000).toLocaleString('fr-FR',{maximumFractionDigits:1})} k€</text>`;
+  M.forEach((m,i)=>{
+    const x0=pl+i*bw+bw/2;let base=0;
+    types.forEach(t=>{const v=m.recettes[t]?m.recettes[t].montant:0;if(v<=0)return;const y1=y(base+v),y2=y(base);
+      s+=`<rect x="${x0-bar-1}" y="${y1}" width="${bar}" height="${Math.max(0,y2-y1)}" fill="${GBI_COUL[t]}"><title>${gbiMoisLong(m.mois)} · ${gbiLibRec(t)} : ${gbiEur(v)}</title></rect>`;
+      if(m.futur)s+=`<rect x="${x0-bar-1}" y="${y1}" width="${bar}" height="${Math.max(0,y2-y1)}" fill="url(#gbiHach)"/>`;base+=v;});
+    s+=`<rect x="${x0+1}" y="${y(ch[i])}" width="${bar}" height="${Math.max(0,y(0)-y(ch[i]))}" fill="${GBI_CHARGE}"><title>${gbiMoisLong(m.mois)} · charges : ${gbiEur(ch[i])}</title></rect>`;
+    if(m.futur)s+=`<rect x="${x0+1}" y="${y(ch[i])}" width="${bar}" height="${Math.max(0,y(0)-y(ch[i]))}" fill="url(#gbiHach)"/>`;
+    if(n<=14||i%2===0)s+=`<text x="${x0}" y="${H-pb+16}" text-anchor="middle" class="ax">${gbiMoisCourt(m.mois)}</text>`;
+  });
+  s+=`<polyline fill="none" stroke="${GBI_LIGNE}" stroke-width="2" points="${cum.map((v,i)=>(pl+i*bw+bw/2)+','+y(v)).join(' ')}"/>`;
+  cum.forEach((v,i)=>s+=`<circle cx="${pl+i*bw+bw/2}" cy="${y(v)}" r="3" fill="${v>=0?GBI_LIGNE:'#c0392b'}"><title>${gbiMoisLong(M[i].mois)} · résultat cumulé : ${gbiEur(v)}</title></circle>`);
+  $('gbiChart').innerHTML=s+'</svg>';
+}
+function gbiTableMois(M){
+  const R=GBI.data,cell=(v,cls,attr,title)=>`<td class="r ${cls||''}"${attr?' '+attr:''}${title?` title="${FMT.esc(title)}"`:''}>${v}</td>`;
+  const fmt=v=>v?gbiEur0(v):'—';
+  let h='<thead><tr><th></th>'+M.map(m=>`<th class="r${m.futur?' fut':''}">${gbiMoisCourt(m.mois)}</th>`).join('')+'<th class="r">Total</th></tr></thead><tbody>';
+  h+=`<tr class="sec"><td colspan="${M.length+2}">Recettes</td></tr>`;
+  R.typesRecettes.forEach(([t,lib,auto])=>{
+    const tot=M.reduce((s,m)=>s+m.recettes[t].montant,0);
+    if(!auto&&!tot&&!GBI.detail)return;
+    h+=`<tr><td>${FMT.esc(lib)}</td>`+M.map(m=>{const r=m.recettes[t];return cell(fmt(r.montant)+(r.source==='saisi'?' <span class="gbi-pt">•</span>':''),(r.source==='estime'||r.source==='calcule'?'est ':'')+(m.futur?'fut ':'')+'gbi-clic',`data-e="r|${t}|${m.mois}"`,GBI_SRC[r.source]?'source : '+GBI_SRC[r.source]+(r.origine?' ('+r.origine+')':'')+(r.remarque?' · '+r.remarque:''):'');}).join('')+cell(fmt(tot),'tot')+'</tr>';
+  });
+  h+='<tr class="tot"><td>Total des recettes</td>'+M.map(m=>cell(fmt(gbiRec(m)),m.futur?'fut':'')).join('')+cell(fmt(M.reduce((s,m)=>s+gbiRec(m),0)))+'</tr>';
+  h+=`<tr class="sec"><td colspan="${M.length+2}">Charges</td></tr>`;
+  R.categories.forEach(([c,lib])=>{
+    const tot=M.reduce((s,m)=>s+(m.charges[c]||0),0),postes=R.charges.filter(x=>x.categorie===c&&x.nature==='charge');
+    if(!tot&&!(GBI.detail&&postes.length))return;
+    h+=`<tr class="${GBI.detail?'cat':''}"><td>${FMT.esc(lib)}</td>`+M.map(m=>cell(fmt(m.charges[c]||0),m.futur?'fut':'')).join('')+cell(fmt(tot),'tot')+'</tr>';
+    if(GBI.detail)postes.forEach(p=>{
+      const tp=M.reduce((s,m)=>s+(m.detail[p.id]?m.detail[p.id].montant:0),0);
+      h+=`<tr class="poste"><td>${FMT.esc(p.poste)}</td>`+M.map(m=>{const d=m.detail[p.id];return cell(d?fmt(d.montant)+(d.reel?' <span class="gbi-pt">•</span>':''):'—',(m.futur?'fut ':'')+'gbi-clic',`data-e="c|${p.id}|${m.mois}"`,d&&d.reel?'montant réel'+(d.remarque?' · '+d.remarque:''):'montant prévu');}).join('')+cell(fmt(tp),'tot')+'</tr>';
+    });
+  });
+  if(M.some(m=>m.amortissements))h+='<tr><td>Amortissements</td>'+M.map(m=>cell(fmt(m.amortissements),m.futur?'fut':'')).join('')+cell(fmt(M.reduce((s,m)=>s+m.amortissements,0)),'tot')+'</tr>';
+  h+='<tr class="tot"><td>Total des charges</td>'+M.map(m=>cell(fmt(gbiCh(m)),m.futur?'fut':'')).join('')+cell(fmt(M.reduce((s,m)=>s+gbiCh(m),0)))+'</tr>';
+  let cu=0;
+  h+='<tr class="res"><td>Résultat du mois</td>'+M.map(m=>{const v=gbiRec(m)-gbiCh(m);return cell(`<span class="${v>=0?'gc-ok':'gc-ko'}">${gbiEur0(v)}</span>`,m.futur?'fut':'');}).join('')+cell(gbiEur0(M.reduce((s,m)=>s+gbiRec(m)-gbiCh(m),0)))+'</tr>';
+  h+='<tr><td>Résultat cumulé</td>'+M.map(m=>{cu+=gbiRec(m)-gbiCh(m);return cell(gbiEur0(cu),'muted '+(m.futur?'fut':''));}).join('')+'<td></td></tr>';
+  const prets=R.charges.filter(x=>x.nature==='pret');
+  if(prets.length){
+    h+=`<tr class="sec"><td colspan="${M.length+2}">Hors résultat : remboursements de prêts</td></tr>`;
+    prets.forEach(p=>{h+=`<tr class="poste"><td>${FMT.esc(p.poste)}</td>`+M.map(m=>{const d=m.detail[p.id];return cell(d?fmt(d.montant)+(d.reel?' <span class="gbi-pt">•</span>':''):'—',(m.futur?'fut ':'')+'gbi-clic',`data-e="c|${p.id}|${m.mois}"`);}).join('')+cell(fmt(M.reduce((s,m)=>s+(m.detail[p.id]?m.detail[p.id].montant:0),0)),'tot')+'</tr>';});
+  }
+  return h+'</tbody>';
+}
+function gbiRenderEdit(){
+  const E=GBI.edit,el=$('gbiEdit');if(!el)return;
+  if(!E){el.innerHTML='';return;}
+  const m=GBI.data.mois.find(x=>x.mois===E.mois);
+  let lib,info,val='',rem='';
+  if(E.type==='r'){const r=m.recettes[E.cle];lib=gbiLibRec(E.cle);val=r.source==='saisi'?r.montant:'';rem=r.remarque||'';
+    info=r.source==='saisi'?'Montant saisi'+(r.origine?' ('+FMT.esc(r.origine)+')':'')+'. Vide = retour au calcul du site.':`Actuellement ${gbiEur(r.montant)}${GBI_SRC[r.source]?' ('+GBI_SRC[r.source]+')':''}. Saisis un montant pour le remplacer.`;}
+  else{const p=GBI.data.charges.find(x=>x.id===E.cle),d=m.detail[E.cle];lib=p?p.poste:E.cle;val=d&&d.reel?d.montant:'';rem=d&&d.reel?d.remarque:'';
+    info=d&&d.reel?'Montant réel saisi. Vide = retour au montant prévu.':`Prévu : ${gbiEur(d?d.montant:0)} (${p?GBI_FREQ[p.frequence]||'':''}). Saisis le montant réel du mois s'il est différent.`;}
+  el.innerHTML=`<div class="gbi-poser"><div class="gc-h4" style="margin-top:0">${FMT.esc(lib)} · ${gbiMoisLong(E.mois)}</div><div class="muted" style="font-size:12px;margin-bottom:8px">${info}</div>`+
+    `<div class="gc-form"><div><label>Montant (€)</label><input id="gbiVal" inputmode="decimal" value="${FMT.esc(String(val).replace('.',','))}" placeholder="vide = ${E.type==='r'?'calcul du site':'montant prévu'}"></div><div><label>Remarque</label><input id="gbiRem" maxlength="200" value="${FMT.esc(rem)}" placeholder="facture n°…"></div></div>`+
+    `<div class="gc-acts"><button class="btn btn-accent" data-g="enregistrer">Enregistrer</button><button class="btn btn-ghost" data-g="fermer">Fermer</button></div></div>`;
+  $('gbiVal').focus();
+}
+
+/* paramètres */
+function gbiRenderParams(){
+  const R=GBI.data;if(!R)return;
+  let h='';
+  if(R.importPossible)h+=`<div class="warn" style="margin:0 0 12px">Aucun poste de charges pour l'instant. <b>Reprendre le fichier GESTION COMPTABLE de Mo</b> : postes de charges, prêts, travaux et chiffres mois par mois depuis septembre 2025.<div class="gc-acts"><button class="btn btn-accent" data-g="apercu-import">Voir ce qui sera repris</button></div>${GBI.apercu?`<div style="margin-top:10px">${GBI.apercu.postes.length} postes : ${GBI.apercu.postes.map(p=>FMT.esc(p.poste)+' ('+(p.nature==='charge'?gbiEur(p.montant)+' '+(GBI_FREQ[p.frequence]||''):GBI_NAT[p.nature].toLowerCase()+' '+gbiEur(p.montant_total||p.montant))+')').join(', ')} · ${GBI.apercu.reels} montants réels · ${GBI.apercu.recettes} recettes mensuelles.<div class="gc-acts"><button class="btn btn-accent" data-g="importer">Reprendre</button></div></div>`:''}</div>`;
+  const P=GBI.poste;
+  h+='<div class="gc-h4" style="margin-top:0">Postes de charges</div><div class="tblwrap"><table class="gbi-tbl"><thead><tr><th>Poste</th><th>Catégorie</th><th>Nature</th><th class="r">Montant</th><th>Période</th><th></th></tr></thead><tbody>'+
+    (R.charges.length?R.charges.slice().sort((a,b)=>R.categories.findIndex(c=>c[0]===a.categorie)-R.categories.findIndex(c=>c[0]===b.categorie)||a.poste.localeCompare(b.poste,'fr')).map(c=>`<tr><td><b>${FMT.esc(c.poste)}</b>${c.remarque?`<span class="gc-sub">${FMT.esc(c.remarque)}</span>`:''}</td><td>${FMT.esc(gbiLibCat(c.categorie))}</td><td>${GBI_NAT[c.nature]}</td>`+
+      `<td class="r">${c.nature==='charge'?gbiEur(c.montant)+' <span class="muted">'+(GBI_FREQ[c.frequence]||'')+'</span>':c.nature==='pret'?gbiEur(c.montant)+' / mois <span class="muted">sur '+gbiEur(c.montantTotal)+'</span>':gbiEur(c.montantTotal)+(c.nature==='investissement'&&c.amortissement?' <span class="muted">sur '+String(c.amortissement).replace('.',',')+' ans</span>':'')}</td>`+
+      `<td>${c.debut?gbiMoisCourt(c.debut):''}${c.fin?' → '+gbiMoisCourt(c.fin):c.frequence==='ponctuel'||c.nature!=='charge'&&c.nature!=='pret'?'':' → …'}</td><td class="r"><button class="btn-dl" data-g="modifier" data-id="${FMT.esc(c.id)}">Modifier</button></td></tr>`).join(''):'<tr><td colspan="6" class="muted" style="text-align:center;padding:16px">Aucun poste.</td></tr>')+'</tbody></table></div>';
+  h+=`<div class="gc-acts"><button class="btn btn-ghost" data-g="nouveau">+ Nouveau poste</button></div>`;
+  if(P){
+    const opt=(arr,v)=>arr.map(([k,l])=>`<option value="${k}"${k===v?' selected':''}>${FMT.esc(l)}</option>`).join('');
+    h+=`<div class="gbi-poser"><div class="gc-h4" style="margin-top:0">${P.id?'Modifier « '+FMT.esc(P.poste)+' »':'Nouveau poste'}</div><div class="gc-form">`+
+      `<div><label>Poste</label><input id="gbpPoste" maxlength="80" value="${FMT.esc(P.poste||'')}" placeholder="Sacs kraft"></div>`+
+      `<div><label>Catégorie</label><select id="gbpCat">${opt(R.categories,P.categorie||'autres')}</select></div>`+
+      `<div><label>Nature</label><select id="gbpNat">${opt(Object.entries(GBI_NAT),P.nature||'charge')}</select></div>`+
+      `<div class="gbi-n-charge gbi-n-pret"><label id="gbpMontLib">Montant (€)</label><input id="gbpMont" inputmode="decimal" value="${FMT.esc(String(P.montant??'').replace('.',','))}"></div>`+
+      `<div class="gbi-n-charge"><label>Fréquence</label><select id="gbpFreq">${opt(Object.entries(GBI_FREQ),P.frequence||'mensuel')}</select></div>`+
+      `<div class="gbi-n-pret gbi-n-investissement gbi-n-garantie"><label id="gbpTotLib">Montant total (€)</label><input id="gbpTot" inputmode="decimal" value="${FMT.esc(String(P.montantTotal||'').replace('.',','))}"></div>`+
+      `<div class="gbi-n-investissement"><label>Amortissement (années)</label><input id="gbpAmort" inputmode="decimal" value="${FMT.esc(String(P.amortissement||'').replace('.',','))}" placeholder="5"></div>`+
+      `<div><label>Début</label><input id="gbpDeb" type="month" value="${FMT.esc(P.debut||R.exercice.debut)}"></div>`+
+      `<div class="gbi-n-charge gbi-n-pret"><label>Fin (vide = en cours)</label><input id="gbpFin" type="month" value="${FMT.esc(P.fin||'')}"></div>`+
+      `<div style="grid-column:1/-1"><label>Remarque</label><input id="gbpRem" maxlength="300" value="${FMT.esc(P.remarque||'')}"></div></div>`+
+      `<div class="gc-acts"><button class="btn btn-accent" data-g="enregistrer-poste">Enregistrer</button><button class="btn btn-ghost" data-g="fermer-poste">Annuler</button>${P.id?'<button class="btn btn-danger" data-g="supprimer-poste">Supprimer</button>':''}</div>`+
+      '<div class="gc-why">Charge : montant par mois, par an ou une fois ; le montant réel d\'un mois se corrige dans le détail mois par mois. Prêt : mensualité et capital reçu. Investissement : coût total, amorti sur la durée indiquée. Dépôt de garantie : montant versé.</div></div>';
+  }
+  h+='<div class="gc-h4">Exercices</div><div class="muted" style="font-size:12px;margin-bottom:6px">'+R.exercices.map(e=>`${FMT.esc(e.libelle)} : ${gbiMoisCourt(e.debut)} → ${gbiMoisCourt(e.fin)}`).join(' · ')+'</div>'+
+    `<div class="gc-form"><div><label>Code</label><input id="gbeCode" maxlength="20" placeholder="2028"></div><div><label>Libellé</label><input id="gbeLib" maxlength="60" placeholder="Exercice 2028"></div><div><label>Début</label><input id="gbeDeb" type="month"></div><div><label>Fin</label><input id="gbeFin" type="month"></div></div>`+
+    '<div class="gc-acts"><button class="btn btn-ghost" data-g="exercice">Ajouter ou modifier l\'exercice</button></div>';
+  h+='<div class="gc-h4">Valeurs de calcul</div><div class="gc-form">'+
+    `<div><label>Adhésion annuelle (€)</label><input id="gbiAdh" inputmode="decimal" value="${FMT.esc(String(R.parametres.adhesion).replace('.',','))}"></div>`+
+    `<div><label>SMIC horaire brut (€), pour le bénévolat</label><input id="gbiSmic" inputmode="decimal" value="${FMT.esc(String(R.parametres.smic_horaire).replace('.',','))}"></div></div>`+
+    '<div class="gc-acts"><button class="btn btn-ghost" data-g="parametres">Enregistrer les valeurs</button></div>';
+  $('gbiParams').innerHTML=h;
+  gbiNature();
+}
+function gbiNature(){
+  const n=$('gbpNat');if(!n)return;
+  document.querySelectorAll('#gbiParams [class*="gbi-n-"]').forEach(el=>el.classList.toggle('hide',!el.classList.contains('gbi-n-'+n.value)));
+  $('gbpMontLib').textContent=n.value==='pret'?'Mensualité (€)':'Montant (€)';
+  $('gbpTotLib').textContent=n.value==='pret'?'Capital reçu (€)':n.value==='investissement'?'Coût total (€)':'Montant versé (€)';
+}
+async function gbiAppel(btn,action,params,msg){
+  const t=btn.textContent;btn.disabled=true;btn.textContent='…';
+  try{
+    const r=await API.gestion(action,params);
+    if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
+    if(msg)toast(msg(r));return r;
+  }catch(e){toast((e&&e.message)||String(e),true);return null;}
+  finally{if(btn.isConnected){btn.disabled=false;btn.textContent=t;}}
+}
+$('gsBil').addEventListener('click',async e=>{
+  const c=e.target.closest('.gbi-clic');
+  if(c&&c.dataset.e){const [type,cle,mois]=c.dataset.e.split('|');GBI.edit={type,cle,mois};gbiRenderEdit();$('gbiEdit').scrollIntoView({behavior:'smooth',block:'nearest'});return;}
+  const b=e.target.closest('[data-g]');if(!b||b.disabled)return;
+  e.preventDefault();
+  const a=b.dataset.g,n=v=>String(v).trim().replace(/\s/g,'').replace(',','.');
+  if(a==='detail'){GBI.detail=!GBI.detail;gbiRender();return;}
+  if(a==='fermer'){GBI.edit=null;gbiRenderEdit();return;}
+  if(a==='enregistrer'){
+    const E=GBI.edit,v=n($('gbiVal').value);
+    if(v!==''&&isNaN(Number(v))){toast('Montant invalide.',true);return;}
+    const r=E.type==='r'?await gbiAppel(b,'gestion_bilan_recette',{mois:E.mois,type:E.cle,montant:v,remarque:$('gbiRem').value}):await gbiAppel(b,'gestion_bilan_reel',{mois:E.mois,idCharge:E.cle,montant:v,remarque:$('gbiRem').value});
+    if(r){toast(v===''?'Saisie retirée':'Montant enregistré');GBI.edit=null;await gbiCharger();}
+    return;
+  }
+  if(a==='nouveau'){GBI.poste={};gbiRenderParams();$('gbpPoste').focus();return;}
+  if(a==='modifier'){GBI.poste=Object.assign({},GBI.data.charges.find(x=>x.id===b.dataset.id));gbiRenderParams();$('gbpPoste').scrollIntoView({behavior:'smooth',block:'center'});return;}
+  if(a==='fermer-poste'){GBI.poste=null;gbiRenderParams();return;}
+  if(a==='enregistrer-poste'){
+    const charge={id:GBI.poste.id||'',poste:$('gbpPoste').value,categorie:$('gbpCat').value,nature:$('gbpNat').value,montant:n($('gbpMont').value),frequence:$('gbpFreq').value,
+      montantTotal:n($('gbpTot').value),amortissement:n($('gbpAmort').value),debut:$('gbpDeb').value,fin:$('gbpFin').value,remarque:$('gbpRem').value};
+    if(charge.nature!=='charge'&&charge.nature!=='pret'){charge.fin='';charge.frequence='ponctuel';charge.montant='';}
+    if(charge.nature==='pret')charge.frequence='mensuel';
+    const r=await gbiAppel(b,'gestion_bilan_charge',{charge},()=>'Poste enregistré');
+    if(r){GBI.poste=null;await gbiCharger();}
+    return;
+  }
+  if(a==='supprimer-poste'){
+    if(!confirm('Supprimer le poste « '+GBI.poste.poste+' » et ses montants réels ?\n\nIl disparaît de tous les bilans. Pour un poste qui s\'arrête, indique plutôt un mois de fin.'))return;
+    const r=await gbiAppel(b,'gestion_bilan_charge_supprimer',{id:GBI.poste.id},()=>'Poste supprimé');
+    if(r){GBI.poste=null;await gbiCharger();}
+    return;
+  }
+  if(a==='exercice'){
+    const r=await gbiAppel(b,'gestion_bilan_exercice',{code:$('gbeCode').value,libelle:$('gbeLib').value,debut:$('gbeDeb').value,fin:$('gbeFin').value},()=>'Exercice enregistré');
+    if(r)await gbiCharger();return;
+  }
+  if(a==='parametres'){
+    const r1=await gbiAppel(b,'gestion_bilan_parametre',{cle:'adhesion',valeur:n($('gbiAdh').value)});
+    const r2=r1&&await gbiAppel(b,'gestion_bilan_parametre',{cle:'smic_horaire',valeur:n($('gbiSmic').value)},()=>'Valeurs enregistrées');
+    if(r2)await gbiCharger();return;
+  }
+  if(a==='apercu-import'){const r=await gbiAppel(b,'gestion_bilan_importer',{apercu:true});if(r){GBI.apercu=r;gbiRenderParams();}return;}
+  if(a==='importer'){
+    if(!confirm('Reprendre GESTION COMPTABLE ?\n\nLes postes et les chiffres mois par mois sont copiés dans le site ; le fichier de Mo n\'est pas modifié.'))return;
+    const r=await gbiAppel(b,'gestion_bilan_importer',{},r=>r.postes+' postes, '+r.reels+' montants réels, '+r.recettes+' recettes repris');
+    if(r){GBI.apercu=null;await gbiCharger();}
+    return;
+  }
+  if(a==='imprimer'){document.body.classList.add('print-bilan');setTimeout(()=>{window.print();document.body.classList.remove('print-bilan');},50);return;}
+  if(a==='actualiser'){gbiCharger();return;}
+  if(a==='params'){$('gbiParamsCard').classList.toggle('hide');b.textContent=$('gbiParamsCard').classList.contains('hide')?'Paramètres':'Masquer les paramètres';return;}
+});
+$('gsBil').addEventListener('change',e=>{if(e.target.id==='gbiExercice'){GBI.exercice=e.target.value;GBI.edit=null;gbiCharger();}if(e.target.id==='gbpNat')gbiNature();});
+$('gsBil').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='gbiVal'){e.preventDefault();$('gsBil').querySelector('[data-g="enregistrer"]').click();}});
+$('gsVues').addEventListener('click',e=>{
+  const v=e.target.closest('[data-vue]');if(!v)return;
+  $('gsVues').querySelectorAll('[data-vue]').forEach(x=>x.classList.toggle('on',x===v));
+  $('gsMon').classList.toggle('hide',v.dataset.vue!=='Mon');$('gsBil').classList.toggle('hide',v.dataset.vue!=='Bil');
+  if(v.dataset.vue==='Bil'&&!GBI.charge)gbiCharger();
+});
+
+/* démo : même logique que le serveur, en mémoire */
+const DEMO_BI=(function(){
+  let st=null;
+  const mp=(m,k)=>{const [y,mo]=m.split('-').map(Number),d=new Date(y,mo-1+k,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');};
+  const init=()=>{
+    const c=(id,poste,categorie,nature,montant,frequence,debut,fin,montantTotal,amortissement,remarque)=>({id,poste,categorie,nature,montant,frequence,debut,fin:fin||'',montantTotal:montantTotal||0,amortissement:amortissement||0,remarque:remarque||''});
+    st={n:14,params:{adhesion:15,smic_horaire:11.88},exercices:[{code:'2025-2026',libelle:'Exercice 2025-2026',debut:'2025-09',fin:'2026-12'},{code:'2027',libelle:'Exercice 2027',debut:'2027-01',fin:'2027-12'}],
+      charges:[c('CH001','Loyer du local','local','charge',1200,'mensuel','2025-09'),c('CH002','Provision charges foncières et PNO','local','charge',88.5,'mensuel','2025-09'),
+        c('CH003','Assurance','assurances','charge',37,'mensuel','2025-09'),c('CH004','Internet et téléphone','telecom','charge',24.19,'mensuel','2025-09'),
+        c('CH005','Contrat banque CIC','banque','charge',18.98,'mensuel','2025-09'),c('CH006','Café','fonctionnement','charge',10,'mensuel','2025-09'),
+        c('CH007','Consommables','fonctionnement','charge',15,'mensuel','2025-09'),c('CH008','DASRI (déchets de soins)','reglementaire','charge',18.37,'mensuel','2025-09'),
+        c('CH009','ARS','reglementaire','charge',220.29,'annuel','2025-09'),c('CH010','Électricité ENGIE','energie','charge',0,'mensuel','2025-09','','','','Montant réel à saisir chaque mois'),
+        c('CH011','Frais de virement','banque','charge',0,'mensuel','2025-09'),c('CH012','Travaux électricité','local','investissement',0,'ponctuel','2025-09','',697.75,5,'Coût 3 097,75 € dont 2 400 € pris en charge par le propriétaire'),
+        c('CH013','Prêt Solenne Zona','autres','pret',386.73,'mensuel','2025-09','2026-08',4640.76),c('CH014','Prêt Julien Décatoire','autres','pret',208.33,'mensuel','2025-09','2027-08',5000)],
+      reels:{},saisies:{}};
+    const engie=[0,85.38,0,122.46,74,73,94,48,39,42,0,115,0];
+    engie.forEach((v,i)=>{if(v)st.reels[mp('2025-09',i)+'|CH010']={montant:v,remarque:''};});
+  };
+  const auto=m=>{let s=0;for(const ch of m)s=(s*31+ch.charCodeAt(0))%9973;const r=k=>((s*(k+7))%97)/97;
+    const [y,mo]=m.split('-').map(Number),ete=mo>=6&&mo<=8;
+    return {loyers:Math.round(1350+r(1)*550),commissions:Math.round(90+r(2)*260),vente_shop:Math.round(10+r(3)*110),adhesions:[0,15,45,120][Math.floor(r(4)*4)],
+      ca:Math.round((ete?1500:2000)+r(5)*1700),paniers:Math.round(70+r(6)*70),createurs:Math.round(30+r(7)*10),occ:{illu:Math.round(10+r(8)*4),unique:Math.round(16+r(9)*3),grand:Math.round(5+r(10)),friperie:3},heures:Math.round(40+r(11)*40)};};
+  const places={illu:14,unique:18,grand:6,friperie:3},loyerStand={illu:28,unique:48,grand:68,friperie:70};
+  const calc=ex=>{const out=[],auj=aujourdhui().slice(0,7);
+    for(let m=ex.debut;m<=ex.fin;m=mp(m,1)){
+      const a=auto(m),rec={};
+      const autoRec={loyers:{montant:a.loyers,source:m<'2026-10'?'estime':'factures'},commissions:{montant:a.commissions,source:'calcule'},vente_shop:{montant:a.vente_shop,source:'calcule'},adhesions:{montant:a.adhesions,source:'calcule'}};
+      ['loyers','commissions','vente_shop','adhesions','subventions','dons','ateliers','autres'].forEach(t=>{const s=st.saisies[m+'|'+t];rec[t]=s?{montant:s.montant,source:'saisi',remarque:s.remarque,origine:'site'}:autoRec[t]||{montant:0,source:''};});
+      const cat={},detail={},treso={apports:0,remboursements:0,investissements:0,garanties:0};let amort=0;
+      st.charges.forEach(c=>{const r=st.reels[m+'|'+c.id],dans=(!c.debut||m>=c.debut)&&(!c.fin||m<=c.fin);let prevu=0;
+        if((c.nature==='charge'||c.nature==='pret')&&dans)prevu=c.frequence==='annuel'?c.montant/12:c.frequence==='ponctuel'?(m===c.debut?c.montant:0):c.montant;
+        const v=gbiR2(r?r.montant:prevu);
+        if(c.nature==='charge'){if(v)cat[c.categorie]=gbiR2((cat[c.categorie]||0)+v);if(v||r)detail[c.id]={montant:v,reel:!!r,remarque:r?r.remarque:''};}
+        else if(c.nature==='pret'){treso.remboursements+=v;if(m===c.debut)treso.apports+=c.montantTotal;if(v||r)detail[c.id]={montant:v,reel:!!r,remarque:r?r.remarque:''};}
+        else if(c.nature==='investissement'){if(m===c.debut)treso.investissements+=c.montantTotal;if(c.amortissement>0&&m>=c.debut&&m<mp(c.debut,Math.round(c.amortissement*12)))amort+=c.montantTotal/(c.amortissement*12);}
+        else if(c.nature==='garantie'&&m===c.debut)treso.garanties+=c.montantTotal;});
+      let vides=0;Object.keys(places).forEach(k=>vides+=Math.max(0,places[k]-a.occ[k])*loyerStand[k]);
+      out.push({mois:m,recettes:rec,charges:cat,detail,amortissements:gbiR2(amort),tresorerie:treso,
+        activite:{ca:a.ca,ventes:Math.round(a.paniers*1.3),paniers:a.paniers,createurs:a.createurs,occupes:a.occ,places,ouverts:22},
+        manque:{standsVides:vides,benevoles:m>='2026-10'?96:null,impayes:m>='2026-10'&&m<=auj?48:null},benevolat:{heures:a.heures},futur:m>auj,enCours:m===auj});
+    }return out;};
+  return async function(action,p){
+    if(!st)init();
+    switch(action){
+      case 'gestion_bilan':{const auj=aujourdhui().slice(0,7),ex=st.exercices.find(e=>e.code===p.exercice)||st.exercices.find(e=>e.debut<=auj&&auj<=e.fin)||st.exercices[0],i=st.exercices.indexOf(ex);
+        return JSON.parse(JSON.stringify({ok:true,exercice:ex,exercices:st.exercices,mois:calc(ex),precedent:i>0?{exercice:st.exercices[i-1],mois:calc(st.exercices[i-1])}:null,charges:st.charges,parametres:st.params,
+          categories:[['local','Local (loyer, charges, PNO)'],['energie','Énergie'],['assurances','Assurances'],['banque','Banque et TPE'],['telecom','Internet et téléphone'],['fonctionnement','Fonctionnement (café, consommables)'],['fournitures','Fournitures et emballages'],['communication','Communication et PLV'],['evenements','Événements'],['reglementaire','Obligations réglementaires (DASRI, ARS)'],['autres','Autres charges']],
+          typesRecettes:[['loyers','Loyers des stands',true],['commissions','Commissions sur les ventes',true],['vente_shop','Ventes des produits du shop',true],['adhesions','Adhésions',true],['subventions','Subventions',false],['dons','Dons',false],['ateliers','Ateliers et événements',false],['autres','Autres recettes',false]],
+          stands:[],asso:{nom:'COLLECTIF 13H59',adresse:'27 rue du Plat',ville:'59800 LILLE',siret:'98893787600015',naf:'91.02Z'},importPossible:false}));}
+      case 'gestion_bilan_reel':{const k=p.mois+'|'+p.idCharge;if(p.montant===''||p.montant==null)delete st.reels[k];else st.reels[k]={montant:Number(p.montant),remarque:p.remarque||''};return {ok:true};}
+      case 'gestion_bilan_recette':{const k=p.mois+'|'+p.type;if(p.montant===''||p.montant==null)delete st.saisies[k];else st.saisies[k]={montant:Number(p.montant),remarque:p.remarque||''};return {ok:true};}
+      case 'gestion_bilan_charge':{const c=p.charge;if(!String(c.poste||'').trim())return {ok:false,message:'Indique le nom du poste.'};if(!/^\d{4}-\d{2}$/.test(c.debut||''))return {ok:false,message:'Indique le mois de début.'};
+        const v={poste:c.poste.trim(),categorie:c.categorie,nature:c.nature,montant:Number(c.montant)||0,frequence:c.frequence,debut:c.debut,fin:c.fin||'',montantTotal:Number(c.montantTotal)||0,amortissement:Number(c.amortissement)||0,remarque:c.remarque||''};
+        if(c.id){Object.assign(st.charges.find(x=>x.id===c.id),v);return {ok:true,id:c.id};}const id='CH'+String(++st.n).padStart(3,'0');st.charges.push(Object.assign({id},v));return {ok:true,id};}
+      case 'gestion_bilan_charge_supprimer':st.charges=st.charges.filter(x=>x.id!==p.id);return {ok:true};
+      case 'gestion_bilan_exercice':{if(!p.code||!p.debut||!p.fin)return {ok:false,message:'Indique le code, le début et la fin.'};const e=st.exercices.find(x=>x.code===p.code);const v={code:p.code,libelle:p.libelle||'Exercice '+p.code,debut:p.debut,fin:p.fin};if(e)Object.assign(e,v);else st.exercices.push(v);st.exercices.sort((a,b)=>a.debut.localeCompare(b.debut));return {ok:true};}
+      case 'gestion_bilan_parametre':st.params[p.cle]=Number(p.valeur);return {ok:true};
+      case 'gestion_bilan_importer':return {ok:false,message:'Déjà repris en démo.'};
     }
     return {ok:false,message:'Action inconnue.'};
   };
