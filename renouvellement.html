@@ -152,8 +152,9 @@ function fin(r){
     if (!infos.ok) throw new Error(infos.message);
     if (infos.statut === 'renouvele' || infos.statut === 'non_renouvele') { fin({}); return; }
     if (infos.statut !== 'en_attente') throw new Error('Cette demande est close. Pour toute question, écris-nous à 13h59shop@gmail.com.');
-    $('rTexte').innerHTML = 'Bonjour ' + esc(infos.marque) + ', ton contrat' + (infos.stand ? ' (' + esc(infos.stand) + ')' : '') + ' de ' + infos.duree + ' mois arrive à son terme le <b>' + esc(dateFr(infos.echeance)) + '</b>. ' +
-      'Souhaites-tu le renouveler pour ' + infos.duree + ' mois de plus ? Réponds avant le <b>' + esc(dateFr(infos.dateLimite)) + '</b> ; sans réponse, ton contrat prendra fin à cette échéance.';
+    const passe = infos.echeance < new Date().toISOString().slice(0, 10);
+    $('rTexte').innerHTML = 'Bonjour ' + esc(infos.marque) + ', ton contrat' + (infos.stand ? ' (' + esc(infos.stand) + ')' : '') + ' de ' + infos.duree + ' mois ' + (passe ? 'est arrivé' : 'arrive') + ' à son terme le <b>' + esc(dateFr(infos.echeance)) + '</b>. ' +
+      'Souhaites-tu le renouveler pour ' + infos.duree + ' mois de plus ? Réponds avant le <b>' + esc(dateFr(infos.dateLimite)) + '</b> ; sans réponse, ton contrat prendra fin ' + (passe ? 'le ' + esc(dateFr(infos.dateLimite)) : 'à cette échéance') + '.';
     majChoix(); voir('vChoix');
   } catch (e) {
     $('vChargement').innerHTML = '<div class="err" style="text-align:center">' + esc((e && e.message) || 'Le lien n\'a pas pu se charger.') + '</div>';

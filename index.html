@@ -1576,7 +1576,7 @@ function gcRenderFiche(){
   if(e&&sc&&sc.dureeMois&&!e.fin){
     const mois=c.derniereVente?Math.floor((new Date(a)-new Date(c.derniereVente))/(30.44*864e5)):null,sansVente=mois==null||mois>=6;
     const suite=e.echeance?(()=>{const [y,m,d]=e.echeance.split('-').map(Number);return isoJour(new Date(y,m-1+sc.dureeMois,d));})():'';
-    h+=`<div class="gc-contrat"><div><b>Contrat de ${sc.dureeMois} mois</b>, non renouvelé automatiquement · échéance ${e.echeance?'le <b>'+fmtD(e.echeance)+'</b>'+(e.echeance<a?' <span class="gc-ko">(dépassée)</span>':''):'<span class="gc-ko">à renseigner</span>'}</div>`+
+    h+=`<div class="gc-contrat"><div><b>Contrat de ${sc.dureeMois} mois</b>, non renouvelé automatiquement · échéance ${e.echeance?'le <b>'+fmtD(e.echeance)+'</b>'+(e.echeance<a?' <span class="gc-ko">(dépassée : renouvellement en retard, envoie l\'e-mail ci-dessous)</span>':''):'<span class="gc-ko">à renseigner</span>'}</div>`+
       `<div class="muted" style="font-size:12px;margin-top:4px">${c.derniereVente?'Dernière vente le '+fmtD(c.derniereVente)+(sansVente?' · <span class="gc-ko">aucune vente depuis 6 mois ou plus : la place peut être proposée à quelqu\'un d\'autre</span>':''):'<span class="gc-ko">Aucune vente enregistrée</span>'}</div>`+
       gcRenouvLigne(e)+
       `<div class="gc-form" style="margin-top:8px"><div><label>Échéance (fin du contrat) : à corriger seulement si elle est fausse</label><input type="date" id="gcEch" value="${FMT.esc(e.echeance||'')}"></div></div>`+

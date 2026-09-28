@@ -67,9 +67,10 @@ function _gContratEcheance(body) {
 
 /** Échéance passée (contrat renouvelé sans formalité) : on avance de contrat en contrat jusqu'à la période en cours. */
 function _echeanceEnCours(echeance, n) {
-  const auj = _aujourdhui();
+  // une échéance passée depuis moins d'un mois reste « à renouveler (en retard) » : on ne la saute pas
+  const auj = _aujourdhui(), seuil = new Date(auj.getFullYear(), auj.getMonth() - 1, auj.getDate());
   let d = echeance, periodes = 0;
-  while (n && d < auj && periodes < 60) { d = _finContrat(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1), n); periodes++; }
+  while (n && d < seuil && periodes < 60) { d = _finContrat(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1), n); periodes++; }
   return { echeance: d, periodes: periodes };
 }
 
@@ -136,9 +137,10 @@ function _prolongerContrat(ss, tE, i) {
   return nouvelle;
 }
 /** Clôture un emplacement à son échéance (fin de contrat, sans préavis). */
-function _cloreAEcheance(tE, i) {
-  const r = tE.lignes[i];
-  r[tE.M['fin']] = _val(tE, r, 'echeance'); r[tE.M['motif_fin']] = 'fin_contrat'; r[tE.M['preavis_recu_le']] = '';
+function _cloreAEcheance(tE, i, auPlusTot) {
+  // jamais de fin rétroactive : si l'échéance est déjà passée, le contrat se termine au plus tôt à `auPlusTot`
+  const r = tE.lignes[i], e = _val(tE, r, 'echeance');
+  r[tE.M['fin']] = auPlusTot && auPlusTot > e ? auPlusTot : e; r[tE.M['motif_fin']] = 'fin_contrat'; r[tE.M['preavis_recu_le']] = '';
   _ecrireLigne(tE, i, r);
 }
 
@@ -171,7 +173,7 @@ function _demanderRenouvellement(ss, idEmplacement, par) {
   } else {
     const auj = _jour(new Date());
     limite = new Date(auj.getFullYear(), auj.getMonth(), auj.getDate() + DELAI_REPONSE_JOURS);
-    if (limite > ech) limite = ech;
+    // toujours 7 jours pour répondre, même si l'échéance est proche ou déjà passée (renouvellement en retard)
     jeton = Utilities.getUuid().replace(/-/g, '');
     _ajouterLigne(tR, { id_renouvellement: _prochainId(tR, 'id_renouvellement', 'R'), id_emplacement: idEmplacement, id_createur: idC, echeance: ech, jeton: jeton,
       envoye_le: new Date(), date_limite: limite, reponse: '', repondu_le: '', statut: 'en_attente', remarque: '' });
@@ -211,11 +213,11 @@ function tacheQuotidienne() {
       const e = i >= 0 ? tE2.lignes[i] : null, ech = _val(tR2, r, 'echeance');
       const inchange = e && !(_val(tE2, e, 'fin') instanceof Date) && _val(tE2, e, 'echeance') instanceof Date && _val(tE2, e, 'echeance').getTime() === ech.getTime();
       if (inchange) {
-        _cloreAEcheance(tE2, i);
+        _cloreAEcheance(tE2, i, _jour(lim));
         const c = _ficheCreateur(ss, _val(tR2, r, 'id_createur'));
-        try { if (c && c.email) envoyerModele(ss, 'renouvellement_fin', c.email, { marque: c.nom, echeance: _dateFr(ech), date_limite: _dateFr(lim), duree: _dureeContrat(ss, _val(tE2, e, 'code_stand')) }); }
+        try { if (c && c.email) envoyerModele(ss, 'renouvellement_fin', c.email, { marque: c.nom, echeance: _dateFr(_val(tE2, e, 'fin')), date_limite: _dateFr(lim), duree: _dureeContrat(ss, _val(tE2, e, 'code_stand')) }); }
         catch (err) { _journaliser('email_echec', 'fin de contrat ' + _val(tR2, r, 'id_emplacement') + ' : ' + (err && err.message ? err.message : err), 'automatique'); }
-        _journaliser('renouvellement_expire', _val(tR2, r, 'id_emplacement') + ' (' + _val(tR2, r, 'id_createur') + ') : sans réponse, fin de contrat le ' + _dateFr(ech), 'automatique');
+        _journaliser('renouvellement_expire', _val(tR2, r, 'id_emplacement') + ' (' + _val(tR2, r, 'id_createur') + ') : sans réponse, fin de contrat le ' + _dateFr(_val(tE2, e, 'fin')), 'automatique');
         bilan.push('fin ' + _val(tR2, r, 'id_emplacement'));
       }
       r[tR2.M['statut']] = inchange ? 'expire' : 'annule';
@@ -262,13 +264,13 @@ function _renouvellementRepondre(body) {
     if (!e || _val(tE, e, 'fin') instanceof Date || !(_val(tE, e, 'echeance') instanceof Date) || _val(tE, e, 'echeance').getTime() !== ech.getTime())
       return { ok: false, message: "L'équipe a déjà traité ton contrat : écris-nous à " + EMAIL_SHOP + ' si besoin.' };
     let nouvelle = null;
-    if (choix === 'oui') nouvelle = _prolongerContrat(ss, tE, i); else _cloreAEcheance(tE, i);
+    if (choix === 'oui') nouvelle = _prolongerContrat(ss, tE, i); else _cloreAEcheance(tE, i, _jour(new Date()));
     r[t.M['reponse']] = choix; r[t.M['repondu_le']] = new Date(); r[t.M['statut']] = choix === 'oui' ? 'renouvele' : 'non_renouvele';
     _ecrireLigne(t, x.i, r);
     const idC = String(_val(t, r, 'id_createur')), c = _ficheCreateur(ss, idC);
     _journaliser(choix === 'oui' ? 'renouvellement_accepte' : 'renouvellement_refuse', _val(t, r, 'id_emplacement') + ' (' + idC + ' ' + (c ? c.nom : '') + ') : ' +
-      (choix === 'oui' ? 'renouvelé jusqu\'au ' + _dateFr(nouvelle) : 'ne renouvelle pas, fin le ' + _dateFr(ech)), 'créateur (e-mail)');
-    return { ok: true, choix: choix, echeance: _iso(ech), nouvelleEcheance: nouvelle ? _iso(nouvelle) : '' };
+      (choix === 'oui' ? 'renouvelé jusqu\'au ' + _dateFr(nouvelle) : 'ne renouvelle pas, fin le ' + _dateFr(_val(tE, e, 'fin'))), 'créateur (e-mail)');
+    return { ok: true, choix: choix, echeance: _iso(choix === 'oui' ? ech : _val(tE, e, 'fin')), nouvelleEcheance: nouvelle ? _iso(nouvelle) : '' };
   } finally {
     lock.releaseLock();
   }
