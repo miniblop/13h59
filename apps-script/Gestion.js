@@ -453,6 +453,17 @@ function _gPreavis(body) {
   const tE = _tableau(ss, SHEET_EMPLACEMENTS);
   const i = _ligneEmplacement(tE, body.idEmplacement), r = tE.lignes[i];
   if (_val(tE, r, 'fin') instanceof Date) throw new Error('Cet emplacement a déjà une date de fin.');
+  if (body.sansPreavis) {
+    // contrat à durée fixe arrivé à terme et non renouvelé (grand stand, 4 mois) : pas de préavis
+    const dernier = _dateIso(body.fin), debut = _val(tE, r, 'debut');
+    if (debut instanceof Date && dernier < debut) throw new Error("Le dernier jour est avant l'arrivée en boutique.");
+    r[tE.M['preavis_recu_le']] = '';
+    r[tE.M['fin']] = dernier;
+    r[tE.M['motif_fin']] = 'fin_contrat';
+    _ecrireLigne(tE, i, r);
+    _journaliser('fin_contrat', body.idEmplacement + ' (' + _val(tE, r, 'id_createur') + ') : fin de contrat sans préavis, dernier jour le ' + body.fin);
+    return { ok: true, fin: _iso(dernier) };
+  }
   const recu = _dateIso(body.recuLe), fin = _plusUnMois(recu);
   r[tE.M['preavis_recu_le']] = recu;
   r[tE.M['fin']] = fin;

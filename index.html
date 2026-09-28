@@ -1511,7 +1511,7 @@ function gcRenderPlaces(){
 function gcRenderAgenda(){
   const a=gcAuj(),nom=id=>{const c=GC.data.createurs.find(c=>c.id===id);return c?c.nom:id;};
   const ev=[
-    ...GC.data.emplacements.filter(e=>e.fin&&e.fin>=a&&e.motifFin!=='changement_stand').map(e=>({d:e.fin,t:`<b>Départ ${FMT.esc(nom(e.idCreateur))}</b> · ${gcStand(e.stand)}${e.motifFin==='pause'?' (pause)':''}`})),
+    ...GC.data.emplacements.filter(e=>e.fin&&e.fin>=a&&e.motifFin!=='changement_stand').map(e=>({d:e.fin,t:`<b>Départ ${FMT.esc(nom(e.idCreateur))}</b> · ${gcStand(e.stand)}${e.motifFin==='pause'?' (pause)':e.motifFin==='fin_contrat'?' (fin de contrat)':''}`})),
     ...GC.data.emplacements.filter(e=>e.debut>a).map(e=>({d:e.debut,t:`<b>Arrivée ${FMT.esc(nom(e.idCreateur))}</b> · ${gcStand(e.stand)}${e.accueilPar?' · accueil : '+FMT.esc(e.accueilPar):''}`}))
   ].sort((x,y)=>x.d.localeCompare(y.d));
   $('gcAgenda').innerHTML=ev.length?ev.map(l=>`<div class="gc-ev"><span class="d">${fmtD(l.d).slice(0,5)}</span><span>${l.t}</span></div>`).join(''):'<div class="muted">Aucune arrivée ni aucun départ prévu.</div>';
@@ -1556,12 +1556,15 @@ function gcRenderFiche(){
   /* emplacement */
   h+='<div class="gc-h4">Emplacement</div>';
   if(e&&!e.fin){
-    h+=`<div class="gc-form"><div><label>Préavis reçu par e-mail le</label><input type="date" id="gcPrRecu" value="${a}"></div><div><label>Départ le</label><input id="gcPrFin" readonly value="${fmtD(plusUnMois(a))}"></div></div>`+
-      `<label class="gc-check" style="margin-top:8px"><input type="checkbox" id="gcPrPause"> Pause : souhaite revenir plus tard (place non garantie)</label>`+
-      `<div class="gc-acts"><button class="btn btn-danger" data-a="preavis" data-e="${FMT.esc(e.id)}">Enregistrer le préavis</button></div>`;
+    h+=`<label class="gc-check"><input type="checkbox" id="gcPrSans"> Fin de contrat sans préavis : contrat à durée fixe arrivé à terme (grand stand, 4 mois) et non renouvelé</label>`+
+      `<div id="gcPrBloc"><div class="gc-form"><div><label>Préavis reçu par e-mail le</label><input type="date" id="gcPrRecu" value="${a}"></div><div><label>Départ le</label><input id="gcPrFin" readonly value="${fmtD(plusUnMois(a))}"></div></div>`+
+      `<label class="gc-check" style="margin-top:8px"><input type="checkbox" id="gcPrPause"> Pause : souhaite revenir plus tard (place non garantie)</label></div>`+
+      `<div id="gcSansBloc" class="hide"><div class="gc-form"><div><label>Dernier jour en boutique</label><input type="date" id="gcSansFin" value="${a}"></div></div></div>`+
+      `<div class="gc-acts"><button class="btn btn-danger" data-a="preavis" data-e="${FMT.esc(e.id)}" id="gcPrBtn">Enregistrer le préavis</button></div>`;
   }else if(e&&e.fin&&e.fin>=a){
-    h+=`<div class="warn" style="margin:0">Préavis reçu le <b>${fmtD(e.preavisRecuLe)||'?'}</b> → départ le <b>${fmtD(e.fin)}</b>${e.motifFin==='pause'?' (pause, place non garantie au retour)':''}.</div>`+
-      `<div class="gc-acts"><button class="btn btn-ghost" data-a="annuler" data-e="${FMT.esc(e.id)}">↺ Annuler le préavis</button></div>`;
+    h+=(e.motifFin==='fin_contrat'?`<div class="warn" style="margin:0">Fin de contrat sans préavis → dernier jour en boutique le <b>${fmtD(e.fin)}</b>.</div>`
+      :`<div class="warn" style="margin:0">Préavis reçu le <b>${fmtD(e.preavisRecuLe)||'?'}</b> → départ le <b>${fmtD(e.fin)}</b>${e.motifFin==='pause'?' (pause, place non garantie au retour)':''}.</div>`)+
+      `<div class="gc-acts"><button class="btn btn-ghost" data-a="annuler" data-e="${FMT.esc(e.id)}">↺ Annuler ${e.motifFin==='fin_contrat'?'la fin de contrat':'le préavis'}</button></div>`;
   }
   if(e&&(!e.fin||e.fin>=a)){
     const opts=GC.data.stands.filter(s=>s.code!==e.stand).map(s=>{const libres=s.places-gcOccupation(s.code,a,c.id);return `<option value="${FMT.esc(s.code)}">${FMT.esc(s.libelle)} · ${libres>0?libres+' place'+(libres>1?'s':'')+' libre'+(libres>1?'s':''):'complet'}</option>`;}).join('');
@@ -1592,6 +1595,7 @@ function gcRenderFiche(){
     `<div class="gc-why">${statutAuto?'Le statut suit les emplacements : actif pendant un emplacement, inactif après le départ. ':''}Chaque modification est notée dans l'onglet « journal » du Sheet${c.modifieLe?' · dernière le '+fmtD(c.modifieLe):''}.</div>`;
   F.innerHTML=h;
   const pr=$('gcPrRecu');if(pr)pr.addEventListener('change',()=>{$('gcPrFin').value=pr.value?fmtD(plusUnMois(pr.value)):'';});
+  const sp=$('gcPrSans');if(sp)sp.addEventListener('change',()=>{$('gcPrBloc').classList.toggle('hide',sp.checked);$('gcSansBloc').classList.toggle('hide',!sp.checked);$('gcPrBtn').textContent=sp.checked?'Clôturer le stand':'Enregistrer le préavis';});
 }
 
 const GC_SERVEUR={nom:'nom',nomLegal:'nom_legal',email:'email',telephone:'telephone',adresse:'adresse',codePostal:'code_postal',ville:'ville',siret:'siret',iban:'iban',instagram:'instagram',adhesion:'adhesion_payee_le',categorie:'categorie',statut:'statut',benevole:'benevole',permsPrevues:'perms_prevues',rcPro:'rc_pro'};
@@ -1627,6 +1631,10 @@ $('gCreat').addEventListener('click',e=>{
     const champs=gcChampsModifies(c);
     if(!Object.keys(champs).length){toast('Aucune modification.');return;}
     gcAppel(b,'gestion_createur_maj',{id:c.id,champs},r=>'Fiche de '+c.nom+' enregistrée ('+r.modifies.length+' champ'+(r.modifies.length>1?'s':'')+')');
+  }else if(a==='preavis'&&$('gcPrSans')&&$('gcPrSans').checked){
+    const fin=$('gcSansFin').value;if(!fin){toast('Indique le dernier jour en boutique.',true);return;}
+    if(!confirm('Clôturer le stand de '+c.nom+' sans préavis ?\n\nDernier jour en boutique : '+fmtD(fin)+'.'))return;
+    gcAppel(b,'gestion_preavis',{idEmplacement:b.dataset.e,sansPreavis:true,fin},r=>'Stand de '+c.nom+' clôturé : dernier jour le '+fmtD(r.fin));
   }else if(a==='preavis'){
     const recu=$('gcPrRecu').value;if(!recu){toast("Indique la date de l'e-mail de préavis.",true);return;}
     gcAppel(b,'gestion_preavis',{idEmplacement:b.dataset.e,recuLe:recu,pause:$('gcPrPause').checked},r=>'Préavis enregistré : départ de '+c.nom+' le '+fmtD(r.fin));
@@ -1718,7 +1726,7 @@ const DEMO_G=(function(){
       case 'gestion_createur_creer':{if(st.createurs.some(x=>x.nom.toLowerCase()===p.nom.toLowerCase()))return {ok:false,message:'Un autre créateur s\'appelle déjà « '+p.nom+' ».'};const id=nextId(st.createurs,'C');
         if(p.stand){if(occ(p.stand,p.debut,'')>=places(p.stand))return {ok:false,message:'Plus de place libre en « '+p.stand+' ».'};st.emplacements.push({id:nextId(st.emplacements,'E'),idCreateur:id,stand:p.stand,debut:p.debut,fin:'',preavisRecuLe:'',accueilPar:p.accueilPar||'',motifFin:'',remarque:''});}
         st.createurs.push({id,nom:p.nom,email:p.email,statut:p.stand&&p.debut<=st.aujourdhui?'actif':'inactif',categorie:p.categorie,nomLegal:'',telephone:'',adresse:'',codePostal:'',ville:'',siret:'',ibanFin:'',benevole:false,permsPrevues:'',rcPro:false,adhesion:'',instagram:'',creeLe:st.aujourdhui,modifieLe:st.aujourdhui,ca:0,nbVentes:0,derniereVente:''});return {ok:true,id};}
-      case 'gestion_preavis':{const x=e(p.idEmplacement);x.preavisRecuLe=p.recuLe;x.fin=plusUnMois(p.recuLe);x.motifFin=p.pause?'pause':'depart';return {ok:true,fin:x.fin};}
+      case 'gestion_preavis':{const x=e(p.idEmplacement);if(p.sansPreavis){x.preavisRecuLe='';x.fin=p.fin;x.motifFin='fin_contrat';return {ok:true,fin:p.fin};}x.preavisRecuLe=p.recuLe;x.fin=plusUnMois(p.recuLe);x.motifFin=p.pause?'pause':'depart';return {ok:true,fin:x.fin};}
       case 'gestion_preavis_annuler':{const x=e(p.idEmplacement);x.fin='';x.preavisRecuLe='';x.motifFin='';return {ok:true};}
       case 'gestion_changer_stand':{if(occ(p.stand,p.date,p.idCreateur)>=places(p.stand))return {ok:false,message:'Plus de place libre en « '+p.stand+' ».'};const x=st.emplacements.find(y=>y.idCreateur===p.idCreateur&&gcActifLe(y,p.date));
         if(x.debut===p.date){x.stand=p.stand;return {ok:true};}const [yy,mm,dd]=p.date.split('-').map(Number);x.fin=isoJour(new Date(yy,mm-1,dd-1));x.motifFin='changement_stand';st.emplacements.push({id:nextId(st.emplacements,'E'),idCreateur:p.idCreateur,stand:p.stand,debut:p.date,fin:'',preavisRecuLe:'',accueilPar:'',motifFin:'',remarque:''});return {ok:true};}
@@ -2248,7 +2256,7 @@ $('gvRefresh').addEventListener('click',()=>gvCharger());
 
 /* ===================== GESTION ▸ JOURNAL ===================== */
 const GJ={data:null};
-const GJ_ACTIONS={createur_maj:'Fiche créateur modifiée',createur_creer:'Créateur ajouté',preavis:'Préavis enregistré',preavis_annule:'Préavis annulé',changement_stand:'Changement de stand',
+const GJ_ACTIONS={createur_maj:'Fiche créateur modifiée',createur_creer:'Créateur ajouté',preavis:'Préavis enregistré',fin_contrat:'Fin de contrat sans préavis',preavis_annule:'Préavis annulé',changement_stand:'Changement de stand',
   emplacement_creer:'Emplacement créé',statut_automatique:'Statut mis à jour',candidature_recue:'Candidature reçue',candidature_maj:'Candidature mise à jour',candidature_statut:'Candidature : décision',
   candidature_retenue:'Candidature retenue',candidature_remarque:'Candidature : remarque',email_envoye:'E-mail envoyé',email_echec:'E-mail non envoyé',email_modele_maj:'E-mail type modifié',
   reglage_categories:'Réglage : catégorie',reglage_stands:'Réglage : stand',reglage_remises:'Réglage : remise',reglage_paiements:'Réglage : paiement',
