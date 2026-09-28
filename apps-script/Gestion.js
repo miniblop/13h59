@@ -27,6 +27,7 @@ function _gestion(body) {
     gestion_changer_stand: _gChangerStand,
     gestion_contrat_renouveler: _gContratRenouveler,
     gestion_contrat_echeance: _gContratEcheance,
+    gestion_renouvellement_envoyer: _gRenouvellementEnvoyer,
     gestion_emplacement_creer: _gEmplacementCreer,
     gestion_candidatures: _gCandidatures,
     gestion_candidature_statut: _gCandidatureStatut,
@@ -224,8 +225,10 @@ function _gCreateursLecture(ss) {
       ca: _round2(v.ca), nbVentes: v.n, derniereVente: _iso(v.derniere)
     };
   });
+  const renouv = _renouvellementsParEmplacement(ss);
   const emplacements = tE.lignes.filter(function (r) { return String(_val(tE, r, 'id_emplacement')); }).map(function (r) {
     return {
+      renouvellement: renouv[String(_val(tE, r, 'id_emplacement'))] || null,
       id: String(_val(tE, r, 'id_emplacement')), idCreateur: String(_val(tE, r, 'id_createur')), stand: String(_val(tE, r, 'code_stand')),
       debut: _iso(_val(tE, r, 'debut')), fin: _iso(_val(tE, r, 'fin')), preavisRecuLe: _iso(_val(tE, r, 'preavis_recu_le')),
       accueilPar: String(_val(tE, r, 'accueil_par') || ''), motifFin: String(_val(tE, r, 'motif_fin') || ''), remarque: String(_val(tE, r, 'remarque') || ''),

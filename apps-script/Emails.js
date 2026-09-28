@@ -74,7 +74,18 @@ const EMAILS_PAR_DEFAUT = [
     "On te répond au plus vite pour organiser tes permanences et ta formation. Avant ta première permanence, un passage en boutique est prévu " +
     "pour te former avec une gérante et te remettre les clés ; le contrat de bénévolat se signe ce jour-là.\n\n" +
     "Pour toute question, réponds simplement à cet e-mail.\n\nÀ très vite,\nL'équipe du 13H59 Shop",
-    true, 'Page bénévolat : envoyé automatiquement à chaque demande reçue.']
+    true, 'Page bénévolat : envoyé automatiquement à chaque demande reçue.'],
+  ['renouvellement_demande', 'Ton stand au 13H59 Shop : on continue ensemble ?',
+    "Bonjour {marque},\n\nTon contrat de {duree} mois arrive à son terme le {echeance}.\n\n" +
+    "Souhaites-tu le renouveler pour {duree} mois de plus ? Réponds avant le {date_limite} en cliquant sur l'un des deux boutons ci-dessous.\n\n" +
+    "Sans réponse de ta part à cette date, ton contrat ne sera pas renouvelé et prendra fin le {echeance} : cet e-mail vaut préavis.\n\n" +
+    "À très vite,\nL'équipe du 13H59 Shop",
+    true, 'Envoyé automatiquement au début du dernier mois d\'un contrat à durée fixe (grand stand), avec les boutons « Je renouvelle » et « Je ne renouvelle pas ».'],
+  ['renouvellement_fin', 'Fin de ton contrat au 13H59 Shop le {echeance}',
+    "Bonjour {marque},\n\nNous n'avons pas reçu ta réponse pour le renouvellement de ton stand : ton contrat prend donc fin le {echeance}.\n\n" +
+    "Pense à venir récupérer tes créations et ton matériel à cette date. Si tu souhaites malgré tout rester, réponds vite à cet e-mail : nous verrons si la place est encore libre.\n\n" +
+    "Merci pour ces mois passés avec nous,\nL'équipe du 13H59 Shop",
+    true, 'Envoyé automatiquement quand un créateur n\'a pas répondu à la demande de renouvellement dans les 7 jours.']
 ];
 
 /** Crée l'onglet `emails` avec les textes par défaut s'il n'existe pas. */
@@ -111,7 +122,9 @@ function _emailsParDefaut() {
 const CHAMPS_EMAIL = ['prenom', 'marque', 'stand', 'date'];
 const CHAMPS_EMAIL_FACTURE = ['marque', 'mois', 'mois_ventes', 'numero'];
 const CHAMPS_EMAIL_RELANCE = ['marque', 'mois', 'montant'];
+const CHAMPS_EMAIL_RENOUVELLEMENT = ['marque', 'echeance', 'date_limite', 'duree'];
 function _champsAutorises(code) {
+  if (String(code).indexOf('renouvellement_') === 0) return CHAMPS_EMAIL_RENOUVELLEMENT;
   if (code === 'facture') return CHAMPS_EMAIL_FACTURE;
   if (code === 'relance_loyer') return CHAMPS_EMAIL_RELANCE;
   return CHAMPS_EMAIL.filter(function (k) { return k !== 'date' || code === 'retenu'; });
@@ -155,10 +168,13 @@ function _echapperHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 /** Mise en page du shop : bandeau noir, paragraphes du texte. */
-function _htmlShop(texte) {
+function _htmlShop(texte, boutons) {
   const corps = String(texte).split(/\n{2,}/).map(function (p) {
     return '<p style="margin:0 0 12px">' + _echapperHtml(p).replace(/\n/g, '<br>') + '</p>';
-  }).join('');
+  }).join('') + (boutons && boutons.length ? '<p style="margin:18px 0 16px">' + boutons.map(function (b) {
+    return '<a href="' + _echapperHtml(b.url) + '" style="display:inline-block;margin:0 8px 8px 0;padding:12px 20px;border-radius:10px;font-weight:bold;text-decoration:none;' +
+      (b.principal ? 'background:#0f0f0f;color:#ffffff' : 'background:#f0efec;color:#0f0f0f') + '">' + _echapperHtml(b.libelle) + '</a>';
+  }).join('') + '</p>' : '');
   return '<div style="font-family:Arial,sans-serif;max-width:560px;border:1px solid #eae7e1;border-radius:12px;overflow:hidden">' +
     '<div style="background:#000;color:#fff;font-weight:800;letter-spacing:4px;padding:14px 20px">13H59 SHOP</div>' +
     '<div style="padding:18px 20px 8px;font-size:14px;line-height:1.6;color:#0f0f0f">' + corps + '</div></div>';
@@ -168,11 +184,12 @@ function _htmlShop(texte) {
  * Envoie le modèle `code` à `to`. Renvoie true si envoyé, false si le modèle est absent ou désactivé.
  * Lève une erreur si l'envoi échoue (alias absent, quota…).
  */
-function envoyerModele(ss, code, to, vars) {
+function envoyerModele(ss, code, to, vars, boutons) {
   const m = _modelesEmails(ss)[code];
   if (!m || !m.actif || !m.texte) return false;
   const texte = _remplir(m.texte, vars);
-  envoyerEmailShop({ to: to, subject: _remplir(m.objet, vars), texte: texte, html: _htmlShop(texte) });
+  const brut = boutons && boutons.length ? texte + '\n\n' + boutons.map(function (b) { return b.libelle + ' : ' + b.url; }).join('\n') : texte;
+  envoyerEmailShop({ to: to, subject: _remplir(m.objet, vars), texte: brut, html: _htmlShop(texte, boutons) });
   return true;
 }
 

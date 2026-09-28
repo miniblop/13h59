@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>13H59 SHOP — Renouvellement</title>
+<meta name="robots" content="noindex">
+<meta name="description" content="Renouvellement de ton contrat au 13H59 Shop.">
+<style>
+  :root{
+    --bg:#f6f6f4; --card:#fff; --ink:#0f0f0f; --muted:#9a978f; --line:#eae7e1;
+    --accent:#0f0f0f; --band:#000; --pos:#1f8a4c; --neg:#c0392b; --chip:#f0efec; --tot:#f3f1ec;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+  .band{background:var(--band);color:#fff;text-align:center;font-weight:800;letter-spacing:4px;font-size:26px;padding:18px}
+  .wrap{max-width:720px;margin:0 auto;padding:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+  h1{margin:0;font-size:20px;line-height:1.3}
+  h2{margin:0 0 12px;font-size:15px;display:flex;align-items:center;gap:8px}
+  h2 .n{display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--band);color:#fff;font-size:12px;align-items:center;justify-content:center;flex:0 0 auto}
+  .muted{color:var(--muted)}
+  .lead{margin:8px 0 0;line-height:1.6;color:#4a4843}
+  label{display:block;font-size:11px;color:var(--muted);font-weight:700;margin:0 0 5px;letter-spacing:.4px;text-transform:uppercase}
+  input,textarea{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:10px;font-size:15px;background:#fff;color:var(--ink);outline:none;font-family:inherit}
+  input:focus,textarea:focus{border-color:#c9c6bf;box-shadow:0 0 0 3px rgba(0,0,0,.06)}
+  .bad{border-color:#e5b9b3!important;background:#fdf6f5!important}
+  textarea{min-height:110px;resize:vertical;line-height:1.5}
+  .f{margin-bottom:12px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .err{color:var(--neg);font-size:12px;margin-top:5px}
+  .hint{color:var(--muted);font-size:12px;margin-top:6px;line-height:1.5}
+  .stands{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stand{border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;user-select:none;transition:.12s;position:relative}
+  .stand:hover{border-color:#cfccc5}
+  .stand:focus-visible,.cats span:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .stand.on{background:var(--band);border-color:var(--band);color:#fff}
+  .stand .t{font-weight:800;line-height:1.35}
+  .stand .p{font-size:20px;font-weight:800;margin-top:4px}
+  .stand .p small{font-size:12px;font-weight:600;opacity:.7}
+  .stand .d{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.45}
+  .stand.on .d{color:#cfcfcf}
+  .stand .full{display:inline-block;margin-bottom:6px;font-size:10px;font-weight:800;background:#fbf3e2;color:#8a6d3b;border-radius:999px;padding:2px 7px}
+  .cats{display:flex;flex-wrap:wrap;gap:8px}
+  .cats span{border:1px solid var(--line);border-radius:999px;padding:7px 13px;font-weight:700;font-size:13px;cursor:pointer;user-select:none}
+  .cats span:hover{border-color:#cfccc5}
+  .cats span.on{background:var(--band);border-color:var(--band);color:#fff}
+  .cats.bad span{border-color:#e5b9b3}
+  .btn{border:none;border-radius:10px;padding:13px 16px;font-weight:700;cursor:pointer;font-size:15px;width:100%}
+  .btn-accent{background:var(--accent);color:#fff}.btn-accent:hover{background:#000}
+  .btn[disabled]{opacity:.5;cursor:wait}
+  .check{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;cursor:pointer;margin-bottom:10px;text-transform:none;letter-spacing:0;color:var(--ink);font-weight:400}
+  .check input{width:18px;height:18px;margin:2px 0 0;flex:0 0 auto;accent-color:#111}
+  .note{background:var(--tot);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.55;color:#4a4843}
+  .done{text-align:center;padding:32px 20px}
+  .done .ic{width:54px;height:54px;border-radius:50%;background:#eef6f0;color:var(--pos);display:inline-flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;margin-bottom:12px}
+  .piege{position:absolute;left:-5000px;width:1px;height:1px;overflow:hidden}
+  .chargement{color:var(--muted);font-size:13px;padding:6px 0}
+  .foot{text-align:center;color:var(--muted);font-size:12px;padding:6px 0 24px;line-height:1.6}
+  a{color:var(--ink);font-weight:600;text-decoration:underline;text-decoration-color:#cfccc5;text-decoration-thickness:1px;text-underline-offset:3px}
+  a:hover{text-decoration-color:var(--ink)}
+  .foot a{color:inherit;font-weight:400}
+  .hide{display:none!important}
+  @media(max-width:560px){
+    .band{font-size:20px;letter-spacing:2px;padding:14px}
+    .wrap{padding:12px}
+    .card{padding:16px;border-radius:14px}
+    .grid2,.stands{grid-template-columns:1fr}
+  }
+  .choix2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+  .choix2 button{border:1px solid var(--line);background:#fff;border-radius:12px;padding:14px;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;color:var(--ink)}
+  .choix2 button.on{background:var(--band);border-color:var(--band);color:#fff}
+  .etoiles{display:flex;gap:6px;margin:6px 0 12px}
+  .etoiles button{border:1px solid var(--line);background:#fff;border-radius:10px;width:44px;height:44px;font-size:20px;cursor:pointer;color:#c9c6bf}
+  .etoiles button.on{color:#0f0f0f;border-color:#0f0f0f}
+  @media(max-width:560px){.choix2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="band">13H59 SHOP</div>
+
+<div class="wrap">
+  <div class="card" id="vChargement"><div class="chargement">Chargement…</div></div>
+
+  <div class="card hide" id="vChoix">
+    <h1>Ton contrat au 13H59 Shop</h1>
+    <p class="lead" id="rTexte"></p>
+    <div class="choix2" id="rChoix">
+      <button type="button" data-c="oui">Je renouvelle</button>
+      <button type="button" data-c="non">Je ne renouvelle pas</button>
+    </div>
+    <button class="btn btn-accent" id="rValider" style="margin-top:14px" disabled>Choisis une réponse</button>
+    <div class="err hide" id="rErr" style="text-align:center"></div>
+  </div>
+
+  <div class="card done hide" id="vFin">
+    <div class="ic">✓</div>
+    <h1 id="rFinTitre"></h1>
+    <p class="muted" style="line-height:1.6;margin:10px 0 0" id="rFinTexte"></p>
+  </div>
+
+  <div class="card hide" id="vAvis">
+    <h2>Un mot sur ton expérience ?</h2>
+    <p class="lead" style="margin-top:0">Facultatif, et seule l'équipe le lira. Ça nous aide à faire grandir la boutique.</p>
+    <label style="margin-top:12px">Ta satisfaction</label>
+    <div class="etoiles" id="rEtoiles" role="radiogroup" aria-label="Note sur 5"></div>
+    <label for="rCom">Ton avis, ce qui t'a plu, ce qu'on pourrait améliorer</label>
+    <textarea id="rCom" maxlength="2000" placeholder="Écris ce que tu veux…"></textarea>
+    <button class="btn btn-accent" id="rAvisOk" style="margin-top:12px">Envoyer mon avis</button>
+    <div class="err hide" id="rAvisErr" style="text-align:center"></div>
+  </div>
+
+  <div class="foot">Collectif 13H59 · 27 rue du Plat, 59800 Lille · <a href="mailto:13h59shop@gmail.com">13h59shop@gmail.com</a></div>
+</div>
+
+<script>
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwKx5Wr_N24BPfisZM74sgZcldr-L3TSZHjPJ3WDIGaENIVa3ANVWRn5UgPTOVCeMeObw/exec';
+const P = new URLSearchParams(location.search);
+const DEMO = P.has('demo');
+const JETON = P.get('j') || '';
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const dateFr = iso => iso ? new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+let choix = P.get('c') === 'oui' || P.get('c') === 'non' ? P.get('c') : null, note = 0, infos = null;
+
+async function appeler(action, params){
+  if (DEMO) return demo(action, params || {});
+  const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action, jeton: JETON }, params || {})) });
+  return res.json();
+}
+function voir(id){ ['vChargement','vChoix','vFin','vAvis'].forEach(v => $(v).classList.toggle('hide', v !== id && !(id === 'vFin+' && (v === 'vFin' || v === 'vAvis')))); }
+function majChoix(){
+  $('rChoix').querySelectorAll('[data-c]').forEach(b => b.classList.toggle('on', b.dataset.c === choix));
+  $('rValider').disabled = !choix;
+  $('rValider').textContent = choix === 'oui' ? 'Confirmer : je renouvelle' : choix === 'non' ? 'Confirmer : je ne renouvelle pas' : 'Choisis une réponse';
+}
+function fin(r){
+  if (r.choix === 'oui' || infos.statut === 'renouvele') {
+    $('rFinTitre').textContent = 'Merci, ton contrat est renouvelé !';
+    $('rFinTexte').innerHTML = 'On continue ensemble jusqu\'au <b>' + esc(dateFr(r.nouvelleEcheance || infos.nouvelleEcheance)) + '</b>. À très vite en boutique.';
+    voir('vFin');
+  } else {
+    $('rFinTitre').textContent = 'C\'est noté';
+    $('rFinTexte').innerHTML = 'Ton contrat prend fin le <b>' + esc(dateFr(r.echeance || infos.echeance)) + '</b>. Pense à venir récupérer tes créations et ton matériel à cette date. Merci pour ces mois passés avec nous !';
+    voir(infos.avisDonne ? 'vFin' : 'vFin+');
+  }
+}
+(async function charger(){
+  try {
+    if (!JETON && !DEMO) throw new Error('Lien incomplet : ouvre le lien reçu par e-mail.');
+    infos = await appeler('renouvellement_infos');
+    if (!infos.ok) throw new Error(infos.message);
+    if (infos.statut === 'renouvele' || infos.statut === 'non_renouvele') { fin({}); return; }
+    if (infos.statut !== 'en_attente') throw new Error('Cette demande est close. Pour toute question, écris-nous à 13h59shop@gmail.com.');
+    $('rTexte').innerHTML = 'Bonjour ' + esc(infos.marque) + ', ton contrat' + (infos.stand ? ' (' + esc(infos.stand) + ')' : '') + ' de ' + infos.duree + ' mois arrive à son terme le <b>' + esc(dateFr(infos.echeance)) + '</b>. ' +
+      'Souhaites-tu le renouveler pour ' + infos.duree + ' mois de plus ? Réponds avant le <b>' + esc(dateFr(infos.dateLimite)) + '</b> ; sans réponse, ton contrat prendra fin à cette échéance.';
+    majChoix(); voir('vChoix');
+  } catch (e) {
+    $('vChargement').innerHTML = '<div class="err" style="text-align:center">' + esc((e && e.message) || 'Le lien n\'a pas pu se charger.') + '</div>';
+  }
+})();
+$('rChoix').addEventListener('click', e => { const b = e.target.closest('[data-c]'); if (!b) return; choix = b.dataset.c; majChoix(); $('rErr').classList.add('hide'); });
+$('rValider').addEventListener('click', async () => {
+  const b = $('rValider'); b.disabled = true; b.textContent = 'Envoi…';
+  try {
+    const r = await appeler('renouvellement_repondre', { choix });
+    if (!r.ok) { if (r.deja) { infos = await appeler('renouvellement_infos'); fin({}); return; } throw new Error(r.message); }
+    fin(r);
+  } catch (e) { $('rErr').textContent = (e && e.message) || 'L\'envoi a échoué : réessaie.'; $('rErr').classList.remove('hide'); majChoix(); }
+});
+$('rEtoiles').innerHTML = [1, 2, 3, 4, 5].map(n => '<button type="button" role="radio" aria-checked="false" aria-label="' + n + ' sur 5" data-n="' + n + '">★</button>').join('');
+$('rEtoiles').addEventListener('click', e => { const b = e.target.closest('[data-n]'); if (!b) return; note = Number(b.dataset.n);
+  $('rEtoiles').querySelectorAll('[data-n]').forEach(x => { const on = Number(x.dataset.n) <= note; x.classList.toggle('on', on); x.setAttribute('aria-checked', Number(x.dataset.n) === note); }); });
+$('rAvisOk').addEventListener('click', async () => {
+  const com = $('rCom').value.trim();
+  if (!note && !com) { $('rAvisErr').textContent = 'Donne une note ou écris quelques mots.'; $('rAvisErr').classList.remove('hide'); return; }
+  const b = $('rAvisOk'); b.disabled = true; b.textContent = 'Envoi…';
+  try {
+    const r = await appeler('renouvellement_avis', { note, commentaire: com });
+    if (!r.ok) throw new Error(r.message);
+    $('vAvis').innerHTML = '<h2>Merci pour ton avis !</h2><p class="lead" style="margin-top:0">L\'équipe l\'a bien reçu.</p>';
+  } catch (e) { $('rAvisErr').textContent = (e && e.message) || 'L\'envoi a échoué : réessaie.'; $('rAvisErr').classList.remove('hide'); b.disabled = false; b.textContent = 'Envoyer mon avis'; }
+});
+
+/* ---------- Démo (?demo) : aucune donnée envoyée ---------- */
+function demo(action, p){
+  const st = demo.st = demo.st || { statut: 'en_attente' };
+  return new Promise(ok => setTimeout(() => ok(
+    action === 'renouvellement_infos' ? { ok: true, marque: 'Atelier Lune', stand: 'Exposant créateur · grand stand', duree: 4, echeance: '2026-10-31', dateLimite: '2026-10-08', statut: st.statut, nouvelleEcheance: st.statut === 'renouvele' ? '2027-02-28' : '', avisDonne: !!st.avis }
+    : action === 'renouvellement_repondre' ? (st.statut !== 'en_attente' ? { ok: false, deja: true } : (st.statut = p.choix === 'oui' ? 'renouvele' : 'non_renouvele', { ok: true, choix: p.choix, echeance: '2026-10-31', nouvelleEcheance: p.choix === 'oui' ? '2027-02-28' : '' }))
+    : action === 'renouvellement_avis' ? (st.avis = true, { ok: true }) : { ok: false, message: 'Action inconnue.' }), 300));
+}
+</script>
+</body>
+</html>
