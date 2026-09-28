@@ -474,7 +474,7 @@
       <div class="card">
         <div class="cardhead" style="margin-bottom:0">
           <div><h2>Créateurs</h2><div class="muted" style="font-size:12px;margin-top:4px">Un créateur = un seul stand · préavis d'un mois, reçu par e-mail</div></div>
-          <div class="gc-acts" style="margin-top:0"><button class="btn-dl" id="gcRefresh">↻ Actualiser</button><button class="btn btn-ghost" id="gcAjout">＋ Ajouter un créateur</button></div>
+          <div class="gc-acts" style="margin-top:0"><button class="btn-dl" id="gcRefresh">↻ Actualiser</button><button class="btn-dl" id="gcDrive">Dossiers Drive</button><button class="btn btn-ghost" id="gcAjout">＋ Ajouter un créateur</button></div>
         </div>
         <div id="gcAjoutForm" class="hide" style="margin-top:14px;border-top:1px dashed var(--line);padding-top:14px">
           <div class="gc-form">
@@ -488,6 +488,7 @@
           <div class="gc-acts"><button class="btn btn-accent" id="gcNOk">Créer le créateur</button><button class="btn btn-ghost" id="gcNAnnuler">Annuler</button></div>
           <div class="gc-why">Le créateur apparaît dans la caisse à partir de sa date d'arrivée. Sans stand, il est créé « inactif ».</div>
         </div>
+        <div id="gcDrivePanel" class="hide" style="margin-top:14px;border-top:1px dashed var(--line);padding-top:14px"></div>
       </div>
       <h3>Places</h3>
       <div class="gc-places" id="gcPlaces"></div>
@@ -1551,7 +1552,8 @@ function gcRenderFiche(){
     `<div class="gc-doc"><div class="k">Dernière vente</div><div class="v">${c.derniereVente?fmtD(c.derniereVente):'—'}</div></div>`+
     `<div class="gc-doc"><div class="k">Adhésion 15 €</div><div class="v">${adh}</div></div>`+
     `<div class="gc-doc"><div class="k">Instagram</div><div class="v">${ig}</div></div>`+
-    `<div class="gc-doc"><div class="k">RC Pro</div><div class="v">${c.rcPro?'<span class="gc-ok">Attestation ✓</span>':'<span class="gc-ko">Non renseignée</span>'}</div></div></div>`;
+    `<div class="gc-doc"><div class="k">RC Pro</div><div class="v">${c.rcPro?'<span class="gc-ok">Attestation ✓</span>':'<span class="gc-ko">Non renseignée</span>'}</div></div>`+
+    `<div class="gc-doc"><div class="k">Dossier Drive</div><div class="v">${c.dossier?`<a href="https://drive.google.com/drive/folders/${encodeURIComponent(c.dossier)}" target="_blank" rel="noopener">Ouvrir son dossier</a> <span class="muted">(factures, documents, convention)</span>`:`<a href="#" data-a="dossier">Créer son dossier</a>`}</div></div></div>`;
 
   /* emplacement */
   h+='<div class="gc-h4">Emplacement</div>';
@@ -1641,6 +1643,8 @@ $('gCreat').addEventListener('click',e=>{
   }else if(a==='annuler'){
     if(!confirm('Annuler le préavis de '+c.nom+' ?'))return;
     gcAppel(b,'gestion_preavis_annuler',{idEmplacement:b.dataset.e},()=>'Préavis annulé : '+c.nom+' reste en boutique');
+  }else if(a==='dossier'){
+    gcAppel(b,'gestion_dossier_creer',{id:c.id},r=>'Dossier Drive de '+c.nom+' créé'+(r.factures?' · '+r.factures+' facture(s) rangée(s)':''));
   }else if(a==='changer'){
     const stand=$('gcCsStand').value,date=$('gcCsDate').value;if(!stand||!date){toast('Choisis un stand et une date.',true);return;}
     gcAppel(b,'gestion_changer_stand',{idCreateur:c.id,stand,date},()=>c.nom+' passe en '+gcStand(stand)+' le '+fmtD(date));
@@ -1727,6 +1731,11 @@ const DEMO_G=(function(){
         if(p.stand){if(occ(p.stand,p.debut,'')>=places(p.stand))return {ok:false,message:'Plus de place libre en « '+p.stand+' ».'};st.emplacements.push({id:nextId(st.emplacements,'E'),idCreateur:id,stand:p.stand,debut:p.debut,fin:'',preavisRecuLe:'',accueilPar:p.accueilPar||'',motifFin:'',remarque:''});}
         st.createurs.push({id,nom:p.nom,email:p.email,statut:p.stand&&p.debut<=st.aujourdhui?'actif':'inactif',categorie:p.categorie,nomLegal:'',telephone:'',adresse:'',codePostal:'',ville:'',siret:'',ibanFin:'',benevole:false,permsPrevues:'',rcPro:false,adhesion:'',instagram:'',creeLe:st.aujourdhui,modifieLe:st.aujourdhui,ca:0,nbVentes:0,derniereVente:''});return {ok:true,id};}
       case 'gestion_preavis':{const x=e(p.idEmplacement);if(p.sansPreavis){x.preavisRecuLe='';x.fin=p.fin;x.motifFin='fin_contrat';return {ok:true,fin:p.fin};}x.preavisRecuLe=p.recuLe;x.fin=plusUnMois(p.recuLe);x.motifFin=p.pause?'pause':'depart';return {ok:true,fin:x.fin};}
+      case 'gestion_dossier_creer':{const c=st.createurs.find(x=>x.id===p.id);c.dossier='demo-'+c.id;return {ok:true,dossier:c.dossier,factures:0};}
+      case 'gestion_dossiers_etat':return JSON.parse(JSON.stringify({ok:true,racine:'#',acces:st.acces||[],manquants:st.createurs.filter(c=>c.statut==='actif'&&!c.dossier).length}));
+      case 'gestion_dossiers_creer_tous':{let n=0;st.createurs.forEach(c=>{if(c.statut==='actif'&&!c.dossier){c.dossier='demo-'+c.id;n++;}});return {ok:true,crees:n,restants:0};}
+      case 'gestion_acces_drive_ajouter':{st.acces=st.acces||[];const m=String(p.email).toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(m))return {ok:false,message:'Adresse e-mail invalide.'};if(st.acces.some(a=>a.email===m))return {ok:false,message:m+' a déjà accès.'};st.acces.push({email:m,ajouteLe:aujourdhui(),ajoutePar:S.prenom||''});return {ok:true};}
+      case 'gestion_acces_drive_retirer':st.acces=(st.acces||[]).filter(a=>a.email!==p.email);return {ok:true};
       case 'gestion_preavis_annuler':{const x=e(p.idEmplacement);x.fin='';x.preavisRecuLe='';x.motifFin='';return {ok:true};}
       case 'gestion_changer_stand':{if(occ(p.stand,p.date,p.idCreateur)>=places(p.stand))return {ok:false,message:'Plus de place libre en « '+p.stand+' ».'};const x=st.emplacements.find(y=>y.idCreateur===p.idCreateur&&gcActifLe(y,p.date));
         if(x.debut===p.date){x.stand=p.stand;return {ok:true};}const [yy,mm,dd]=p.date.split('-').map(Number);x.fin=isoJour(new Date(yy,mm-1,dd-1));x.motifFin='changement_stand';st.emplacements.push({id:nextId(st.emplacements,'E'),idCreateur:p.idCreateur,stand:p.stand,debut:p.date,fin:'',preavisRecuLe:'',accueilPar:'',motifFin:'',remarque:''});return {ok:true};}
@@ -1736,6 +1745,39 @@ const DEMO_G=(function(){
   };
 })();
 
+
+/* ---------- Créateurs ▸ Dossiers Drive (accès et création en lot) ---------- */
+const GD={etat:null};
+async function gdCharger(){
+  $('gcDrivePanel').innerHTML='<div class="muted">Lecture de Google Drive…</div>';
+  try{
+    const r=await API.gestion('gestion_dossiers_etat');
+    if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
+    GD.etat=r;gdRender();
+  }catch(e){$('gcDrivePanel').innerHTML='<div class="warn" style="margin:0">⚠️ '+FMT.esc((e&&e.message)||e)+'</div>';}
+}
+function gdRender(){
+  const E=GD.etat;
+  $('gcDrivePanel').innerHTML=`<div class="gc-h4" style="margin-top:0">Dossiers Drive des créateurs</div>`+
+    `<div class="muted" style="font-size:12px;line-height:1.6">Chaque créateur a un dossier dans <a href="${FMT.esc(E.racine)}" target="_blank" rel="noopener">13h59 ▸ Créateurs</a>, avec trois sous-dossiers : Factures, Documents, Convention. Il est créé avec la fiche ; les factures restent aussi rangées par mois dans 13h59 ▸ Factures (le dossier du créateur en contient un raccourci).</div>`+
+    (E.manquants?`<div class="gc-acts"><button class="btn btn-ghost" data-d="tous">Créer les dossiers manquants (${E.manquants} créateur${E.manquants>1?'s':''} actif${E.manquants>1?'s':''})</button></div>`:'<div class="gc-why">Tous les créateurs actifs ont leur dossier.</div>')+
+    `<div class="gc-h4">Qui peut ouvrir les dossiers</div>`+
+    (E.acces.length?`<table class="gbi-mini">${E.acces.map(a=>`<tr><td>${FMT.esc(a.email)}</td><td class="muted">ajouté le ${fmtD(a.ajouteLe)}${a.ajoutePar?' par '+FMT.esc(a.ajoutePar):''}</td><td class="r"><a href="#" data-d="retirer" data-m="${FMT.esc(a.email)}">Retirer</a></td></tr>`).join('')}</table>`:'<div class="muted" style="font-size:13px">Personne pour l\'instant : seul le compte du site voit les dossiers.</div>')+
+    `<div class="row2" style="margin-top:10px"><input id="gdEmail" type="email" placeholder="adresse Gmail d'une gérante"><button class="btn btn-ghost" data-d="ajouter">Donner l'accès</button></div>`+
+    `<div class="gc-why">Google Drive envoie un e-mail à la personne. Elle voit tous les dossiers des créateurs, pièces d'identité et RIB compris : à réserver à l'équipe de gestion.</div>`;
+}
+$('gcDrive').addEventListener('click',()=>{const p=$('gcDrivePanel');p.classList.toggle('hide');if(!p.classList.contains('hide'))gdCharger();});
+$('gcDrivePanel').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-d]');if(!b||b.disabled)return;e.preventDefault();
+  const a=b.dataset.d;let action,params,msg;
+  if(a==='ajouter'){const m=$('gdEmail').value.trim();if(!m){toast('Indique une adresse e-mail.',true);return;}
+    if(!confirm('Donner à '+m+' l\'accès à tous les dossiers des créateurs (documents compris) ?'))return;action='gestion_acces_drive_ajouter';params={email:m};msg=()=>m+' a maintenant accès aux dossiers';}
+  else if(a==='retirer'){if(!confirm('Retirer l\'accès de '+b.dataset.m+' ?'))return;action='gestion_acces_drive_retirer';params={email:b.dataset.m};msg=()=>'Accès retiré';}
+  else if(a==='tous'){action='gestion_dossiers_creer_tous';params={};msg=r=>r.crees+' dossier(s) créé(s)'+(r.restants?' · relance pour les '+r.restants+' restants':'');}
+  const t=b.textContent;b.disabled=true;b.textContent='…';
+  try{const r=await API.gestion(action,params);if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide du serveur');toast(msg(r));await gdCharger();if(a==='tous')gcCharger(true);}
+  catch(err){toast((err&&err.message)||String(err),true);if(b.isConnected){b.disabled=false;b.textContent=t;}}
+});
 /* ===================== GESTION ▸ CANDIDATURES ===================== */
 const GK={data:null,filtre:'a_traiter',stand:'',q:'',sel:null,charge:false,retenir:false};
 const GK_LIB={a_traiter:'À traiter',liste_attente:"Liste d'attente",retenu:'Retenue',non_retenu:'Non retenue',toutes:'Toutes'};
@@ -2256,7 +2298,7 @@ $('gvRefresh').addEventListener('click',()=>gvCharger());
 
 /* ===================== GESTION ▸ JOURNAL ===================== */
 const GJ={data:null};
-const GJ_ACTIONS={createur_maj:'Fiche créateur modifiée',createur_creer:'Créateur ajouté',preavis:'Préavis enregistré',fin_contrat:'Fin de contrat sans préavis',preavis_annule:'Préavis annulé',changement_stand:'Changement de stand',
+const GJ_ACTIONS={createur_maj:'Fiche créateur modifiée',createur_creer:'Créateur ajouté',preavis:'Préavis enregistré',fin_contrat:'Fin de contrat sans préavis',dossier_drive:'Dossier Drive',dossier_echec:'Dossier Drive : échec',acces_drive:'Accès aux dossiers Drive',preavis_annule:'Préavis annulé',changement_stand:'Changement de stand',
   emplacement_creer:'Emplacement créé',statut_automatique:'Statut mis à jour',candidature_recue:'Candidature reçue',candidature_maj:'Candidature mise à jour',candidature_statut:'Candidature : décision',
   candidature_retenue:'Candidature retenue',candidature_remarque:'Candidature : remarque',email_envoye:'E-mail envoyé',email_echec:'E-mail non envoyé',email_modele_maj:'E-mail type modifié',
   reglage_categories:'Réglage : catégorie',reglage_stands:'Réglage : stand',reglage_remises:'Réglage : remise',reglage_paiements:'Réglage : paiement',

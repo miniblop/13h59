@@ -36,6 +36,11 @@ function _gestion(body) {
     gestion_benevolat_poser: _gBenevolatPoser,
     gestion_benevolat_retirer: _gBenevolatRetirer,
     gestion_bilan: _gBilan,
+    gestion_dossier_creer: _gDossierCreer,
+    gestion_dossiers_creer_tous: _gDossiersCreerTous,
+    gestion_dossiers_etat: _gDossiersEtat,
+    gestion_acces_drive_ajouter: _gAccesDriveAjouter,
+    gestion_acces_drive_retirer: _gAccesDriveRetirer,
     gestion_bilan_charge: _gBilanCharge,
     gestion_bilan_charge_supprimer: _gBilanChargeSupprimer,
     gestion_bilan_reel: _gBilanReel,
@@ -208,7 +213,7 @@ function _gCreateursLecture(ss) {
       permsPrevues: _val(tC, r, 'perms_prevues') === '' ? '' : Number(_val(tC, r, 'perms_prevues')),
       rcPro: _val(tC, r, 'rc_pro') === true, adhesion: _iso(_val(tC, r, 'adhesion_payee_le')),
       instagram: String(_val(tC, r, 'instagram') || ''), creeLe: _iso(_val(tC, r, 'cree_le')),
-      modifieLe: _iso(_val(tC, r, 'modifie_le')),
+      modifieLe: _iso(_val(tC, r, 'modifie_le')), dossier: String(_val(tC, r, 'dossier_drive') || ''),
       ca: _round2(v.ca), nbVentes: v.n, derniereVente: _iso(v.derniere)
     };
   });
@@ -309,6 +314,10 @@ function _gCreateurMaj(body) {
   if (tC.M['modifie_le'] != null) r[tC.M['modifie_le']] = new Date();
   _ecrireLigne(tC, i, r);
   _journaliser('createur_maj', body.id + ' ' + _nomPropre(_val(tC, r, 'nom')) + ' : ' + modifies.join(', '));
+  if (modifies.indexOf('nom') >= 0) {
+    try { const d = _dossierCreateur(ss, String(body.id), false); if (d) d.setName(_nomDossierCreateur(_nomPropre(_val(tC, r, 'nom')), String(body.id))); }
+    catch (e) { /* le dossier sera renommé à la main */ }
+  }
   return { ok: true, modifies: modifies };
 }
 
@@ -332,7 +341,10 @@ function _gCreateurCreer(body) {
   _ajouterLigne(tC, { id_createur: id, nom: nom, email: email, statut: statut, categorie: categorie, instagram: instagram, nom_legal: String(body.nomLegal || ''),
                       benevole: false, rc_pro: false, cree_le: new Date(), modifie_le: new Date() });
   _journaliser('createur_creer', id + ' ' + nom + detail);
-  return { ok: true, id: id };
+  let dossier = '';
+  try { dossier = _dossierCreateur(ss, id, true).getId(); }
+  catch (e) { _journaliser('dossier_echec', id + ' : ' + (e && e.message ? e.message : e)); }
+  return { ok: true, id: id, dossier: dossier };
 }
 
 /**

@@ -262,6 +262,9 @@ function _gFactureGenerer(body) {
     taux_commission: c.taux, ventes_mois_precedent: c.ventes, frais_mois_precedent: c.frais, prime_mois_precedent: c.prime, net_a_verser: c.net,
     perms_faites: c.permsFaites, perms_requises: c.permsRequises == null ? '' : c.permsRequises, statut: 'generee', pdf_id: fichier.getId(), emise_par: _signataire()
   });
+  // la facture reste rangée par mois ; un raccourci la montre aussi dans le dossier du créateur
+  try { _raccourciFacture(ss, c.idCreateur, fichier.getId(), fichier.getName()); }
+  catch (e) { _journaliser('dossier_echec', c.idCreateur + ' facture ' + numero + ' : ' + (e && e.message ? e.message : e)); }
   const tL = _tableau(ss, SHEET_LIGNES_FACTURE);
   _assurerTaille(tL.sh, tL.sh.getLastRow() + c.lignes.length, COLONNES_LIGNES_FACTURE.length);
   tL.sh.getRange(tL.sh.getLastRow() + 1, 1, c.lignes.length, COLONNES_LIGNES_FACTURE.length)
