@@ -25,6 +25,8 @@ function _gestion(body) {
     gestion_preavis: _gPreavis,
     gestion_preavis_annuler: _gPreavisAnnuler,
     gestion_changer_stand: _gChangerStand,
+    gestion_contrat_renouveler: _gContratRenouveler,
+    gestion_contrat_echeance: _gContratEcheance,
     gestion_emplacement_creer: _gEmplacementCreer,
     gestion_candidatures: _gCandidatures,
     gestion_candidature_statut: _gCandidatureStatut,
@@ -188,6 +190,7 @@ function _synchroniserStatuts(ss) {
 
 function _gCreateurs() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  _colonnesContrat(ss);
   _synchroniserStatuts(ss);
   SpreadsheetApp.flush();
   return _lecturePure(function () { return _gCreateursLecture(ss); });
@@ -225,11 +228,12 @@ function _gCreateursLecture(ss) {
     return {
       id: String(_val(tE, r, 'id_emplacement')), idCreateur: String(_val(tE, r, 'id_createur')), stand: String(_val(tE, r, 'code_stand')),
       debut: _iso(_val(tE, r, 'debut')), fin: _iso(_val(tE, r, 'fin')), preavisRecuLe: _iso(_val(tE, r, 'preavis_recu_le')),
-      accueilPar: String(_val(tE, r, 'accueil_par') || ''), motifFin: String(_val(tE, r, 'motif_fin') || ''), remarque: String(_val(tE, r, 'remarque') || '')
+      accueilPar: String(_val(tE, r, 'accueil_par') || ''), motifFin: String(_val(tE, r, 'motif_fin') || ''), remarque: String(_val(tE, r, 'remarque') || ''),
+      echeance: _iso(_val(tE, r, 'echeance'))
     };
   });
   const stands = _lireTable(_onglet(ss, SHEET_STANDS)).filter(function (s) { return s['code']; }).map(function (s) {
-    return { code: String(s['code']), libelle: String(s['libelle'] || s['code']), loyer: Number(s['loyer']) || 0, places: Number(s['places']) || 0 };
+    return { code: String(s['code']), libelle: String(s['libelle'] || s['code']), loyer: Number(s['loyer']) || 0, places: Number(s['places']) || 0, dureeMois: Number(s['duree_contrat_mois']) || 0 };
   });
   const categories = _categoriesTriees(ss).map(function (c) {
     return { code: String(c['code']), libelle: String(c['libelle'] || c['code']), actif: c['actif'] !== false };
@@ -327,6 +331,7 @@ function _gCreateurMaj(body) {
 
 function _gCreateurCreer(body) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  _colonnesContrat(ss);
   const tC = _tableau(ss, SHEET_CREATEURS), tE = _tableau(ss, SHEET_EMPLACEMENTS);
   const ctx = _contexteCreateurs(ss, tC, '');
   const nom = _valeurChamp('nom', body.nom, ctx);
@@ -338,7 +343,7 @@ function _gCreateurCreer(body) {
   if (body.stand) {
     const debut = _dateIso(body.debut);
     if (_occupation(tE, body.stand, debut, '') >= _placesStand(ss, body.stand)) throw new Error('Plus de place libre en « ' + body.stand + ' » le ' + body.debut + '.');
-    _ajouterLigne(tE, { id_emplacement: _prochainId(tE, 'id_emplacement', 'E'), id_createur: id, code_stand: body.stand, debut: debut, accueil_par: String(body.accueilPar || '') });
+    _ajouterLigne(tE, { id_emplacement: _prochainId(tE, 'id_emplacement', 'E'), id_createur: id, code_stand: body.stand, debut: debut, accueil_par: String(body.accueilPar || ''), echeance: _echeanceNouvelle(ss, body.stand, debut) });
     if (debut <= _aujourdhui()) statut = 'actif';
     detail = ' · stand ' + body.stand + ' dès le ' + body.debut;
   }
@@ -505,6 +510,7 @@ function _gPreavisAnnuler(body) {
 /** Change de stand à partir de `date` : l'emplacement actuel se termine la veille. */
 function _gChangerStand(body) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  _colonnesContrat(ss);
   const tE = _tableau(ss, SHEET_EMPLACEMENTS);
   const date = _dateIso(body.date), id = String(body.idCreateur);
   const i = tE.lignes.findIndex(function (r) { return String(_val(tE, r, 'id_createur')) === id && _actifLe(tE, r, date); });
@@ -522,7 +528,7 @@ function _gChangerStand(body) {
   r[tE.M['fin']] = _veille(date);
   r[tE.M['motif_fin']] = 'changement_stand';
   _ecrireLigne(tE, i, r);
-  _ajouterLigne(tE, { id_emplacement: _prochainId(tE, 'id_emplacement', 'E'), id_createur: id, code_stand: body.stand, debut: date });
+  _ajouterLigne(tE, { id_emplacement: _prochainId(tE, 'id_emplacement', 'E'), id_createur: id, code_stand: body.stand, debut: date, echeance: _echeanceNouvelle(ss, body.stand, date) });
   _journaliser('changement_stand', id + ' : ' + _val(tE, r, 'code_stand') + ' → ' + body.stand + ' le ' + body.date);
   return { ok: true };
 }
@@ -530,6 +536,7 @@ function _gChangerStand(body) {
 /** Nouvel emplacement pour un créateur qui n'en a pas (retour, ou créateur ajouté sans stand). */
 function _gEmplacementCreer(body) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  _colonnesContrat(ss);
   const tC = _tableau(ss, SHEET_CREATEURS), tE = _tableau(ss, SHEET_EMPLACEMENTS);
   const id = String(body.idCreateur);
   if (!tC.lignes.some(function (r) { return String(_val(tC, r, 'id_createur')) === id; })) throw new Error('Créateur introuvable : « ' + id + ' ».');
@@ -540,7 +547,7 @@ function _gEmplacementCreer(body) {
   });
   if (enCours.length) throw new Error('Ce créateur a déjà un emplacement à cette date : un créateur = un seul stand.');
   if (_occupation(tE, body.stand, debut, '') >= _placesStand(ss, body.stand)) throw new Error('Plus de place libre en « ' + body.stand + ' » le ' + body.debut + '.');
-  _ajouterLigne(tE, { id_emplacement: _prochainId(tE, 'id_emplacement', 'E'), id_createur: id, code_stand: body.stand, debut: debut, accueil_par: String(body.accueilPar || '') });
+  _ajouterLigne(tE, { id_emplacement: _prochainId(tE, 'id_emplacement', 'E'), id_createur: id, code_stand: body.stand, debut: debut, accueil_par: String(body.accueilPar || ''), echeance: _echeanceNouvelle(ss, body.stand, debut) });
   _journaliser('emplacement_creer', id + ' : ' + body.stand + ' dès le ' + body.debut);
   return { ok: true };
 }

@@ -286,6 +286,7 @@
     body.print-bilan .gbi-kpi{break-inside:avoid}
     @page{size:A4 landscape;margin:12mm}
   }
+  .gc-contrat{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:12px;background:var(--tot);font-size:13px}
   .gdoc-att{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
   .gdoc-tbl td{vertical-align:top;padding:6px 6px 6px 0}
   .gv-filtres{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
@@ -1515,6 +1516,7 @@ function gcRenderAgenda(){
   const a=gcAuj(),nom=id=>{const c=GC.data.createurs.find(c=>c.id===id);return c?c.nom:id;};
   const ev=[
     ...GC.data.emplacements.filter(e=>e.fin&&e.fin>=a&&e.motifFin!=='changement_stand').map(e=>({d:e.fin,t:`<b>Départ ${FMT.esc(nom(e.idCreateur))}</b> · ${gcStand(e.stand)}${e.motifFin==='pause'?' (pause)':e.motifFin==='fin_contrat'?' (fin de contrat)':''}`})),
+    ...GC.data.emplacements.filter(e=>e.echeance&&!e.fin&&e.echeance>=a&&e.echeance<=isoJour(new Date(Date.now()+45*864e5))).map(e=>({d:e.echeance,t:`<b>Échéance du contrat de ${FMT.esc(nom(e.idCreateur))}</b> · ${gcStand(e.stand)} · renouveler ou non`})),
     ...GC.data.emplacements.filter(e=>e.debut>a).map(e=>({d:e.debut,t:`<b>Arrivée ${FMT.esc(nom(e.idCreateur))}</b> · ${gcStand(e.stand)}${e.accueilPar?' · accueil : '+FMT.esc(e.accueilPar):''}`}))
   ].sort((x,y)=>x.d.localeCompare(y.d));
   $('gcAgenda').innerHTML=ev.length?ev.map(l=>`<div class="gc-ev"><span class="d">${fmtD(l.d).slice(0,5)}</span><span>${l.t}</span></div>`).join(''):'<div class="muted">Aucune arrivée ni aucun départ prévu.</div>';
@@ -1560,6 +1562,16 @@ function gcRenderFiche(){
   /* emplacement */
   h+=`<div class="gc-h4">Documents</div><div id="gcDocs" data-c="${FMT.esc(c.id)}"><div class="muted" style="font-size:13px">Chargement des documents…</div></div>`;
   h+='<div class="gc-h4">Emplacement</div>';
+  const sc=e&&GC.data.stands.find(s=>s.code===e.stand);
+  if(e&&sc&&sc.dureeMois&&!e.fin){
+    const mois=c.derniereVente?Math.floor((new Date(a)-new Date(c.derniereVente))/(30.44*864e5)):null,sansVente=mois==null||mois>=6;
+    const suite=e.echeance?(()=>{const [y,m,d]=e.echeance.split('-').map(Number);return isoJour(new Date(y,m-1+sc.dureeMois,d));})():'';
+    h+=`<div class="gc-contrat"><div><b>Contrat de ${sc.dureeMois} mois</b>, non renouvelé automatiquement · échéance ${e.echeance?'le <b>'+fmtD(e.echeance)+'</b>'+(e.echeance<a?' <span class="gc-ko">(dépassée)</span>':''):'<span class="gc-ko">à renseigner</span>'}</div>`+
+      `<div class="muted" style="font-size:12px;margin-top:4px">${c.derniereVente?'Dernière vente le '+fmtD(c.derniereVente)+(sansVente?' · <span class="gc-ko">aucune vente depuis 6 mois ou plus : la place peut être proposée à quelqu\'un d\'autre</span>':''):'<span class="gc-ko">Aucune vente enregistrée</span>'}</div>`+
+      `<div class="gc-form" style="margin-top:8px"><div><label>Échéance du contrat en cours</label><input type="date" id="gcEch" value="${FMT.esc(e.echeance||'')}"></div></div>`+
+      `<div class="gc-acts"><button class="btn btn-ghost" data-a="echeance" data-e="${FMT.esc(e.id)}">Enregistrer l'échéance</button>${e.echeance?`<button class="btn btn-ghost" data-a="renouveler" data-e="${FMT.esc(e.id)}">Renouveler ${sc.dureeMois} mois (jusqu'au ${fmtD(suite)})</button><button class="btn btn-danger" data-a="nonrenouv" data-e="${FMT.esc(e.id)}" data-d="${FMT.esc(e.echeance)}">Ne pas renouveler</button>`:''}</div>`+
+      `<div class="gc-why">Partir avant l'échéance reste soumis au préavis d'un mois (ci-dessous). Ne pas renouveler clôture le stand au jour de l'échéance, sans préavis.</div></div>`;
+  }
   if(e&&!e.fin){
     h+=`<label class="gc-check"><input type="checkbox" id="gcPrSans"> Fin de contrat sans préavis : contrat à durée fixe arrivé à terme (grand stand, 4 mois) et non renouvelé</label>`+
       `<div id="gcPrBloc"><div class="gc-form"><div><label>Préavis reçu par e-mail le</label><input type="date" id="gcPrRecu" value="${a}"></div><div><label>Départ le</label><input id="gcPrFin" readonly value="${fmtD(plusUnMois(a))}"></div></div>`+
@@ -1647,6 +1659,15 @@ $('gCreat').addEventListener('click',e=>{
   }else if(a==='annuler'){
     if(!confirm('Annuler le préavis de '+c.nom+' ?'))return;
     gcAppel(b,'gestion_preavis_annuler',{idEmplacement:b.dataset.e},()=>'Préavis annulé : '+c.nom+' reste en boutique');
+  }else if(a==='echeance'){
+    const d=$('gcEch').value;if(!d){toast("Indique la date d'échéance.",true);return;}
+    gcAppel(b,'gestion_contrat_echeance',{idEmplacement:b.dataset.e,echeance:d},r=>'Échéance de '+c.nom+' : '+fmtD(r.echeance));
+  }else if(a==='renouveler'){
+    if(!confirm('Renouveler le contrat de '+c.nom+' ?'))return;
+    gcAppel(b,'gestion_contrat_renouveler',{idEmplacement:b.dataset.e},r=>'Contrat de '+c.nom+' renouvelé jusqu\'au '+fmtD(r.echeance));
+  }else if(a==='nonrenouv'){
+    if(!confirm('Ne pas renouveler le contrat de '+c.nom+' ?\n\nSon dernier jour en boutique sera le '+fmtD(b.dataset.d)+' (fin de contrat, sans préavis).'))return;
+    gcAppel(b,'gestion_preavis',{idEmplacement:b.dataset.e,sansPreavis:true,fin:b.dataset.d},r=>'Contrat de '+c.nom+' non renouvelé : dernier jour le '+fmtD(r.fin));
   }else if(a==='dossier'){
     gcAppel(b,'gestion_dossier_creer',{id:c.id},r=>'Dossier Drive de '+c.nom+' créé'+(r.factures?' · '+r.factures+' facture(s) rangée(s)':''));
   }else if(a==='changer'){
@@ -1707,7 +1728,7 @@ const DEMO_G=(function(){
     const a=aujourdhui(),dans=j=>isoJour(new Date(Date.now()+j*864e5));
     st={aujourdhui:a,
       categories:[['bijoux','Bijoux'],['illustration','Illustration'],['accessoires','Accessoires'],['deco','Déco & maison'],['friperie','Friperie'],['shop','Shop & résidents']].map(([code,libelle])=>({code,libelle,actif:true})),
-      stands:[{code:'illu',libelle:'Exposant illustration · espace partagé',loyer:28,places:10},{code:'unique',libelle:'Exposant créateur · petit espace unique',loyer:48,places:18},{code:'grand',libelle:'Exposant créateur · grand stand',loyer:68,places:6},{code:'friperie',libelle:'Exposant friperie',loyer:70,places:3}],
+      stands:[{code:'illu',libelle:'Exposant illustration · espace partagé',loyer:28,places:10},{code:'unique',libelle:'Exposant créateur · petit espace unique',loyer:48,places:18},{code:'grand',libelle:'Exposant créateur · grand stand',loyer:68,places:6,dureeMois:4},{code:'friperie',libelle:'Exposant friperie',loyer:70,places:3}],
       createurs:[['C001','solenne','shop'],['C002','caro','shop'],['C003','riri','illustration'],['C004','Jackline','illustration'],['C005','NYU','bijoux']].map(([id,nom,categorie])=>({id,nom,email:nom.toLowerCase()+'@exemple.fr',statut:'actif',categorie,nomLegal:'',telephone:'',adresse:'',codePostal:'',ville:'',siret:'',ibanFin:'',benevole:false,permsPrevues:'',rcPro:false,adhesion:'',instagram:'',creeLe:'',modifieLe:'',ca:0,nbVentes:0,derniereVente:''})),
       emplacements:[{id:'E001',idCreateur:'C004',stand:'grand',debut:'2025-06-03',fin:'',preavisRecuLe:'',accueilPar:'',motifFin:'',remarque:''},{id:'E002',idCreateur:'C005',stand:'unique',debut:'2025-09-10',fin:'',preavisRecuLe:'',accueilPar:'',motifFin:'',remarque:''},{id:'E003',idCreateur:'C003',stand:'illu',debut:'2026-01-13',fin:dans(12),preavisRecuLe:dans(-19),accueilPar:'',motifFin:'depart',remarque:''}]};
     DEMO_ROWS.forEach(r=>{const c=st.createurs.find(c=>c.nom.toLowerCase()===String(r.createur).toLowerCase());if(c){c.ca=round2(c.ca+r.prixClient);c.nbVentes++;if(r.date>c.derniereVente)c.derniereVente=r.date;}});
@@ -1735,6 +1756,8 @@ const DEMO_G=(function(){
         if(p.stand){if(occ(p.stand,p.debut,'')>=places(p.stand))return {ok:false,message:'Plus de place libre en « '+p.stand+' ».'};st.emplacements.push({id:nextId(st.emplacements,'E'),idCreateur:id,stand:p.stand,debut:p.debut,fin:'',preavisRecuLe:'',accueilPar:p.accueilPar||'',motifFin:'',remarque:''});}
         st.createurs.push({id,nom:p.nom,email:p.email,statut:p.stand&&p.debut<=st.aujourdhui?'actif':'inactif',categorie:p.categorie,nomLegal:'',telephone:'',adresse:'',codePostal:'',ville:'',siret:'',ibanFin:'',benevole:false,permsPrevues:'',rcPro:false,adhesion:'',instagram:'',creeLe:st.aujourdhui,modifieLe:st.aujourdhui,ca:0,nbVentes:0,derniereVente:''});return {ok:true,id};}
       case 'gestion_preavis':{const x=e(p.idEmplacement);if(p.sansPreavis){x.preavisRecuLe='';x.fin=p.fin;x.motifFin='fin_contrat';return {ok:true,fin:p.fin};}x.preavisRecuLe=p.recuLe;x.fin=plusUnMois(p.recuLe);x.motifFin=p.pause?'pause':'depart';return {ok:true,fin:x.fin};}
+      case 'gestion_contrat_echeance':{const x=e(p.idEmplacement);x.echeance=p.echeance;return {ok:true,echeance:p.echeance};}
+      case 'gestion_contrat_renouveler':{const x=e(p.idEmplacement);if(x.fin)return {ok:false,message:'Une fin est déjà enregistrée pour cet emplacement : annule-la avant de renouveler.'};const [y,m,d]=x.echeance.split('-').map(Number);x.echeance=isoJour(new Date(y,m-1+4,d));return {ok:true,echeance:x.echeance};}
       case 'gestion_dossier_creer':{const c=st.createurs.find(x=>x.id===p.id);c.dossier='demo-'+c.id;return {ok:true,dossier:c.dossier,factures:0};}
       case 'gestion_documents':{st.docs=st.docs||[];return JSON.parse(JSON.stringify({ok:true,documents:st.docs.filter(d=>d.idCreateur===p.idCreateur),types:[['siret','Justificatif SIRET (avis INSEE ou extrait INPI)'],['rc_pro','Attestation RC Pro'],['rib','RIB'],['identite',"Pièce d'identité"],['demarche','Justificatif de démarche en cours (URSSAF, INPI, assureur)'],['convention','Convention signée'],['autre','Autre document']]}));}
       case 'gestion_document_ajouter':{st.docs=st.docs||[];st.nDoc=(st.nDoc||0)+1;const lib={siret:'Justificatif SIRET',rc_pro:'Attestation RC Pro',rib:'RIB',identite:"Pièce d'identité",demarche:'Justificatif de démarche en cours',convention:'Convention signée',autre:'Autre document'}[p.type];
@@ -2116,7 +2139,7 @@ const GR_T={
   categories:{titre:'Catégories',code:'auto',aide:"Proposées sur la page de candidature et dans les fiches créateurs, dans l'ordre indiqué. Désactivée, elle disparaît des listes mais reste sur les créateurs qui l'ont déjà.",
     cols:[['libelle','Nom','text',180],['exemples','Exemples','text',240],['ordre','Ordre','num',64],['actif','Active','bool']],utilise:n=>n+' créateur'+(n>1?'s':'')},
   stands:{titre:'Stands et loyers',code:'auto',aide:"Loyer mensuel et nombre de places. Les places alimentent Gestion ▸ Créateurs et la page de candidature (« complet · liste d'attente »).",
-    cols:[['libelle','Nom','text',260],['loyer','Loyer €/mois','num',84],['places','Places','num',64],['ref_facture','Réf. facture','text',80],['perms_loyer_gratuit','Perms = loyer offert','num',84]],utilise:n=>n+' occupée'+(n>1?'s':'')+' aujourd\'hui'},
+    cols:[['libelle','Nom','text',260],['loyer','Loyer €/mois','num',84],['places','Places','num',64],['ref_facture','Réf. facture','text',80],['perms_loyer_gratuit','Perms = loyer offert','num',84],['duree_contrat_mois','Contrat (mois, vide = sans durée)','num',96]],utilise:n=>n+' occupée'+(n>1?'s':'')+' aujourd\'hui'},
   remises:{titre:'Remises de la caisse',code:'saisi',codeLabel:'Nom affiché en caisse',aide:'Toujours à la charge du créateur. Le nom ne change plus une fois créé (il est enregistré sur chaque vente) : pour une nouvelle valeur, crée une nouvelle remise et désactive l\'ancienne.',
     cols:[['valeur','Valeur','num',76],['type','Type','type'],['statut','Active','statut']],utilise:n=>n+' vente'+(n>1?'s':'')},
   paiements:{titre:'Moyens de paiement de la caisse',code:'saisi',codeLabel:'Nom affiché en caisse',aide:'Frais bancaires retenus sur chaque vente payée ainsi (1,75 % pour la CB). Un nouveau taux ne s\'applique qu\'aux ventes suivantes.',
@@ -2213,7 +2236,7 @@ const DEMO_R=(function(){
   let st=null;
   const init=()=>{st={
     categories:[['bijoux','Bijoux','boucles d\'oreilles, colliers',1,11],['illustration','Illustration','affiches, cartes',2,20],['deco','Déco & maison','bougies, objets',3,3],['shop','Shop & résidents','l\'équipe',4,6]].map(([code,libelle,exemples,ordre,utilise])=>({code,libelle,exemples,ordre,actif:true,utilise})),
-    stands:[['illu','Exposant illustration · espace partagé',28,10,'',''],['unique','Exposant créateur · petit espace unique',48,18,'',''],['grand','Exposant créateur · grand stand',68,6,'LGS',4],['friperie','Exposant friperie',70,3,'','']].map(([code,libelle,loyer,places,ref_facture,perms_loyer_gratuit],i)=>({code,libelle,loyer,places,ref_facture,perms_loyer_gratuit,utilise:[14,19,7,3][i]})),
+    stands:[['illu','Exposant illustration · espace partagé',28,10,'',''],['unique','Exposant créateur · petit espace unique',48,18,'',''],['grand','Exposant créateur · grand stand',68,6,'LGS',4],['friperie','Exposant friperie',70,3,'','']].map(([code,libelle,loyer,places,ref_facture,perms_loyer_gratuit],i)=>({code,libelle,loyer,places,ref_facture,perms_loyer_gratuit,duree_contrat_mois:code==='grand'?4:'',utilise:[14,19,7,3][i]})),
     remises:[['pas_de_remise',0,'montant',3819],['carte_fidelité_10%',10,'pourcentage',343],['soldes_20',20,'pourcentage',0],['machine_cadeau_5€',5,'montant',1]].map(([code,valeur,type,utilise])=>({code,valeur,type,statut:'actif',verrouille:code==='pas_de_remise',utilise})),
     paiements:[['cb',1.75,3745],['espèces',0,891],['carte_cadeau',1.5,0]].map(([code,taux_frais,utilise])=>({code,taux_frais,statut:'actif',utilise}))
   };};
@@ -2226,7 +2249,7 @@ const DEMO_R=(function(){
       const x=l.find(y=>y.code===p.code);if(x.verrouille)return {ok:false,message:'« pas_de_remise » est la remise par défaut de la caisse : elle ne se modifie pas.'};
       if(p.table==='paiements'&&p.champs.statut==='inactif'&&!l.some(y=>y!==x&&y.statut==='actif'))return {ok:false,message:'Il faut garder au moins un moyen de paiement actif pour la caisse.'};
       if('places' in p.champs&&!Number.isInteger(Number(p.champs.places)))return {ok:false,message:'Places : un nombre entier.'};
-      Object.keys(p.champs).forEach(k=>{x[k]=['loyer','places','valeur','taux_frais','ordre','perms_loyer_gratuit'].includes(k)&&p.champs[k]!==''?Number(String(p.champs[k]).replace(',','.')):p.champs[k];});return {ok:true};
+      Object.keys(p.champs).forEach(k=>{x[k]=['loyer','places','valeur','taux_frais','ordre','perms_loyer_gratuit','duree_contrat_mois'].includes(k)&&p.champs[k]!==''?Number(String(p.champs[k]).replace(',','.')):p.champs[k];});return {ok:true};
     }
     if(action==='gestion_reglage_creer'){
       const c=p.champs,code=p.table==='categories'||p.table==='stands'?slug(c.libelle):String(c.code||'').replace(/\s+/g,'_');
@@ -2360,7 +2383,7 @@ $('gvRefresh').addEventListener('click',()=>gvCharger());
 
 /* ===================== GESTION ▸ JOURNAL ===================== */
 const GJ={data:null};
-const GJ_ACTIONS={createur_maj:'Fiche créateur modifiée',createur_creer:'Créateur ajouté',preavis:'Préavis enregistré',fin_contrat:'Fin de contrat sans préavis',dossier_drive:'Dossier Drive',dossier_echec:'Dossier Drive : échec',acces_drive:'Accès aux dossiers Drive',document_ajoute:'Document ajouté',document_statut:'Document vérifié',document_retire:'Document retiré',preavis_annule:'Préavis annulé',changement_stand:'Changement de stand',
+const GJ_ACTIONS={createur_maj:'Fiche créateur modifiée',createur_creer:'Créateur ajouté',preavis:'Préavis enregistré',fin_contrat:'Fin de contrat sans préavis',contrat_renouvele:'Contrat renouvelé',contrat_echeance:'Échéance du contrat',dossier_drive:'Dossier Drive',dossier_echec:'Dossier Drive : échec',acces_drive:'Accès aux dossiers Drive',document_ajoute:'Document ajouté',document_statut:'Document vérifié',document_retire:'Document retiré',preavis_annule:'Préavis annulé',changement_stand:'Changement de stand',
   emplacement_creer:'Emplacement créé',statut_automatique:'Statut mis à jour',candidature_recue:'Candidature reçue',candidature_maj:'Candidature mise à jour',candidature_statut:'Candidature : décision',
   candidature_retenue:'Candidature retenue',candidature_remarque:'Candidature : remarque',email_envoye:'E-mail envoyé',email_echec:'E-mail non envoyé',email_modele_maj:'E-mail type modifié',
   reglage_categories:'Réglage : catégorie',reglage_stands:'Réglage : stand',reglage_remises:'Réglage : remise',reglage_paiements:'Réglage : paiement',

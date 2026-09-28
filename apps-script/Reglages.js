@@ -54,6 +54,7 @@ function _gReglages() {
     stands: _lireTable(_onglet(ss, SHEET_STANDS)).filter(function (s) { return s['code']; }).map(function (s) {
       return { code: String(s['code']), libelle: String(s['libelle'] || ''), loyer: Number(s['loyer']) || 0, places: Number(s['places']) || 0,
                ref_facture: String(s['ref_facture'] || ''), perms_loyer_gratuit: s['perms_loyer_gratuit'] === '' ? '' : Number(s['perms_loyer_gratuit']),
+               duree_contrat_mois: s['duree_contrat_mois'] === '' || s['duree_contrat_mois'] == null ? '' : Number(s['duree_contrat_mois']),
                utilise: occupes(String(s['code'])) };
     }),
     remises: _lireTable(_onglet(ss, SHEET_REMISES)).filter(function (r) { return r['code']; }).map(function (r) {
@@ -85,6 +86,7 @@ function _valeursReglage(table, champs, creation) {
       if (a('loyer')) v.loyer = _nombre(c.loyer, 'Loyer', 0, 10000);
       if (a('places')) { v.places = _nombre(c.places, 'Places', 0, 500); if (v.places !== Math.round(v.places)) throw new Error('Places : un nombre entier.'); }
       if (a('ref_facture')) v.ref_facture = _textePublic(String(c.ref_facture || '').toUpperCase(), 10);
+      if (a('duree_contrat_mois')) v.duree_contrat_mois = String(c.duree_contrat_mois == null ? '' : c.duree_contrat_mois).trim() === '' ? '' : _nombre(c.duree_contrat_mois, 'Durée du contrat', 1, 36);
       if (a('perms_loyer_gratuit')) v.perms_loyer_gratuit = String(c.perms_loyer_gratuit == null ? '' : c.perms_loyer_gratuit).trim() === '' ? '' : _nombre(c.perms_loyer_gratuit, 'Permanences', 0, 31);
       break;
     case 'remises': {
