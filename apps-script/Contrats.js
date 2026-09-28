@@ -21,9 +21,7 @@ function _assurerColonne(ss, nom, colonne, init) {
 }
 /** Colonnes des contrats à durée fixe ; à la création, le grand stand reçoit 4 mois (réponse de Mo). */
 function _colonnesContrat(ss) {
-  _assurerColonne(ss, SHEET_STANDS, 'duree_contrat_mois', function (t) {
-    t.lignes.forEach(function (r, i) { if (String(_val(t, r, 'code')) === 'grand') { r[t.M['duree_contrat_mois']] = 4; _ecrireLigne(t, i, r); } });
-  });
+  _assurerColonne(ss, SHEET_STANDS, 'duree_contrat_mois');   // vide = durée indéterminée (décision du 28/09/2026 : tous les stands)
   _assurerColonne(ss, SHEET_EMPLACEMENTS, 'echeance');
 }
 function _dureeContrat(ss, code) {
@@ -225,7 +223,7 @@ function tacheQuotidienne() {
       if (!(lim instanceof Date) || auj <= _jour(lim)) return;
       const i = tE2.lignes.findIndex(function (e) { return String(_val(tE2, e, 'id_emplacement')) === String(_val(tR2, r, 'id_emplacement')); });
       const e = i >= 0 ? tE2.lignes[i] : null, ech = _val(tR2, r, 'echeance');
-      const inchange = e && !(_val(tE2, e, 'fin') instanceof Date) && _val(tE2, e, 'echeance') instanceof Date && _val(tE2, e, 'echeance').getTime() === ech.getTime();
+      const inchange = e && _dureeContrat(ss, _val(tE2, e, 'code_stand')) && !(_val(tE2, e, 'fin') instanceof Date) && _val(tE2, e, 'echeance') instanceof Date && _val(tE2, e, 'echeance').getTime() === ech.getTime();
       if (inchange) {
         _cloreAEcheance(tE2, i, _jour(lim));
         const c = _ficheCreateur(ss, _val(tR2, r, 'id_createur'));
@@ -235,7 +233,7 @@ function tacheQuotidienne() {
         bilan.push('fin ' + _val(tR2, r, 'id_emplacement'));
       }
       r[tR2.M['statut']] = inchange ? 'expire' : 'annule';
-      if (!inchange) r[tR2.M['remarque']] = 'contrat modifié par la gestion avant la date limite';
+      if (!inchange) r[tR2.M['remarque']] = e && !_dureeContrat(ss, _val(tE2, e, 'code_stand')) ? 'stand passé en durée indéterminée' : 'contrat modifié par la gestion avant la date limite';
       _ecrireLigne(tR2, k, r);
     });
   } finally {
@@ -275,6 +273,10 @@ function _renouvellementRepondre(body) {
     if (_jour(new Date()) > _jour(_val(t, r, 'date_limite'))) return { ok: false, message: 'Le délai pour répondre est dépassé : écris-nous vite à ' + EMAIL_SHOP + '.' };
     const tE = _tableau(ss, SHEET_EMPLACEMENTS), i = tE.lignes.findIndex(function (l) { return String(_val(tE, l, 'id_emplacement')) === String(_val(t, r, 'id_emplacement')); });
     const e = i >= 0 ? tE.lignes[i] : null, ech = _val(t, r, 'echeance');
+    if (e && !_dureeContrat(ss, _val(tE, e, 'code_stand'))) {
+      r[t.M['statut']] = 'annule'; r[t.M['remarque']] = 'stand passé en durée indéterminée'; _ecrireLigne(t, x.i, r);
+      return { ok: false, deja: true, message: "Bonne nouvelle : ton contrat est désormais à durée indéterminée, tu n'as rien à renouveler. À très vite en boutique !" };
+    }
     if (!e || _val(tE, e, 'fin') instanceof Date || !(_val(tE, e, 'echeance') instanceof Date) || _val(tE, e, 'echeance').getTime() !== ech.getTime())
       return { ok: false, message: "L'équipe a déjà traité ton contrat : écris-nous à " + EMAIL_SHOP + ' si besoin.' };
     let nouvelle = null;

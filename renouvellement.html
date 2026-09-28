@@ -165,7 +165,7 @@ $('rValider').addEventListener('click', async () => {
   const b = $('rValider'); b.disabled = true; b.textContent = 'Envoi…';
   try {
     const r = await appeler('renouvellement_repondre', { choix });
-    if (!r.ok) { if (r.deja) { infos = await appeler('renouvellement_infos'); fin({}); return; } throw new Error(r.message); }
+    if (!r.ok) { if (r.deja) { infos = await appeler('renouvellement_infos'); if (infos.statut === 'renouvele' || infos.statut === 'non_renouvele') { fin({}); return; } $('rFinTitre').textContent = 'Rien à faire'; $('rFinTexte').textContent = r.message; voir('vFin'); return; } throw new Error(r.message); }
     fin(r);
   } catch (e) { $('rErr').textContent = (e && e.message) || 'L\'envoi a échoué : réessaie.'; $('rErr').classList.remove('hide'); majChoix(); }
 });

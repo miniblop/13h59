@@ -1585,7 +1585,7 @@ function gcRenderFiche(){
       `<div class="gc-why">Au début du dernier mois, le créateur reçoit automatiquement un e-mail « Je renouvelle / Je ne renouvelle pas » ; il a 7 jours pour répondre, sinon le contrat n'est pas renouvelé (l'e-mail vaut préavis). « Renouveler » et « Ne pas renouveler » restent possibles à la main (réponse reçue autrement que par l'e-mail) ; « Ne pas renouveler » clôture le stand au jour de l'échéance. Partir avant l'échéance reste soumis au préavis d'un mois (ci-dessous).</div></div>`;
   }
   if(e&&!e.fin){
-    h+=`<label class="gc-check"><input type="checkbox" id="gcPrSans"> Fin de contrat sans préavis : contrat à durée fixe arrivé à terme (grand stand, 4 mois) et non renouvelé</label>`+
+    h+=`<label class="gc-check"><input type="checkbox" id="gcPrSans"> Fin sans préavis : cas particulier décidé par l'équipe (on indique directement le dernier jour en boutique)</label>`+
       `<div id="gcPrBloc"><div class="gc-form"><div><label>Préavis reçu par e-mail le</label><input type="date" id="gcPrRecu" value="${a}"></div><div><label>Départ le</label><input id="gcPrFin" readonly value="${fmtD(plusUnMois(a))}"></div></div>`+
       `<label class="gc-check" style="margin-top:8px"><input type="checkbox" id="gcPrPause"> Pause : souhaite revenir plus tard (place non garantie)</label></div>`+
       `<div id="gcSansBloc" class="hide"><div class="gc-form"><div><label>Dernier jour en boutique</label><input type="date" id="gcSansFin" value="${a}"></div></div></div>`+
