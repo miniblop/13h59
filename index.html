@@ -1570,7 +1570,7 @@ function gcRenderFiche(){
       `<div class="muted" style="font-size:12px;margin-top:4px">${c.derniereVente?'Dernière vente le '+fmtD(c.derniereVente)+(sansVente?' · <span class="gc-ko">aucune vente depuis 6 mois ou plus : la place peut être proposée à quelqu\'un d\'autre</span>':''):'<span class="gc-ko">Aucune vente enregistrée</span>'}</div>`+
       `<div class="gc-form" style="margin-top:8px"><div><label>Échéance du contrat en cours</label><input type="date" id="gcEch" value="${FMT.esc(e.echeance||'')}"></div></div>`+
       `<div class="gc-acts"><button class="btn btn-ghost" data-a="echeance" data-e="${FMT.esc(e.id)}">Enregistrer l'échéance</button>${e.echeance?`<button class="btn btn-ghost" data-a="renouveler" data-e="${FMT.esc(e.id)}">Renouveler ${sc.dureeMois} mois (jusqu'au ${fmtD(suite)})</button><button class="btn btn-danger" data-a="nonrenouv" data-e="${FMT.esc(e.id)}" data-d="${FMT.esc(e.echeance)}">Ne pas renouveler</button>`:''}</div>`+
-      `<div class="gc-why">Partir avant l'échéance reste soumis au préavis d'un mois (ci-dessous). Ne pas renouveler clôture le stand au jour de l'échéance, sans préavis.</div></div>`;
+      `<div class="gc-why">Le créateur qui ne renouvelle pas prévient au début du dernier mois de son contrat ; « Ne pas renouveler » clôture alors le stand au jour de l'échéance, sans préavis. Partir avant l'échéance reste soumis au préavis d'un mois (ci-dessous).</div></div>`;
   }
   if(e&&!e.fin){
     h+=`<label class="gc-check"><input type="checkbox" id="gcPrSans"> Fin de contrat sans préavis : contrat à durée fixe arrivé à terme (grand stand, 4 mois) et non renouvelé</label>`+
