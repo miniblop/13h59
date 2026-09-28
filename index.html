@@ -585,7 +585,7 @@
         <div class="card">
           <div class="cardhead"><h2 id="gwTitre">Versements</h2><div class="gc-acts" style="margin-top:0"><button class="btn-dl" id="gwRefresh">↻ Actualiser</button><button class="btn btn-accent" id="gwFichier">Fichier de virements groupés</button></div></div>
           <div class="tblwrap"><table id="gwTbl"></table></div>
-          <div class="gc-why">Net à verser = ventes du mois précédent − frais de paiement − commission (montant figé sur la facture). Un versement part seulement si la facture est générée, le loyer du mois reçu et l'IBAN renseigné ; sinon il est reporté et reste proposé les mois suivants.</div>
+          <div class="gc-why">Net à verser = ventes du mois précédent − frais de paiement − commission − frais du virement (0,21 €, réglable dans Statistiques ▸ Bilan annuel ▸ Paramètres), montant figé sur la facture. Un versement part seulement si la facture est générée, le loyer du mois reçu et l'IBAN renseigné ; sinon il est reporté et reste proposé les mois suivants.</div>
           <div id="gwDetail"></div>
         </div>
         <div class="card"><div class="gc-h4" style="margin-top:0">Comment ça marche avec la banque</div><div class="gc-why" style="margin-top:0;line-height:1.6">1. « Fichier de virements groupés » télécharge un fichier SEPA (format standard des banques). 2. Dans l'espace pro du CIC, cherche l'import de fichier de virements (remise de virements SEPA) et importe-le : une seule validation pour tous. 3. Reviens ici : « J'ai validé ces virements à la banque ». Le site ne déclenche jamais de paiement. Si l'import de fichier n'est pas proposé par ton contrat CIC, la liste des virements à saisir s'affiche sous le tableau ; « Marquer versé » note un virement fait à la main.</div></div>
@@ -3117,7 +3117,7 @@ const DEMO_B=(function(){
 
 /* ===================== GESTION ▸ STATISTIQUES ▸ BILAN ANNUEL ===================== */
 const GBI={data:null,exercice:'',charge:false,edit:null,poste:null,apercu:null,detail:false};
-const GBI_COUL={loyers:'#0f0f0f',commissions:'#55524c',vente_shop:'#8c8880',adhesions:'#bdb9b1',subventions:'#3f7a55',dons:'#7fa98a',ateliers:'#b4cdb9',autres:'#ddd9d2'};
+const GBI_COUL={loyers:'#0f0f0f',commissions:'#55524c',vente_shop:'#8c8880',adhesions:'#bdb9b1',frais_virement:'#e2ded6',subventions:'#3f7a55',dons:'#7fa98a',ateliers:'#b4cdb9',autres:'#ddd9d2'};
 const GBI_CHARGE='#d98c80',GBI_LIGNE='#1f8a4c';
 const GBI_SRC={saisi:'saisi',factures:'factures',estime:'estimé',calcule:'calculé'};
 const GBI_NAT={charge:'Charge',pret:'Prêt (remboursement)',investissement:'Investissement (amorti)',garantie:'Dépôt de garantie'};
@@ -3339,7 +3339,8 @@ function gbiRenderParams(){
     '<div class="gc-acts"><button class="btn btn-ghost" data-g="exercice">Ajouter ou modifier l\'exercice</button></div>';
   h+='<div class="gc-h4">Valeurs de calcul</div><div class="gc-form">'+
     `<div><label>Adhésion annuelle (€)</label><input id="gbiAdh" inputmode="decimal" value="${FMT.esc(String(R.parametres.adhesion).replace('.',','))}"></div>`+
-    `<div><label>SMIC horaire brut (€), pour le bénévolat</label><input id="gbiSmic" inputmode="decimal" value="${FMT.esc(String(R.parametres.smic_horaire).replace('.',','))}"></div></div>`+
+    `<div><label>SMIC horaire brut (€), pour le bénévolat</label><input id="gbiSmic" inputmode="decimal" value="${FMT.esc(String(R.parametres.smic_horaire).replace('.',','))}"></div>`+
+    `<div><label>Frais retenus sur chaque versement aux créateurs (€)</label><input id="gbiVir" inputmode="decimal" value="${FMT.esc(String(R.parametres.frais_virement??0.21).replace('.',','))}"></div></div>`+
     '<div class="gc-acts"><button class="btn btn-ghost" data-g="parametres">Enregistrer les valeurs</button></div>';
   $('gbiParams').innerHTML=h;
   gbiNature();
@@ -3398,7 +3399,8 @@ $('gsBil').addEventListener('click',async e=>{
   }
   if(a==='parametres'){
     const r1=await gbiAppel(b,'gestion_bilan_parametre',{cle:'adhesion',valeur:n($('gbiAdh').value)});
-    const r2=r1&&await gbiAppel(b,'gestion_bilan_parametre',{cle:'smic_horaire',valeur:n($('gbiSmic').value)},()=>'Valeurs enregistrées');
+    const r3=r1&&await gbiAppel(b,'gestion_bilan_parametre',{cle:'frais_virement',valeur:n($('gbiVir').value)});
+    const r2=r3&&await gbiAppel(b,'gestion_bilan_parametre',{cle:'smic_horaire',valeur:n($('gbiSmic').value)},()=>'Valeurs enregistrées');
     if(r2)await gbiCharger();return;
   }
   if(a==='apercu-import'){const r=await gbiAppel(b,'gestion_bilan_importer',{apercu:true});if(r){GBI.apercu=r;gbiRenderParams();}return;}
@@ -3427,7 +3429,7 @@ const DEMO_BI=(function(){
   const mp=(m,k)=>{const [y,mo]=m.split('-').map(Number),d=new Date(y,mo-1+k,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');};
   const init=()=>{
     const c=(id,poste,categorie,nature,montant,frequence,debut,fin,montantTotal,amortissement,remarque)=>({id,poste,categorie,nature,montant,frequence,debut,fin:fin||'',montantTotal:montantTotal||0,amortissement:amortissement||0,remarque:remarque||''});
-    st={n:14,params:{adhesion:15,smic_horaire:11.88},exercices:[{code:'2025-2026',libelle:'Exercice 2025-2026',debut:'2025-09',fin:'2026-12'},{code:'2027',libelle:'Exercice 2027',debut:'2027-01',fin:'2027-12'}],
+    st={n:14,params:{adhesion:15,smic_horaire:11.88,frais_virement:0.21},exercices:[{code:'2025-2026',libelle:'Exercice 2025-2026',debut:'2025-09',fin:'2026-12'},{code:'2027',libelle:'Exercice 2027',debut:'2027-01',fin:'2027-12'}],
       charges:[c('CH001','Loyer du local','local','charge',1200,'mensuel','2025-09'),c('CH002','Provision charges foncières et PNO','local','charge',88.5,'mensuel','2025-09'),
         c('CH003','Assurance','assurances','charge',37,'mensuel','2025-09'),c('CH004','Internet et téléphone','telecom','charge',24.19,'mensuel','2025-09'),
         c('CH005','Contrat banque CIC','banque','charge',18.98,'mensuel','2025-09'),c('CH006','Café','fonctionnement','charge',10,'mensuel','2025-09'),
@@ -3448,7 +3450,7 @@ const DEMO_BI=(function(){
     for(let m=ex.debut;m<=ex.fin;m=mp(m,1)){
       const a=auto(m),rec={};
       const autoRec={loyers:{montant:a.loyers,source:m<'2026-10'?'estime':'factures'},commissions:{montant:a.commissions,source:'calcule'},vente_shop:{montant:a.vente_shop,source:'calcule'},adhesions:{montant:a.adhesions,source:'calcule'}};
-      ['loyers','commissions','vente_shop','adhesions','subventions','dons','ateliers','autres'].forEach(t=>{const s=st.saisies[m+'|'+t];rec[t]=s?{montant:s.montant,source:'saisi',remarque:s.remarque,origine:'site'}:autoRec[t]||{montant:0,source:''};});
+      ['loyers','commissions','vente_shop','adhesions','frais_virement','subventions','dons','ateliers','autres'].forEach(t=>{const s=st.saisies[m+'|'+t];rec[t]=s?{montant:s.montant,source:'saisi',remarque:s.remarque,origine:'site'}:autoRec[t]||{montant:0,source:''};});
       const cat={},detail={},treso={apports:0,remboursements:0,investissements:0,garanties:0};let amort=0;
       st.charges.forEach(c=>{const r=st.reels[m+'|'+c.id],dans=(!c.debut||m>=c.debut)&&(!c.fin||m<=c.fin);let prevu=0;
         if((c.nature==='charge'||c.nature==='pret')&&dans)prevu=c.frequence==='annuel'?c.montant/12:c.frequence==='ponctuel'?(m===c.debut?c.montant:0):c.montant;
@@ -3468,7 +3470,7 @@ const DEMO_BI=(function(){
       case 'gestion_bilan':{const auj=aujourdhui().slice(0,7),ex=st.exercices.find(e=>e.code===p.exercice)||st.exercices.find(e=>e.debut<=auj&&auj<=e.fin)||st.exercices[0],i=st.exercices.indexOf(ex);
         return JSON.parse(JSON.stringify({ok:true,exercice:ex,exercices:st.exercices,mois:calc(ex),precedent:i>0?{exercice:st.exercices[i-1],mois:calc(st.exercices[i-1])}:null,charges:st.charges,parametres:st.params,
           categories:[['local','Local (loyer, charges, PNO)'],['energie','Énergie'],['assurances','Assurances'],['banque','Banque et TPE'],['telecom','Internet et téléphone'],['fonctionnement','Fonctionnement (café, consommables)'],['fournitures','Fournitures et emballages'],['communication','Communication et PLV'],['evenements','Événements'],['reglementaire','Obligations réglementaires (DASRI, ARS)'],['autres','Autres charges']],
-          typesRecettes:[['loyers','Loyers des stands',true],['commissions','Commissions sur les ventes',true],['vente_shop','Ventes des produits du shop',true],['adhesions','Adhésions',true],['subventions','Subventions',false],['dons','Dons',false],['ateliers','Ateliers et événements',false],['autres','Autres recettes',false]],
+          typesRecettes:[['loyers','Loyers des stands',true],['commissions','Commissions sur les ventes',true],['vente_shop','Ventes des produits du shop',true],['adhesions','Adhésions',true],['frais_virement','Frais de virement refacturés aux créateurs',true],['subventions','Subventions',false],['dons','Dons',false],['ateliers','Ateliers et événements',false],['autres','Autres recettes',false]],
           stands:[],asso:{nom:'COLLECTIF 13H59',adresse:'27 rue du Plat',ville:'59800 LILLE',siret:'98893787600015',naf:'91.02Z'},importPossible:false}));}
       case 'gestion_bilan_reel':{const k=p.mois+'|'+p.idCharge;if(p.montant===''||p.montant==null)delete st.reels[k];else st.reels[k]={montant:Number(p.montant),remarque:p.remarque||''};return {ok:true};}
       case 'gestion_bilan_recette':{const k=p.mois+'|'+p.type;if(p.montant===''||p.montant==null)delete st.saisies[k];else st.saisies[k]={montant:Number(p.montant),remarque:p.remarque||''};return {ok:true};}

@@ -58,7 +58,7 @@ const EMAILS_PAR_DEFAUT = [
   ['retenu', 'Bienvenue au 13H59 Shop, {marque} !',
     "Bonjour {prenom},\n\nBonne nouvelle : ta candidature {marque} est retenue ! On t'accueille en boutique à partir du {date}, sur le forfait « {stand} ».\n\n" +
     "Pour préparer ton arrivée, garde sous la main : ton numéro SIRET, ton RIB, ton attestation d'assurance RC Pro et une pièce d'identité. " +
-    "L'adhésion à l'association (15 €, valable un an) est réglée avec le premier loyer.\n\n" +
+    "L'adhésion à l'association (15 €, valable un an) se règle à part, uniquement en ligne sur HelloAsso : c'est l'attestation HelloAsso qui fait de toi un membre et protège ta marque chez nous. Un virement de 15 € ne vaut pas adhésion.\n\n" +
     "On revient vers toi avec la convention à signer. Si tu as la moindre question, réponds simplement à cet e-mail.\n\nÀ très vite,\nL'équipe du 13H59 Shop",
     true, 'Gestion ▸ Candidatures : bouton « Retenir » (case e-mail cochée).'],
   ['facture', 'Collectif 13H59 · ta facture · {mois}',

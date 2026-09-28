@@ -34,11 +34,12 @@ const NATURES_CHARGES = ['charge', 'pret', 'investissement', 'garantie'];
 const FREQUENCES_CHARGES = ['mensuel', 'annuel', 'ponctuel'];
 const TYPES_RECETTES = [
   ['loyers', 'Loyers des stands', true], ['commissions', 'Commissions sur les ventes', true], ['vente_shop', 'Ventes des produits du shop', true],
-  ['adhesions', 'Adhésions', true], ['subventions', 'Subventions', false], ['dons', 'Dons', false], ['ateliers', 'Ateliers et événements', false], ['autres', 'Autres recettes', false]
+  ['adhesions', 'Adhésions', true], ['frais_virement', 'Frais de virement refacturés aux créateurs', true], ['subventions', 'Subventions', false], ['dons', 'Dons', false], ['ateliers', 'Ateliers et événements', false], ['autres', 'Autres recettes', false]
 ];
 const PARAMETRES_BILAN_DEFAUT = [
   ['adhesion', 15, "Montant de l'adhésion annuelle (€)"],
-  ['smic_horaire', 11.88, 'SMIC horaire brut pour valoriser le bénévolat (€) : à mettre à jour chaque année']
+  ['smic_horaire', 11.88, 'SMIC horaire brut pour valoriser le bénévolat (€) : à mettre à jour chaque année'],
+  ['frais_virement', 0.21, 'Frais de virement retenus sur chaque versement des ventes aux créateurs (€)']
 ];
 const EXERCICES_DEFAUT = [['2025-2026', 'Exercice 2025-2026', '2025-09', '2026-12'], ['2027', 'Exercice 2027', '2027-01', '2027-12']];
 
@@ -72,6 +73,7 @@ function _ongletsBilan(ss) {
 function _parametresBilan(ss) {
   const p = {};
   PARAMETRES_BILAN_DEFAUT.forEach(function (d) { p[d[0]] = d[1]; });
+  if (!ss.getSheetByName(SHEET_PARAMETRES_BILAN)) return p;
   _lireTable(_onglet(ss, SHEET_PARAMETRES_BILAN)).forEach(function (r) { if (r['cle'] && r['valeur'] !== '') p[String(r['cle'])] = Number(r['valeur']); });
   return p;
 }
@@ -133,8 +135,10 @@ function _calculBilan(ss, ex) {
     _lireTable(_onglet(ss, SHEET_FACTURES)).forEach(function (f) {
       if (String(f['statut']) === 'annulee') return;
       const m = _moisTexte(f['mois']);
-      const x = fact[m] = fact[m] || { loyer: 0, commission: 0, n: 0, parCreateur: {} };
+      const x = fact[m] = fact[m] || { loyer: 0, commission: 0, virements: 0, n: 0, parCreateur: {} };
       x.loyer += Number(f['loyer']) || 0; x.commission += Number(f['commission']) || 0; x.n++;
+      // frais de virement retenus sur le versement = prime − commission − net versé
+      x.virements += Math.max(0, _round2((Number(f['prime_mois_precedent']) || 0) - (Number(f['commission']) || 0) - (Number(f['net_a_verser']) || 0)));
       x.parCreateur[String(f['id_createur'])] = { loyer: Number(f['loyer']) || 0, numero: _numeroTexte(f['numero']) };
     });
     if (ss.getSheetByName(SHEET_LIGNES_FACTURE)) {
@@ -188,6 +192,7 @@ function _calculBilan(ss, ex) {
         }, 0), source: 'calcule' };
       })(),
       vente_shop: { montant: x.shop, source: 'calcule' },
+      frais_virement: fact[m] ? { montant: fact[m].virements, source: 'factures' } : { montant: 0, source: '' },
       adhesions: { montant: Object.keys(fiches).filter(function (id) { return fiches[id].adhesion === m; }).length * (param.adhesion || 0), source: 'calcule' }
     };
     TYPES_RECETTES.forEach(function (t) {

@@ -116,7 +116,7 @@ function _contexteFactures(ss, mois) {
     });
   }
   return { b: b, mois: mois, prec: prec, precBornes: _moisBornes(prec), tC: tC, tE: tE, stands: stands, ventes: ventes, factures: factures,
-           ouvertsMois: _joursOuverts(b.debut, b.fin) };
+           ouvertsMois: _joursOuverts(b.debut, b.fin), fraisVirement: Number(_parametresBilan(ss).frais_virement) || 0 };
 }
 
 /** Calcule la facture d'un créateur (lignes, totaux, relevé des ventes).
@@ -159,6 +159,8 @@ function _calculFacture(ctx, r, permsFaites, permsDemandees) {
   const somme = function (k) { return _round2(vs.reduce(function (s, v) { return s + (Number(v[k]) || 0); }, 0)); };
   const ventesCA = somme('prix_client'), frais = somme('frais'), prime = somme('prime');
   const taux = benevole ? 0 : _tauxCommission(prime, ctx.prec), commission = _round2(prime * taux);
+  // frais du virement des ventes, retenus sur le versement (réponse de Mo) ; pas de virement, pas de frais
+  const fraisVir = _round2(prime - commission) > (ctx.fraisVirement || 0) ? _round2(ctx.fraisVirement || 0) : 0;
   if (commission) lignes.push({ ref: 'COM' + Math.round(taux * 100), libelle: 'Commission ' + Math.round(taux * 100) + ' % · ventes ' + _de(ctx.precBornes.libelle) + ' (prime ' + _eurFr(prime) + ')', montant: commission });
   const releve = vs.map(function (v) {
     return { date: _jourIso(v['date']), reference: String(v['reference'] || ''), paiement: String(v['code_paiement'] || ''), remise: String(v['code_remise'] || ''),
@@ -169,7 +171,7 @@ function _calculFacture(ctx, r, permsFaites, permsDemandees) {
     adresse: String(_val(tC, r, 'adresse') || ''), codePostal: String(_val(tC, r, 'code_postal') || ''), ville: String(_val(tC, r, 'ville') || ''),
     iban: String(_val(tC, r, 'iban') || '') ? true : false, benevole: benevole, permsFaites: benevole ? Math.max(0, Number(permsFaites) || 0) : '', permsRequises: permsRequises,
     lignes: lignes, loyer: _round2(loyer), commission: commission, taux: taux, total: _round2(lignes.reduce(function (s, l) { return s + l.montant; }, 0)),
-    ventes: ventesCA, frais: frais, prime: prime, net: _round2(prime - commission), nbVentes: vs.length, releve: releve, alertes: alertes
+    ventes: ventesCA, frais: frais, prime: prime, fraisVirement: fraisVir, net: _round2(prime - commission - fraisVir), nbVentes: vs.length, releve: releve, alertes: alertes
   };
 }
 
@@ -227,6 +229,7 @@ function _appliquerFigee(ss, c, f) {
     .map(function (l) { return { ref: String(l['ref']), libelle: String(l['libelle']), montant: Number(l['montant']) || 0 }; });
   c.total = Number(f['total']) || 0; c.loyer = Number(f['loyer']) || 0; c.commission = Number(f['commission']) || 0; c.taux = Number(f['taux_commission']) || 0;
   c.ventes = Number(f['ventes_mois_precedent']) || 0; c.frais = Number(f['frais_mois_precedent']) || 0; c.prime = Number(f['prime_mois_precedent']) || 0; c.net = Number(f['net_a_verser']) || 0;
+  c.fraisVirement = Math.max(0, _round2(c.prime - (Number(f['commission']) || 0) - c.net));
 }
 
 /** Génère UNE facture (appelée créateur par créateur par le site) : numéro, montants figés, PDF dans Drive. */
@@ -382,6 +385,7 @@ function _htmlFacture(ctx, c, numero, emiseLe) {
       ligneCalc('Ventes ' + e(_de(ctx.precBornes.libelle)) + ' (' + rel.length + ' ligne' + (rel.length > 1 ? 's' : '') + ')', _eurFr(c.ventes)) +
       ligneCalc('Frais de paiement (carte bancaire)', '− ' + _eurFr(c.frais)) +
       ligneCalc(comLib, '− ' + _eurFr(c.commission)) +
+      (c.fraisVirement ? ligneCalc('Frais du virement de tes ventes', '− ' + _eurFr(c.fraisVirement)) : '') +
       ligneCalc('Net à te verser', _eurFr(c.net), true) + '</table></td></tr></table>';
   } else {
     p2 += '<div style="margin-top:12px;font-size:11px">Aucune vente en ' + e(ctx.precBornes.libelle) + '.</div>';
