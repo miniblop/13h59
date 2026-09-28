@@ -1569,17 +1569,17 @@ function gcRenderFiche(){
   /* emplacement */
   h+=`<div class="gc-h4">Documents</div><div id="gcDocs" data-c="${FMT.esc(c.id)}"><div class="muted" style="font-size:13px">Chargement des documents…</div></div>`;
   h+='<div class="gc-h4">Emplacement</div>';
-  if(e)h+=`<div class="gc-form"><div><label>Date d'arrivée · ${FMT.esc(gcStand(e.stand))}</label><input type="date" id="gcDeb" value="${FMT.esc(e.debut)}"></div></div>`+
-    `<div class="gc-acts" style="margin-top:0;margin-bottom:10px"><button class="btn btn-ghost" data-a="debut" data-e="${FMT.esc(e.id)}">Corriger la date d'arrivée</button></div>`;
-  const sc=e&&GC.data.stands.find(s=>s.code===e.stand);
+  const sc=e&&GC.data.stands.find(s=>s.code===e.stand),fixe=sc&&sc.dureeMois&&!e.fin;
+  if(e)h+=`<div class="gc-form"><div><label>${fixe?'Début du contrat (date d\'arrivée)':'Date d\'arrivée'} · ${FMT.esc(gcStand(e.stand))}</label><input type="date" id="gcDeb" value="${FMT.esc(e.debut)}"></div></div>`+
+    `<div class="gc-acts" style="margin-top:0;margin-bottom:10px"><button class="btn btn-ghost" data-a="debut" data-e="${FMT.esc(e.id)}">${fixe?'Enregistrer le début du contrat':'Corriger la date d\'arrivée'}</button></div>`+
+    (fixe?`<div class="muted" style="font-size:12px;margin:-4px 0 10px">L'échéance se calcule toute seule : début + ${sc.dureeMois} mois (période en cours si le contrat a déjà été renouvelé).</div>`:'');
   if(e&&sc&&sc.dureeMois&&!e.fin){
     const mois=c.derniereVente?Math.floor((new Date(a)-new Date(c.derniereVente))/(30.44*864e5)):null,sansVente=mois==null||mois>=6;
     const suite=e.echeance?(()=>{const [y,m,d]=e.echeance.split('-').map(Number);return isoJour(new Date(y,m-1+sc.dureeMois,d));})():'';
     h+=`<div class="gc-contrat"><div><b>Contrat de ${sc.dureeMois} mois</b>, non renouvelé automatiquement · échéance ${e.echeance?'le <b>'+fmtD(e.echeance)+'</b>'+(e.echeance<a?' <span class="gc-ko">(dépassée)</span>':''):'<span class="gc-ko">à renseigner</span>'}</div>`+
       `<div class="muted" style="font-size:12px;margin-top:4px">${c.derniereVente?'Dernière vente le '+fmtD(c.derniereVente)+(sansVente?' · <span class="gc-ko">aucune vente depuis 6 mois ou plus : la place peut être proposée à quelqu\'un d\'autre</span>':''):'<span class="gc-ko">Aucune vente enregistrée</span>'}</div>`+
       gcRenouvLigne(e)+
-      `<div class="gc-form" style="margin-top:8px"><div><label>Échéance du contrat (une date passée est acceptée)</label><input type="date" id="gcEch" value="${FMT.esc(e.echeance||'')}"></div></div>`+
-      `<div class="muted" style="font-size:12px">Échéance passée, contrat renouvelé sans formalité : le site calcule la période de ${sc.dureeMois} mois en cours.</div>`+
+      `<div class="gc-form" style="margin-top:8px"><div><label>Échéance (fin du contrat) : à corriger seulement si elle est fausse</label><input type="date" id="gcEch" value="${FMT.esc(e.echeance||'')}"></div></div>`+
       `<div class="gc-acts"><button class="btn btn-ghost" data-a="echeance" data-e="${FMT.esc(e.id)}">Enregistrer l'échéance</button>${e.echeance?`<button class="btn btn-ghost" data-a="renouveler" data-e="${FMT.esc(e.id)}">Renouveler ${sc.dureeMois} mois (jusqu'au ${fmtD(suite)})</button><button class="btn btn-danger" data-a="nonrenouv" data-e="${FMT.esc(e.id)}" data-d="${FMT.esc(e.echeance)}">Ne pas renouveler</button>`:''}</div>`+
       `<div class="gc-acts" style="margin-top:0">${e.echeance&&!(e.renouvellement&&e.renouvellement.echeance===e.echeance&&e.renouvellement.statut!=='en_attente')?`<button class="btn btn-ghost" data-a="renouv-mail" data-e="${FMT.esc(e.id)}">${e.renouvellement&&e.renouvellement.echeance===e.echeance?'Renvoyer l\'e-mail de renouvellement':'Envoyer l\'e-mail de renouvellement maintenant'}</button>`:''}</div>`+
       `<div class="gc-why">Au début du dernier mois, le créateur reçoit automatiquement un e-mail « Je renouvelle / Je ne renouvelle pas » ; il a 7 jours pour répondre, sinon le contrat n'est pas renouvelé (l'e-mail vaut préavis). « Renouveler » et « Ne pas renouveler » restent possibles à la main (réponse reçue autrement que par l'e-mail) ; « Ne pas renouveler » clôture le stand au jour de l'échéance. Partir avant l'échéance reste soumis au préavis d'un mois (ci-dessous).</div></div>`;
@@ -1681,7 +1681,7 @@ $('gCreat').addEventListener('click',e=>{
     gcAppel(b,'gestion_contrat_echeance',{idEmplacement:b.dataset.e,echeance:d},r=>r.periodes?'Échéance du '+fmtD(r.origine)+' dépassée : contrat de '+c.nom+' en cours jusqu\'au '+fmtD(r.echeance):'Échéance de '+c.nom+' : '+fmtD(r.echeance));
   }else if(a==='debut'){
     const d=$('gcDeb').value;if(!d){toast("Indique la date d'arrivée.",true);return;}
-    gcAppel(b,'gestion_emplacement_debut',{idEmplacement:b.dataset.e,debut:d},r=>'Arrivée de '+c.nom+' : '+fmtD(r.debut));
+    gcAppel(b,'gestion_emplacement_debut',{idEmplacement:b.dataset.e,debut:d},r=>'Début du contrat de '+c.nom+' : '+fmtD(r.debut)+(r.echeance?' · échéance le '+fmtD(r.echeance)+(r.periodes?' (renouvelé '+r.periodes+' fois)':''):''));
   }else if(a==='renouveler'){
     if(!confirm('Renouveler le contrat de '+c.nom+' ?'))return;
     gcAppel(b,'gestion_contrat_renouveler',{idEmplacement:b.dataset.e},r=>'Contrat de '+c.nom+' renouvelé jusqu\'au '+fmtD(r.echeance));
@@ -1778,7 +1778,7 @@ const DEMO_G=(function(){
       case 'gestion_preavis':{const x=e(p.idEmplacement);if(p.sansPreavis){x.preavisRecuLe='';x.fin=p.fin;x.motifFin='fin_contrat';return {ok:true,fin:p.fin};}x.preavisRecuLe=p.recuLe;x.fin=plusUnMois(p.recuLe);x.motifFin=p.pause?'pause':'depart';return {ok:true,fin:x.fin};}
       case 'gestion_renouvellement_envoyer':{const x=e(p.idEmplacement);const l=isoJour(new Date(Date.now()+7*864e5));x.renouvellement={echeance:x.echeance,envoyeLe:aujourdhui(),dateLimite:l,statut:'en_attente',reponse:'',reponduLe:'',note:'',commentaire:''};return {ok:true,envoye:true,dateLimite:l};}
       case 'gestion_contrat_echeance':{const x=e(p.idEmplacement);let d=p.echeance,n=0;while(d<aujourdhui()&&n<60){const [y,m,j]=d.split('-').map(Number);d=isoJour(new Date(y,m-1+4,j));n++;}x.echeance=d;return {ok:true,echeance:d,origine:p.echeance,periodes:n};}
-      case 'gestion_emplacement_debut':{const x=e(p.idEmplacement);x.debut=p.debut;return {ok:true,debut:p.debut};}
+      case 'gestion_emplacement_debut':{const x=e(p.idEmplacement);x.debut=p.debut;let ech='',n=0;if(x.stand==='grand'&&!x.fin){const [y,m,j]=p.debut.split('-').map(Number);ech=isoJour(new Date(y,m-1+4,j-1));while(ech<aujourdhui()&&n<60){const [a,b,c]=ech.split('-').map(Number);ech=isoJour(new Date(a,b-1+4,c));n++;}x.echeance=ech;}return {ok:true,debut:p.debut,echeance:ech,periodes:n};}
       case 'gestion_contrat_renouveler':{const x=e(p.idEmplacement);if(x.fin)return {ok:false,message:'Une fin est déjà enregistrée pour cet emplacement : annule-la avant de renouveler.'};const [y,m,d]=x.echeance.split('-').map(Number);x.echeance=isoJour(new Date(y,m-1+4,d));return {ok:true,echeance:x.echeance};}
       case 'gestion_dossier_creer':{const c=st.createurs.find(x=>x.id===p.id);c.dossier='demo-'+c.id;return {ok:true,dossier:c.dossier,factures:0};}
       case 'gestion_documents':{st.docs=st.docs||[];return JSON.parse(JSON.stringify({ok:true,documents:st.docs.filter(d=>d.idCreateur===p.idCreateur),types:[['siret','Justificatif SIRET (avis INSEE ou extrait INPI)'],['rc_pro','Attestation RC Pro'],['rib','RIB'],['identite',"Pièce d'identité"],['demarche','Justificatif de démarche en cours (URSSAF, INPI, assureur)'],['convention','Convention signée'],['autre','Autre document']]}));}
