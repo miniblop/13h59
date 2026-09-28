@@ -27,6 +27,7 @@ function _gestion(body) {
     gestion_changer_stand: _gChangerStand,
     gestion_contrat_renouveler: _gContratRenouveler,
     gestion_contrat_echeance: _gContratEcheance,
+    gestion_emplacement_debut: _gEmplacementDebut,
     gestion_renouvellement_envoyer: _gRenouvellementEnvoyer,
     gestion_emplacement_creer: _gEmplacementCreer,
     gestion_candidatures: _gCandidatures,

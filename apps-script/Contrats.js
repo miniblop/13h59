@@ -55,12 +55,34 @@ function _gContratEcheance(body) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   _colonnesContrat(ss);
   const tE = _tableau(ss, SHEET_EMPLACEMENTS), i = _ligneEmplacement(tE, body.idEmplacement), r = tE.lignes[i];
-  const d = _dateIso(body.echeance), debut = _val(tE, r, 'debut');
-  if (debut instanceof Date && d < debut) throw new Error("L'échéance est avant l'arrivée en boutique.");
+  const origine = _dateIso(body.echeance), n = _dureeContrat(ss, _val(tE, r, 'code_stand')), auj = _aujourdhui();
+  // échéance passée (contrats renouvelés sans formalité) : on avance de contrat en contrat jusqu'à la période en cours
+  let d = origine, periodes = 0;
+  while (n && d < auj && periodes < 60) { d = _finContrat(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1), n); periodes++; }
   r[tE.M['echeance']] = d;
   _ecrireLigne(tE, i, r);
-  _journaliser('contrat_echeance', body.idEmplacement + ' (' + _val(tE, r, 'id_createur') + ') : échéance le ' + body.echeance);
-  return { ok: true, echeance: _iso(d) };
+  _journaliser('contrat_echeance', body.idEmplacement + ' (' + _val(tE, r, 'id_createur') + ') : échéance le ' + _iso(d) +
+    (periodes ? ' (échéance saisie ' + body.echeance + ', renouvelée ' + periodes + ' fois sans formalité)' : ''));
+  return { ok: true, echeance: _iso(d), origine: _iso(origine), periodes: periodes };
+}
+
+/** Corrige la date d'arrivée d'un emplacement (reprise : date de première vente, parfois trop tardive). */
+function _gEmplacementDebut(body) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), tE = _tableau(ss, SHEET_EMPLACEMENTS), i = _ligneEmplacement(tE, body.idEmplacement), r = tE.lignes[i];
+  const d = _dateIso(body.debut), fin = _val(tE, r, 'fin'), id = String(_val(tE, r, 'id_createur')), avant = _val(tE, r, 'debut');
+  if (fin instanceof Date && d > fin) throw new Error("La date d'arrivée est après la fin de l'emplacement.");
+  const ech = _val(tE, r, 'echeance');
+  if (ech instanceof Date && d > ech) throw new Error("La date d'arrivée est après l'échéance du contrat : corrige d'abord l'échéance.");
+  const chevauche = tE.lignes.some(function (x, k) {
+    if (k === i || String(_val(tE, x, 'id_createur')) !== id) return false;
+    const f = _val(tE, x, 'fin'), dx = _val(tE, x, 'debut');
+    return dx instanceof Date && dx <= d && (!(f instanceof Date) || f >= d);
+  });
+  if (chevauche) throw new Error("À cette date, ce créateur avait déjà un autre emplacement : vérifie son historique.");
+  r[tE.M['debut']] = d;
+  _ecrireLigne(tE, i, r);
+  _journaliser('emplacement_debut', body.idEmplacement + ' (' + id + ') : arrivée ' + (avant instanceof Date ? _iso(avant) : '?') + ' → ' + body.debut);
+  return { ok: true, debut: _iso(d) };
 }
 
 /*************************************************************
