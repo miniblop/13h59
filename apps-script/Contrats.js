@@ -31,7 +31,17 @@ function _dureeContrat(ss, code) {
   return s ? Number(s['duree_contrat_mois']) || 0 : 0;
 }
 /** Dernier jour d'un contrat de `mois` mois commençant le `debut` (1er mai + 4 mois → 31 août). */
-function _finContrat(debut, mois) { return new Date(debut.getFullYear(), debut.getMonth() + mois, debut.getDate() - 1); }
+/** Dernier jour du mois qui suit `mois` mois après celui de la date `d` (31 mai + 4 → 30 septembre ; 15 septembre + 4 → 31 janvier). */
+function _finMoisPlus(d, mois) { return new Date(d.getFullYear(), d.getMonth() + mois + 1, 0); }
+/** Échéance d'un premier contrat : 4 mois de loyer complets, le mois d'arrivée (payé au prorata) s'y ajoute ;
+ *  arrivée le premier jour d'ouverture du mois = mois complet (15 janvier → 31 mai ; 1er février → 31 mai). */
+function _finContrat(debut, mois) {
+  const premier = new Date(debut.getFullYear(), debut.getMonth(), 1), veille = new Date(debut.getFullYear(), debut.getMonth(), debut.getDate() - 1);
+  const moisComplet = debut.getDate() === 1 || _joursOuverts(premier, veille) === 0;
+  return _finMoisPlus(debut, moisComplet ? mois - 1 : mois);
+}
+/** Échéance suivante au renouvellement : `mois` mois complets après le mois de l'échéance. */
+function _echeanceSuivante(e, mois) { return _finMoisPlus(e, mois); }
 /** Échéance d'un nouvel emplacement ('' si le stand est à durée indéterminée). */
 function _echeanceNouvelle(ss, code, debut) { const n = _dureeContrat(ss, code); return n ? _finContrat(debut, n) : ''; }
 
@@ -44,7 +54,7 @@ function _gContratRenouveler(body) {
   if (_val(tE, r, 'fin') instanceof Date) throw new Error('Une fin est déjà enregistrée pour cet emplacement : annule-la avant de renouveler.');
   const e = _val(tE, r, 'echeance');
   if (!(e instanceof Date)) throw new Error("Indique d'abord l'échéance du contrat en cours.");
-  const nouvelle = _finContrat(new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1), n);
+  const nouvelle = _echeanceSuivante(e, n);
   r[tE.M['echeance']] = nouvelle;
   _ecrireLigne(tE, i, r);
   _journaliser('contrat_renouvele', body.idEmplacement + ' (' + _val(tE, r, 'id_createur') + ') : ' + n + ' mois, jusqu\'au ' + _iso(nouvelle));
@@ -70,7 +80,7 @@ function _echeanceEnCours(echeance, n) {
   // une échéance passée depuis moins d'un mois reste « à renouveler (en retard) » : on ne la saute pas
   const auj = _aujourdhui(), seuil = new Date(auj.getFullYear(), auj.getMonth() - 1, auj.getDate());
   let d = echeance, periodes = 0;
-  while (n && d < seuil && periodes < 60) { d = _finContrat(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1), n); periodes++; }
+  while (n && d < seuil && periodes < 60) { d = _echeanceSuivante(d, n); periodes++; }
   return { echeance: d, periodes: periodes };
 }
 
@@ -124,14 +134,18 @@ function _ficheCreateur(ss, id) {
 const DELAI_REPONSE_JOURS = 7;
 const URL_SITE = 'https://miniblop.github.io/13h59/';
 
-/** Premier jour du dernier mois du contrat (échéance 31 août → 1er août). */
-function _debutDernierMois(e) { return new Date(e.getFullYear(), e.getMonth() - 1, e.getDate() + 1); }
+/** Premier jour du dernier mois du contrat (échéance 31 août → 1er août ; 30 septembre → 1er septembre). */
+function _debutDernierMois(e) {
+  // échéance en fin de mois (cas normal) : le 1er de ce mois ; sinon un mois avant, le lendemain
+  const finDeMois = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1).getDate() === 1;
+  return finDeMois ? new Date(e.getFullYear(), e.getMonth(), 1) : new Date(e.getFullYear(), e.getMonth() - 1, e.getDate() + 1);
+}
 function _jour(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
 
 /** Prolonge le contrat d'un emplacement d'une durée ; renvoie la nouvelle échéance. */
 function _prolongerContrat(ss, tE, i) {
   const r = tE.lignes[i], n = _dureeContrat(ss, _val(tE, r, 'code_stand')), e = _val(tE, r, 'echeance');
-  const nouvelle = _finContrat(new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1), n);
+  const nouvelle = _echeanceSuivante(e, n);
   r[tE.M['echeance']] = nouvelle;
   _ecrireLigne(tE, i, r);
   return nouvelle;
