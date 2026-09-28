@@ -286,6 +286,8 @@
     body.print-bilan .gbi-kpi{break-inside:avoid}
     @page{size:A4 landscape;margin:12mm}
   }
+  .gdoc-att{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .gdoc-tbl td{vertical-align:top;padding:6px 6px 6px 0}
   .gv-filtres{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
   #gvTbl tbody tr{cursor:pointer}
   #gvTbl tbody tr:hover td{background:#faf9f7}
@@ -1556,6 +1558,7 @@ function gcRenderFiche(){
     `<div class="gc-doc"><div class="k">Dossier Drive</div><div class="v">${c.dossier?`<a href="https://drive.google.com/drive/folders/${encodeURIComponent(c.dossier)}" target="_blank" rel="noopener">Ouvrir son dossier</a> <span class="muted">(factures, documents, convention)</span>`:`<a href="#" data-a="dossier">Créer son dossier</a>`}</div></div></div>`;
 
   /* emplacement */
+  h+=`<div class="gc-h4">Documents</div><div id="gcDocs" data-c="${FMT.esc(c.id)}"><div class="muted" style="font-size:13px">Chargement des documents…</div></div>`;
   h+='<div class="gc-h4">Emplacement</div>';
   if(e&&!e.fin){
     h+=`<label class="gc-check"><input type="checkbox" id="gcPrSans"> Fin de contrat sans préavis : contrat à durée fixe arrivé à terme (grand stand, 4 mois) et non renouvelé</label>`+
@@ -1597,6 +1600,7 @@ function gcRenderFiche(){
     `<div class="gc-why">${statutAuto?'Le statut suit les emplacements : actif pendant un emplacement, inactif après le départ. ':''}Chaque modification est notée dans l'onglet « journal » du Sheet${c.modifieLe?' · dernière le '+fmtD(c.modifieLe):''}.</div>`;
   F.innerHTML=h;
   const pr=$('gcPrRecu');if(pr)pr.addEventListener('change',()=>{$('gcPrFin').value=pr.value?fmtD(plusUnMois(pr.value)):'';});
+  gdocCharger(c.id);
   const sp=$('gcPrSans');if(sp)sp.addEventListener('change',()=>{$('gcPrBloc').classList.toggle('hide',sp.checked);$('gcSansBloc').classList.toggle('hide',!sp.checked);$('gcPrBtn').textContent=sp.checked?'Clôturer le stand':'Enregistrer le préavis';});
 }
 
@@ -1732,6 +1736,12 @@ const DEMO_G=(function(){
         st.createurs.push({id,nom:p.nom,email:p.email,statut:p.stand&&p.debut<=st.aujourdhui?'actif':'inactif',categorie:p.categorie,nomLegal:'',telephone:'',adresse:'',codePostal:'',ville:'',siret:'',ibanFin:'',benevole:false,permsPrevues:'',rcPro:false,adhesion:'',instagram:'',creeLe:st.aujourdhui,modifieLe:st.aujourdhui,ca:0,nbVentes:0,derniereVente:''});return {ok:true,id};}
       case 'gestion_preavis':{const x=e(p.idEmplacement);if(p.sansPreavis){x.preavisRecuLe='';x.fin=p.fin;x.motifFin='fin_contrat';return {ok:true,fin:p.fin};}x.preavisRecuLe=p.recuLe;x.fin=plusUnMois(p.recuLe);x.motifFin=p.pause?'pause':'depart';return {ok:true,fin:x.fin};}
       case 'gestion_dossier_creer':{const c=st.createurs.find(x=>x.id===p.id);c.dossier='demo-'+c.id;return {ok:true,dossier:c.dossier,factures:0};}
+      case 'gestion_documents':{st.docs=st.docs||[];return JSON.parse(JSON.stringify({ok:true,documents:st.docs.filter(d=>d.idCreateur===p.idCreateur),types:[['siret','Justificatif SIRET (avis INSEE ou extrait INPI)'],['rc_pro','Attestation RC Pro'],['rib','RIB'],['identite',"Pièce d'identité"],['demarche','Justificatif de démarche en cours (URSSAF, INPI, assureur)'],['convention','Convention signée'],['autre','Autre document']]}));}
+      case 'gestion_document_ajouter':{st.docs=st.docs||[];st.nDoc=(st.nDoc||0)+1;const lib={siret:'Justificatif SIRET',rc_pro:'Attestation RC Pro',rib:'RIB',identite:"Pièce d'identité",demarche:'Justificatif de démarche en cours',convention:'Convention signée',autre:'Autre document'}[p.type];
+        st.docs.unshift({id:'DOC'+String(st.nDoc).padStart(3,'0'),idCreateur:p.idCreateur,type:p.type,libelle:lib,nom:p.nom,url:'#',tailleKo:Math.ceil(p.contenu.length*3/4/1024),ajouteLe:aujourdhui(),ajoutePar:S.prenom||'',source:'gestion',statut:'valide',remarque:p.remarque||''});
+        if(p.type==='rc_pro'){const c=st.createurs.find(x=>x.id===p.idCreateur);c.rcPro=true;}return {ok:true};}
+      case 'gestion_document_statut':{const d=(st.docs||[]).find(x=>x.id===p.id);d.statut=p.statut;if(p.remarque!=null)d.remarque=p.remarque;if(p.statut==='valide'&&d.type==='rc_pro')st.createurs.find(x=>x.id===d.idCreateur).rcPro=true;return {ok:true};}
+      case 'gestion_document_retirer':st.docs=(st.docs||[]).filter(x=>x.id!==p.id);return {ok:true};
       case 'gestion_dossiers_etat':return JSON.parse(JSON.stringify({ok:true,racine:'#',acces:st.acces||[],manquants:st.createurs.filter(c=>c.statut==='actif'&&!c.dossier).length}));
       case 'gestion_dossiers_creer_tous':{let n=0;st.createurs.forEach(c=>{if(c.statut==='actif'&&!c.dossier){c.dossier='demo-'+c.id;n++;}});return {ok:true,crees:n,restants:0};}
       case 'gestion_acces_drive_ajouter':{st.acces=st.acces||[];const m=String(p.email).toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(m))return {ok:false,message:'Adresse e-mail invalide.'};if(st.acces.some(a=>a.email===m))return {ok:false,message:m+' a déjà accès.'};st.acces.push({email:m,ajouteLe:aujourdhui(),ajoutePar:S.prenom||''});return {ok:true};}
@@ -1776,6 +1786,58 @@ $('gcDrivePanel').addEventListener('click',async e=>{
   else if(a==='tous'){action='gestion_dossiers_creer_tous';params={};msg=r=>r.crees+' dossier(s) créé(s)'+(r.restants?' · relance pour les '+r.restants+' restants':'');}
   const t=b.textContent;b.disabled=true;b.textContent='…';
   try{const r=await API.gestion(action,params);if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide du serveur');toast(msg(r));await gdCharger();if(a==='tous')gcCharger(true);}
+  catch(err){toast((err&&err.message)||String(err),true);if(b.isConnected){b.disabled=false;b.textContent=t;}}
+});
+
+/* ---------- Fiche créateur ▸ Documents (registre `documents`, fichiers dans son dossier Drive) ---------- */
+const GDOC={id:null,data:null};
+const GDOC_ATTENDUS=['siret','rc_pro','rib','identite','convention'];
+const GDOC_ST={valide:['actif','validé'],a_verifier:['preavis','à vérifier'],refuse:['gv-neg','refusé']};
+async function gdocCharger(id){
+  GDOC.id=id;
+  try{
+    const r=await API.gestion('gestion_documents',{idCreateur:id});
+    if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
+    if(GDOC.id!==id)return;
+    GDOC.data=r;gdocRender();
+  }catch(e){const el=$('gcDocs');if(el)el.innerHTML='<div class="warn" style="margin:0">⚠️ Documents indisponibles : '+FMT.esc((e&&e.message)||e)+'</div>';}
+}
+function gdocRender(){
+  const el=$('gcDocs');if(!el||el.dataset.c!==GDOC.id)return;
+  const D=GDOC.data.documents,lib=t=>{const x=GDOC.data.types.find(k=>k[0]===t);return x?x[1]:t;};
+  const etat=t=>D.some(d=>d.type===t&&d.statut==='valide')?'ok':D.some(d=>d.type===t&&d.statut==='a_verifier')?'verif':'';
+  let h='<div class="gdoc-att">'+GDOC_ATTENDUS.map(t=>{const e=etat(t);return `<span class="gc-st ${e==='ok'?'actif':e==='verif'?'preavis':'inactif'}">${e==='ok'?'✓ ':e==='verif'?'? ':''}${FMT.esc(lib(t).split(' (')[0])}</span>`;}).join('')+'</div>';
+  h+=D.length?'<div class="tblwrap"><table class="gbi-mini gdoc-tbl">'+D.map(d=>`<tr><td><b>${FMT.esc(d.libelle.split(' (')[0])}</b><span class="gc-sub">${d.url?`<a href="${FMT.esc(d.url)}" target="_blank" rel="noopener">${FMT.esc(d.nom)}</a>`:FMT.esc(d.nom)} · ${d.tailleKo} Ko${d.remarque?' · '+FMT.esc(d.remarque):''}</span></td>`+
+    `<td class="muted" style="white-space:nowrap">${fmtD(d.ajouteLe)}${d.source==='formulaire'?' · envoyé par le créateur':d.ajoutePar?' · '+FMT.esc(d.ajoutePar):''}</td>`+
+    `<td><span class="gc-st ${(GDOC_ST[d.statut]||['inactif'])[0]}">${(GDOC_ST[d.statut]||['',d.statut])[1]}</span></td>`+
+    `<td class="r" style="white-space:nowrap">${d.statut!=='valide'?`<a href="#" data-g="valider" data-d="${FMT.esc(d.id)}">Valider</a> · `:''}${d.statut==='a_verifier'?`<a href="#" data-g="refuser" data-d="${FMT.esc(d.id)}">Refuser</a> · `:''}<a href="#" data-g="retirer" data-d="${FMT.esc(d.id)}">Retirer</a></td></tr>`).join('')+'</table></div>'
+    :'<div class="muted" style="font-size:13px;margin:6px 0">Aucun document enregistré.</div>';
+  h+=`<div class="gc-form" style="margin-top:10px"><div><label>Type</label><select id="gdocType">${GDOC.data.types.map(([k,l])=>`<option value="${k}">${FMT.esc(l)}</option>`).join('')}</select></div>`+
+    `<div><label>Fichier (PDF ou photo, 10 Mo au plus)</label><input type="file" id="gdocFichier" accept=".pdf,image/jpeg,image/png,image/heic,image/heif,image/webp"></div>`+
+    `<div style="grid-column:1/-1"><label>Remarque (facultatif)</label><input id="gdocRem" maxlength="300" placeholder="valable jusqu'en mars 2027"></div></div>`+
+    `<div class="gc-acts"><button class="btn btn-ghost" data-g="ajouter">Ajouter le document</button></div>`+
+    '<div class="gc-why">Le fichier est rangé dans son dossier Drive (Documents, ou Convention pour la convention signée). Une attestation RC Pro ajoutée ou validée coche « RC Pro » sur la fiche.</div>';
+  el.innerHTML=h;
+}
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('#gcDocs [data-g]');if(!b||b.disabled)return;e.preventDefault();
+  const a=b.dataset.g,id=GDOC.id,t=b.textContent;
+  let action,params,msg;
+  if(a==='ajouter'){
+    const f=$('gdocFichier').files[0];if(!f){toast('Choisis un fichier.',true);return;}
+    if(f.size>10*1024*1024){toast('Fichier trop lourd (10 Mo au plus).',true);return;}
+    const mime=f.type||(/\.pdf$/i.test(f.name)?'application/pdf':/\.heic$/i.test(f.name)?'image/heic':'');
+    b.disabled=true;b.textContent='Envoi…';
+    try{
+      const contenu=await new Promise((ok,ko)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]||'');r.onerror=()=>ko(new Error('lecture du fichier impossible'));r.readAsDataURL(f);});
+      action='gestion_document_ajouter';params={idCreateur:id,type:$('gdocType').value,nom:f.name,mime,contenu,remarque:$('gdocRem').value};msg=()=>'Document ajouté';
+    }catch(err){toast(err.message,true);b.disabled=false;b.textContent=t;return;}
+  }else if(a==='valider'){action='gestion_document_statut';params={id:b.dataset.d,statut:'valide'};msg=()=>'Document validé';}
+  else if(a==='refuser'){const m=prompt('Motif du refus (visible dans le registre) :','illisible');if(m===null)return;action='gestion_document_statut';params={id:b.dataset.d,statut:'refuse',remarque:m};msg=()=>'Document refusé';}
+  else if(a==='retirer'){const m=prompt('Retirer ce document ? Le fichier part à la corbeille de Drive (récupérable 30 jours).\n\nMotif :','mauvais fichier');if(m===null)return;action='gestion_document_retirer';params={id:b.dataset.d,motif:m};msg=()=>'Document retiré';}
+  b.disabled=true;if(a!=='ajouter')b.textContent='…';
+  try{const r=await API.gestion(action,params);if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide du serveur');toast(msg(r));
+    if((params.type==='rc_pro'||a==='valider')&&GC.charge)await gcCharger(true);else await gdocCharger(id);}
   catch(err){toast((err&&err.message)||String(err),true);if(b.isConnected){b.disabled=false;b.textContent=t;}}
 });
 /* ===================== GESTION ▸ CANDIDATURES ===================== */
@@ -2298,7 +2360,7 @@ $('gvRefresh').addEventListener('click',()=>gvCharger());
 
 /* ===================== GESTION ▸ JOURNAL ===================== */
 const GJ={data:null};
-const GJ_ACTIONS={createur_maj:'Fiche créateur modifiée',createur_creer:'Créateur ajouté',preavis:'Préavis enregistré',fin_contrat:'Fin de contrat sans préavis',dossier_drive:'Dossier Drive',dossier_echec:'Dossier Drive : échec',acces_drive:'Accès aux dossiers Drive',preavis_annule:'Préavis annulé',changement_stand:'Changement de stand',
+const GJ_ACTIONS={createur_maj:'Fiche créateur modifiée',createur_creer:'Créateur ajouté',preavis:'Préavis enregistré',fin_contrat:'Fin de contrat sans préavis',dossier_drive:'Dossier Drive',dossier_echec:'Dossier Drive : échec',acces_drive:'Accès aux dossiers Drive',document_ajoute:'Document ajouté',document_statut:'Document vérifié',document_retire:'Document retiré',preavis_annule:'Préavis annulé',changement_stand:'Changement de stand',
   emplacement_creer:'Emplacement créé',statut_automatique:'Statut mis à jour',candidature_recue:'Candidature reçue',candidature_maj:'Candidature mise à jour',candidature_statut:'Candidature : décision',
   candidature_retenue:'Candidature retenue',candidature_remarque:'Candidature : remarque',email_envoye:'E-mail envoyé',email_echec:'E-mail non envoyé',email_modele_maj:'E-mail type modifié',
   reglage_categories:'Réglage : catégorie',reglage_stands:'Réglage : stand',reglage_remises:'Réglage : remise',reglage_paiements:'Réglage : paiement',
