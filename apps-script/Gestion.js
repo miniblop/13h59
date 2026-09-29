@@ -209,6 +209,15 @@ function _gCreateursLecture(ss) {
     if (v['date'] instanceof Date && (!o.derniere || v['date'] > o.derniere)) o.derniere = v['date'];
   });
 
+  // documents par créateur : types validés et types à vérifier (colonne « Documents » de la liste)
+  const docs = {};
+  if (ss.getSheetByName(SHEET_DOCUMENTS)) _lireTable(_onglet(ss, SHEET_DOCUMENTS)).forEach(function (d) {
+    const id = String(d['id_createur'] || ''), st = String(d['statut'] || ''), t = String(d['type'] || '');
+    if (!id || !t) return;
+    const o = docs[id] = docs[id] || { valides: [], aVerifier: [] };
+    if (st === 'valide' && o.valides.indexOf(t) < 0) o.valides.push(t);
+    else if (st === 'a_verifier' && o.aVerifier.indexOf(t) < 0) o.aVerifier.push(t);
+  });
   const createurs = tC.lignes.filter(function (r) { return String(_val(tC, r, 'id_createur')); }).map(function (r) {
     const id = String(_val(tC, r, 'id_createur')), v = ventes[id] || { ca: 0, n: 0, derniere: null };
     const iban = String(_val(tC, r, 'iban') || '').replace(/\s/g, '');
@@ -222,7 +231,7 @@ function _gCreateursLecture(ss) {
       permsPrevues: _val(tC, r, 'perms_prevues') === '' ? '' : Number(_val(tC, r, 'perms_prevues')),
       rcPro: _val(tC, r, 'rc_pro') === true, adhesion: _iso(_val(tC, r, 'adhesion_payee_le')),
       instagram: String(_val(tC, r, 'instagram') || ''), creeLe: _iso(_val(tC, r, 'cree_le')),
-      modifieLe: _iso(_val(tC, r, 'modifie_le')), dossier: String(_val(tC, r, 'dossier_drive') || ''),
+      modifieLe: _iso(_val(tC, r, 'modifie_le')), dossier: String(_val(tC, r, 'dossier_drive') || ''), docs: docs[id] || { valides: [], aVerifier: [] },
       ca: _round2(v.ca), nbVentes: v.n, derniereVente: _iso(v.derniere)
     };
   });

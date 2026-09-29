@@ -1475,6 +1475,9 @@ function gcEmpls(id){return GC.data.emplacements.filter(e=>e.idCreateur===id).so
 function gcActifLe(e,d){return !!e.debut&&e.debut<=d&&(!e.fin||e.fin>=d);}
 function gcCourant(id){const a=gcAuj(),l=gcEmpls(id);return l.find(e=>gcActifLe(e,a))||l.find(e=>e.debut>a)||null;}
 function gcEtat(c){const e=gcCourant(c.id);if(c.statut==='actif'&&e&&e.fin&&e.fin>=gcAuj())return 'preavis';return c.statut==='actif'?'actif':'inactif';}
+const GC_DOCS_LIB={siret:'SIRET',rc_pro:'RC Pro',rib:'RIB',identite:'identité',convention:'convention'};
+/** Pièces attendues non validées : [manquantes, à vérifier]. */
+function gcDocsManque(c){const d=c.docs||{valides:[],aVerifier:[]},att=Object.keys(GC_DOCS_LIB).filter(t=>!d.valides.includes(t));return [att.filter(t=>!d.aVerifier.includes(t)).map(t=>GC_DOCS_LIB[t]),att.filter(t=>d.aVerifier.includes(t)).map(t=>GC_DOCS_LIB[t])];}
 function gcManque(c){return [['email','e-mail'],['telephone','téléphone'],['siret','SIRET'],['ibanFin','IBAN'],['adresse','adresse']].filter(([k])=>!c[k]).map(([,l])=>l);}
 function gcCat(code){const x=GC.data.categories.find(c=>c.code===code);return x?x.libelle:(code||'—');}
 function gcStand(code){return STAND_COURT[code]||code||'—';}
@@ -1534,14 +1537,15 @@ function gcRenderListe(){
   const q=GC.q.trim().toLowerCase(),a=gcAuj();
   const rows=all.filter(c=>(GC.filtre==='tous'||gcEtat(c)===GC.filtre)&&(!GC.cat||c.categorie===GC.cat)&&gcFiltreStand(c)&&(!q||[c.nom,c.nomLegal,c.email,c.id].join(' ').toLowerCase().includes(q)))
     .sort((x,y)=>x.nom.localeCompare(y.nom,'fr',{sensitivity:'base'}));
-  $('gcTbl').innerHTML='<thead><tr><th>Créateur</th><th>Catégorie</th><th>Stand</th><th>Dates</th><th>Infos</th><th>Statut</th></tr></thead><tbody>'+
+  $('gcTbl').innerHTML='<thead><tr><th>Créateur</th><th>Catégorie</th><th>Stand</th><th>Dates</th><th>Infos</th><th>Documents</th><th>Statut</th></tr></thead><tbody>'+
     (rows.length?rows.map(c=>{
-      const e=gcCourant(c.id),etat=gcEtat(c),m=gcManque(c);
+      const e=gcCourant(c.id),etat=gcEtat(c),m=gcManque(c),[dm,dv]=gcDocsManque(c);
       const dates=e?(e.fin&&e.fin>=a?'départ <b>'+fmtD(e.fin)+'</b>':(e.debut>a?'arrivée '+fmtD(e.debut):'depuis '+fmtD(e.debut))):(c.derniereVente?'<span class="gc-sub">dernière vente '+fmtD(c.derniereVente)+'</span>':'—');
       return `<tr data-id="${FMT.esc(c.id)}" class="${c.id===GC.sel?'sel':''}"><td><b>${FMT.esc(c.nom)}</b>${c.benevole?' <span class="gc-st benev">bénévole</span>':''}<span class="gc-sub">${FMT.esc([c.nomLegal,c.id].filter(Boolean).join(' · '))}</span></td>`+
         `<td>${FMT.esc(gcCat(c.categorie))}</td><td>${e?'<span class="pill">'+FMT.esc(gcStand(e.stand))+'</span>':'—'}</td><td>${dates}</td>`+
-        `<td>${etat==='inactif'?'':(m.length?'<span class="gc-ko">⚠ '+FMT.esc(m.join(', '))+'</span>':'<span class="gc-ok">✓</span>')}</td><td><span class="gc-st ${etat}">${GC_LIB[etat]}</span></td></tr>`;
-    }).join(''):'<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">Aucun créateur pour ces filtres.</td></tr>')+'</tbody>';
+        `<td>${etat==='inactif'?'':(m.length?'<span class="gc-ko">⚠ '+FMT.esc(m.join(', '))+'</span>':'<span class="gc-ok">✓</span>')}</td>`+
+        `<td>${etat==='inactif'||c.categorie==='shop'?'':(!dm.length&&!dv.length?'<span class="gc-ok">✓</span>':(dm.length?'<span class="gc-ko">⚠ '+FMT.esc(dm.join(', '))+'</span>':'')+(dv.length?'<span class="gc-sub">à vérifier : '+FMT.esc(dv.join(', '))+'</span>':''))}</td><td><span class="gc-st ${etat}">${GC_LIB[etat]}</span></td></tr>`;
+    }).join(''):'<tr><td colspan="7" class="muted" style="text-align:center;padding:24px">Aucun créateur pour ces filtres.</td></tr>')+'</tbody>';
 }
 
 function gcRenderFiche(){
@@ -1761,7 +1765,7 @@ const DEMO_G=(function(){
     if(!st)init();
     const e=id=>st.emplacements.find(x=>x.id===id);
     switch(action){
-      case 'gestion_createurs': return JSON.parse(JSON.stringify(Object.assign({ok:true},st)));
+      case 'gestion_createurs':{const o=JSON.parse(JSON.stringify(Object.assign({ok:true},st)));o.createurs.forEach(c=>{const d=(st.docs||[]).filter(x=>x.idCreateur===c.id);c.docs={valides:d.filter(x=>x.statut==='valide').map(x=>x.type),aVerifier:d.filter(x=>x.statut==='a_verifier').map(x=>x.type)};});return o;}
       case 'gestion_createur_maj':{const c=st.createurs.find(x=>x.id===p.id),m=[];Object.keys(p.champs).forEach(k=>{if(k==='iban'){c.ibanFin=String(p.champs.iban).replace(/\s/g,'').slice(-4);m.push(k);return;}let v=p.champs[k];if(k==='instagram'&&v){const u=String(v).trim().replace(/^@/,'').replace(/^https?:\/\/(www\.)?instagram\.com\//,'').split(/[/?]/)[0];v=u?'https://www.instagram.com/'+u+'/':'';}c[CLIENT[k]]=v;m.push(k);});c.modifieLe=aujourdhui();return {ok:true,modifies:m};}
       case 'gestion_createur_supprimer':{const c=st.createurs.find(x=>x.id===p.id);if(c.nbVentes)return {ok:false,message:c.nom+' a '+c.nbVentes+' vente(s).'};
         const n=st.emplacements.filter(e=>e.idCreateur===c.id).length;st.emplacements=st.emplacements.filter(e=>e.idCreateur!==c.id);st.createurs=st.createurs.filter(x=>x!==c);return {ok:true,emplacements:n};}
@@ -1882,7 +1886,7 @@ document.addEventListener('click',async e=>{
   else if(a==='retirer'){const m=prompt('Retirer ce document ? Le fichier part à la corbeille de Drive (récupérable 30 jours).\n\nMotif :','mauvais fichier');if(m===null)return;action='gestion_document_retirer';params={id:b.dataset.d,motif:m};msg=()=>'Document retiré';}
   b.disabled=true;if(a!=='ajouter')b.textContent='…';
   try{const r=await API.gestion(action,params);if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide du serveur');toast(msg(r));
-    if((params.type==='rc_pro'||a==='valider')&&GC.charge)await gcCharger(true);else await gdocCharger(id);}
+    if(GC.charge)await gcCharger(true);else await gdocCharger(id);}
   catch(err){toast((err&&err.message)||String(err),true);if(b.isConnected){b.disabled=false;b.textContent=t;}}
 });
 /* ===================== GESTION ▸ CANDIDATURES ===================== */
