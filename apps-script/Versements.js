@@ -13,7 +13,14 @@
 
 const SHEET_VERSEMENTS = 'versements';
 const COLONNES_VERSEMENTS = ['id_versement', 'numero_facture', 'id_createur', 'mois', 'montant', 'statut', 'fichier_le', 'verse_le', 'lot', 'par', 'remarque'];
-const ASSO_BANQUE = { iban: 'FR7630027172150002142520125', bic: 'CMCIFRPP', nom: 'COLLECTIF 13H59' };
+/** Compte de l'association (émetteur des virements) : IBAN et BIC rangés dans les propriétés du script
+ *  (ASSO_IBAN, ASSO_BIC), jamais dans le code, qui est public sur GitHub. */
+function _banqueAsso() {
+  const p = PropertiesService.getScriptProperties(), iban = String(p.getProperty('ASSO_IBAN') || '').replace(/\s/g, '').toUpperCase(), bic = String(p.getProperty('ASSO_BIC') || '').trim().toUpperCase();
+  if (!/^FR\d{2}[0-9A-Z]{23}$/.test(iban) || !/^[A-Z0-9]{8}([A-Z0-9]{3})?$/.test(bic))
+    throw new Error("L'IBAN ou le BIC de l'association n'est pas renseigné dans les propriétés du script (ASSO_IBAN, ASSO_BIC).");
+  return { iban: iban, bic: bic, nom: 'COLLECTIF 13H59' };
+}
 
 function _ongletVersements(ss) {
   _creerOngletSiAbsent(ss, SHEET_VERSEMENTS, COLONNES_VERSEMENTS);
@@ -77,7 +84,7 @@ function _xml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
 
 /** Prépare le fichier de virements groupés pour les lignes « prêtes » choisies ; elles passent « dans un fichier ». */
 function _gVersementsFichier(body) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet(), mois = String(body.mois || '');
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), mois = String(body.mois || ''), ASSO_BANQUE = _banqueAsso();
   _ongletVersements(ss);
   const voulus = body.numeros || [];
   const L = _lignesAVerser(ss, mois).filter(function (l) { return voulus.indexOf(l.numero) !== -1 && l.statut === 'pret'; });
