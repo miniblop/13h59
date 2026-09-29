@@ -1693,7 +1693,8 @@ function gcRenderFiche(){
   h+='<div class="gc-h4">Infos et facturation</div><div class="gc-form">'+GC_CHAMPS.map(champ).join('')+
     `<div><label>Catégorie</label><select data-k="categorie"><option value="">—</option>${GC.data.categories.filter(x=>x.actif||x.code===c.categorie).map(x=>`<option value="${FMT.esc(x.code)}"${x.code===c.categorie?' selected':''}>${FMT.esc(x.libelle)}</option>`).join('')}</select></div>`+
     `<div><label>Statut</label><select data-k="statut"${statutAuto?' disabled title="Calculé automatiquement d\'après les emplacements"':''}><option value="actif"${c.statut==='actif'?' selected':''}>actif</option><option value="inactif"${c.statut!=='actif'?' selected':''}>inactif</option></select></div>`+
-    `<div class="full"><label class="gc-check"><input type="checkbox" data-k="benevole"${c.benevole?' checked':''}> Bénévole : loyer payé en permanences, aucune commission</label></div>`+
+    `<div class="full"><label class="gc-check"><input type="checkbox" data-k="benevole"${c.benevole?' checked':''}> Bénévole : loyer payé en permanences, pas de commission le mois où au moins une permanence est faite</label></div>`+
+    `<div class="full"><label class="gc-check"><input type="checkbox" data-k="benevoleAtelier"${c.benevoleAtelier?' checked':''}> Bénévole qui utilise l'atelier : 27 h d'atelier offertes, la commission s'applique</label></div>`+
     `<div><label>Permanences prévues / mois</label><input data-k="permsPrevues" type="number" min="0" step="0.5" value="${FMT.esc(c.permsPrevues)}"></div>`+
     `<div style="align-self:end"><label class="gc-check"><input type="checkbox" data-k="rcPro"${c.rcPro?' checked':''}> Attestation RC Pro reçue</label></div></div>`+
     `<div class="gc-acts"><button class="btn btn-accent" data-a="enregistrer">Enregistrer la fiche</button></div>`+
@@ -1710,7 +1711,7 @@ function gcRenderFiche(){
   const sp=$('gcPrSans');if(sp)sp.addEventListener('change',()=>{$('gcPrBloc').classList.toggle('hide',sp.checked);$('gcSansBloc').classList.toggle('hide',!sp.checked);$('gcPrBtn').textContent=sp.checked?'Clôturer le stand':'Enregistrer le préavis';});
 }
 
-const GC_SERVEUR={nom:'nom',nomLegal:'nom_legal',email:'email',telephone:'telephone',adresse:'adresse',codePostal:'code_postal',ville:'ville',siret:'siret',iban:'iban',instagram:'instagram',adhesion:'adhesion_payee_le',categorie:'categorie',statut:'statut',benevole:'benevole',permsPrevues:'perms_prevues',rcPro:'rc_pro'};
+const GC_SERVEUR={nom:'nom',nomLegal:'nom_legal',email:'email',telephone:'telephone',adresse:'adresse',codePostal:'code_postal',ville:'ville',siret:'siret',iban:'iban',instagram:'instagram',adhesion:'adhesion_payee_le',categorie:'categorie',statut:'statut',benevole:'benevole',benevoleAtelier:'benevole_atelier',permsPrevues:'perms_prevues',rcPro:'rc_pro'};
 function gcChampsModifies(c){
   const champs={};
   $('gcFiche').querySelectorAll('[data-k]').forEach(el=>{
@@ -1836,7 +1837,7 @@ const DEMO_G=(function(){
   const nextId=(l,p)=>p+String(l.reduce((m,x)=>Math.max(m,+String(x.id).slice(1)||0),0)+1).padStart(3,'0');
   const occ=(stand,d,sauf)=>st.emplacements.filter(e=>e.stand===stand&&e.idCreateur!==sauf&&gcActifLe(e,d)).length;
   const places=s=>st.stands.find(x=>x.code===s).places;
-  const CLIENT={nom:'nom',nom_legal:'nomLegal',email:'email',telephone:'telephone',adresse:'adresse',code_postal:'codePostal',ville:'ville',siret:'siret',instagram:'instagram',adhesion_payee_le:'adhesion',categorie:'categorie',statut:'statut',benevole:'benevole',perms_prevues:'permsPrevues',rc_pro:'rcPro'};
+  const CLIENT={nom:'nom',nom_legal:'nomLegal',email:'email',telephone:'telephone',adresse:'adresse',code_postal:'codePostal',ville:'ville',siret:'siret',instagram:'instagram',adhesion_payee_le:'adhesion',categorie:'categorie',statut:'statut',benevole:'benevole',benevole_atelier:'benevoleAtelier',perms_prevues:'permsPrevues',rc_pro:'rcPro'};
   return async function(action,p){
     if(!st)init();
     const e=id=>st.emplacements.find(x=>x.id===id);
@@ -2719,8 +2720,8 @@ const DEMO_F=(function(){
   const factures={};let num=0;
   const base=[['C004','Jackline','grand',68,512,false],['C005','NYU','unique',48,264,false],['C003','riri','illu',28,58,false],['C007','Studio Looleï','illu',28,142,true]];
   const calc=(mois,perms)=>base.map(([id,nom,stand,loyer,ventes,benevole])=>{
-    const prime=round2(ventes*0.985),taux=benevole?0:prime>=250?0.15:prime>=100?0.10:0,commission=round2(prime*taux);
-    const p=perms[id]||{},requis=p.demandees||{illu:2,unique:2,grand:4}[stand],faites=benevole?(p.faites||0):'',remise=benevole?round2(Math.min(loyer,loyer*faites/requis)):0;
+    const p=perms[id]||{},requis=p.demandees||{illu:2,unique:2,grand:4}[stand],faites=benevole?Number(p.faites??2):'',remise=benevole?round2(Math.min(loyer,loyer*faites/requis)):0;
+    const prime=round2(ventes*0.985),taux=benevole&&faites>0?0:prime>=250?0.15:prime>=100?0.10:0,commission=round2(prime*taux);
     const lignes=[{ref:{grand:'LGS',unique:'LSU',illu:'LSI'}[stand],libelle:'Loyer · '+stand,montant:loyer}].concat(remise?[{ref:'BEN',libelle:'Remise bénévolat',montant:-remise}]:[]).concat(commission?[{ref:'COM'+Math.round(taux*100),libelle:'Commission',montant:commission}]:[]);
     const f=factures[mois+id];
     return {idCreateur:id,nom,nomLegal:nom==='riri'?'':'Nom légal',adresse:'1 rue X',email:nom.toLowerCase()+'@exemple.fr',benevole,permsFaites:faites,permsRequises:benevole?requis:null,
@@ -3165,7 +3166,7 @@ function gbRenderFiche(){
   h+='<div class="gc-h4">Fiche créateur</div>';
   if(c){
     const autreStand=c.stand&&c.stand!==d.stand;
-    h+=`<div class="gk-desc" style="white-space:normal"><b>${FMT.esc(c.nom)}</b> (${FMT.esc(c.id)}) · stand en cours : ${c.stand?FMT.esc(gcStand(c.stand)):'<span class="gc-ko">aucun</span>'} · ${c.benevole?'<span class="gc-ok">cochée bénévole</span>'+(c.permsPrevues?', '+FMT.num(c.permsPrevues)+' permanence(s) prévue(s)':''):'pas encore bénévole'} · <a href="#" data-a="voir-createur" data-c="${FMT.esc(c.id)}">ouvrir la fiche</a></div>`+
+    h+=`<div class="gk-desc" style="white-space:normal"><b>${FMT.esc(c.nom)}</b> (${FMT.esc(c.id)}) · stand en cours : ${c.stand?FMT.esc(gcStand(c.stand)):'<span class="gc-ko">aucun</span>'} · ${c.benevole?'<span class="gc-ok">fiche cochée bénévole</span>'+(c.permsPrevues?', '+FMT.num(c.permsPrevues)+' permanence(s) prévue(s)':''):'pas encore bénévole'} · <a href="#" data-a="voir-createur" data-c="${FMT.esc(c.id)}">ouvrir la fiche</a></div>`+
       (autreStand?`<div class="warn" style="margin:10px 0 0">Le stand indiqué (${FMT.esc(gcStand(d.stand))}) n'est pas son stand en cours (${FMT.esc(gcStand(c.stand))}) : la facture se base sur le stand en cours.</div>`:'');
   }else h+='<div class="warn" style="margin:0">Aucune fiche retrouvée avec cet e-mail ni ce nom de créateur : choisis-la ci-dessous.</div>';
   const opts=GB.data.createurs.slice().sort((x,y)=>x.nom.localeCompare(y.nom,'fr')).map(x=>`<option value="${FMT.esc(x.id)}"${x.id===d.idCreateur?' selected':''}>${FMT.esc(x.nom)} · ${FMT.esc(x.id)}${x.stand?' · '+FMT.esc(gcStand(x.stand)):''}</option>`).join('');

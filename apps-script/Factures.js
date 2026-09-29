@@ -4,7 +4,8 @@
  *   - loyer : chaque emplacement présent pendant le mois, au prorata des jours
  *     d'ouverture (mardi → samedi) ; une arrivée le 3 quand le 1er et le 2 sont
  *     fermés paie donc le mois entier ;
- *   - bénévole : aucune commission, loyer réduit selon les permanences faites
+ *   - bénévole : loyer réduit selon les permanences faites ; pas de commission s'il a fait au moins
+ *     une permanence dans le mois, sauf s'il utilise l'atelier (convention, article 13 : Soso et Mo, 29/09/2026)
  *     (journées pour un loyer offert = stands.perms_loyer_gratuit) ;
  *   - commission : 10 % dès 100 €, 15 % dès 250 € de prime du mois (prime =
  *     prix client − frais), même calcul que les tableaux de bord ;
@@ -123,7 +124,8 @@ function _contexteFactures(ss, mois) {
  *  permsFaites / permsDemandees : journées faites et demandées ce mois-ci (bénévole). */
 function _calculFacture(ctx, r, permsFaites, permsDemandees) {
   const tC = ctx.tC, tE = ctx.tE, b = ctx.b, id = String(_val(tC, r, 'id_createur'));
-  const benevole = _val(tC, r, 'benevole') === true, lignes = [], alertes = [];
+  const benevole = _val(tC, r, 'benevole') === true, atelier = _val(tC, r, 'benevole_atelier') === true, lignes = [], alertes = [];
+  let exonere = false;   // bénévole sans atelier ayant fait au moins une permanence : pas de commission
   // Loyers : chaque emplacement présent pendant le mois.
   let loyer = 0, permsRequises = null, standPrincipal = null;
   tE.lignes.forEach(function (e) {
@@ -152,13 +154,15 @@ function _calculFacture(ctx, r, permsFaites, permsDemandees) {
       const remise = _round2(Math.min(loyer, loyer * faites / permsRequises));
       if (remise > 0) lignes.push({ ref: 'BEN', libelle: 'Remise bénévolat · ' + String(faites).replace('.', ',') + ' journée(s) de permanence sur ' + permsRequises, montant: -remise });
       loyer = _round2(loyer - remise);
+      exonere = !atelier && faites > 0;
+      if (!faites) alertes.push('bénévole sans permanence ce mois : loyer et commission normaux');
     }
   }
   // Ventes du mois précédent et commission.
   const vs = (ctx.ventes[id] || []).slice().sort(function (x, y) { return x['date'] - y['date'] || Number(x['id_vente']) - Number(y['id_vente']); });
   const somme = function (k) { return _round2(vs.reduce(function (s, v) { return s + (Number(v[k]) || 0); }, 0)); };
   const ventesCA = somme('prix_client'), frais = somme('frais'), prime = somme('prime');
-  const taux = benevole ? 0 : _tauxCommission(prime, ctx.prec), commission = _round2(prime * taux);
+  const taux = exonere ? 0 : _tauxCommission(prime, ctx.prec), commission = _round2(prime * taux);
   // frais du virement des ventes, retenus sur le versement (réponse de Mo) ; pas de virement, pas de frais
   const fraisVir = _round2(prime - commission) > (ctx.fraisVirement || 0) ? _round2(ctx.fraisVirement || 0) : 0;
   if (commission) lignes.push({ ref: 'COM' + Math.round(taux * 100), libelle: 'Commission ' + Math.round(taux * 100) + ' % · ventes ' + _de(ctx.precBornes.libelle) + ' (prime ' + _eurFr(prime) + ')', montant: commission });

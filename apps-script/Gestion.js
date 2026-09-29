@@ -6,7 +6,7 @@
 
 const CHAMPS_CREATEUR_MODIFIABLES = [
   'nom', 'email', 'statut', 'categorie', 'nom_legal', 'telephone', 'adresse', 'code_postal', 'ville',
-  'siret', 'iban', 'benevole', 'perms_prevues', 'rc_pro', 'adhesion_payee_le', 'instagram'
+  'siret', 'iban', 'benevole', 'benevole_atelier', 'perms_prevues', 'rc_pro', 'adhesion_payee_le', 'instagram'
 ];
 
 /** Actions qui ne font que lire (pas de verrou). gestion_createurs écrit les statuts : elle garde le verrou. */
@@ -232,7 +232,7 @@ function _gCreateursLecture(ss) {
       nomLegal: String(_val(tC, r, 'nom_legal') || ''), telephone: String(_val(tC, r, 'telephone') || ''),
       adresse: String(_val(tC, r, 'adresse') || ''), codePostal: String(_val(tC, r, 'code_postal') || ''),
       ville: String(_val(tC, r, 'ville') || ''), siret: String(_val(tC, r, 'siret') || ''),
-      ibanFin: iban ? iban.slice(-4) : '', benevole: _val(tC, r, 'benevole') === true,
+      ibanFin: iban ? iban.slice(-4) : '', benevole: _val(tC, r, 'benevole') === true, benevoleAtelier: _val(tC, r, 'benevole_atelier') === true,
       permsPrevues: _val(tC, r, 'perms_prevues') === '' ? '' : Number(_val(tC, r, 'perms_prevues')),
       rcPro: _val(tC, r, 'rc_pro') === true, adhesion: _iso(_val(tC, r, 'adhesion_payee_le')),
       instagram: String(_val(tC, r, 'instagram') || ''), creeLe: _iso(_val(tC, r, 'cree_le')),
@@ -294,7 +294,7 @@ function _valeurChamp(champ, v, ctx) {
       if (i && !_ibanValide(i)) throw new Error('IBAN invalide.');
       return i;
     }
-    case 'benevole': case 'rc_pro': return v === true || v === 'true';
+    case 'benevole': case 'benevole_atelier': case 'rc_pro': return v === true || v === 'true';
     case 'perms_prevues':
       if (s === '') return '';
       if (!(Number(s) >= 0)) throw new Error('Nombre de permanences invalide.');
@@ -324,6 +324,7 @@ function _contexteCreateurs(ss, tC, id) {
 
 function _gCreateurMaj(body) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if ((body.champs || {}).benevole_atelier != null) _assurerColonne(ss, SHEET_CREATEURS, 'benevole_atelier');
   const tC = _tableau(ss, SHEET_CREATEURS);
   const i = tC.lignes.findIndex(function (r) { return String(_val(tC, r, 'id_createur')) === String(body.id); });
   if (i < 0) throw new Error('Créateur introuvable : « ' + body.id + ' ».');
