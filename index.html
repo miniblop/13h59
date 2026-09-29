@@ -347,7 +347,7 @@
     <button class="btn btn-ghost" id="btnCodeOuvrir" style="width:100%;margin-top:8px">Gestion : recevoir un code par e-mail</button>
     </div>
     <div id="loginCode" class="hide">
-      <p class="muted" style="margin:6px 0 14px">Accès à la gestion avec ton adresse e-mail : on t'envoie un code à 6 chiffres. Tu restes connectée 30 jours sur cet appareil.</p>
+      <p class="muted" style="margin:6px 0 14px">Accès à la gestion avec ton adresse e-mail : on t'envoie un code à 6 chiffres. La connexion reste active 30 jours sur cet appareil.</p>
       <label>Ton adresse e-mail</label>
       <input id="codeEmail" type="email" autocomplete="email" placeholder="prenom@exemple.fr">
       <button class="btn btn-accent" id="btnCodeEnvoyer" style="width:100%;margin-top:12px">Recevoir le code</button>
@@ -1969,11 +1969,11 @@ async function guCharger(){
     if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide du serveur');
     const U=r.utilisateurs;
     $('guCorps').innerHTML=(U.length?`<table class="gbi-mini">${U.map(u=>`<tr><td><b>${FMT.esc(u.prenom)}</b><span class="gc-sub">${FMT.esc(u.email)}</span></td>`+
-      `<td class="muted" style="font-size:12px">${u.actif?(u.derniereConnexion?'dernière connexion le '+fmtD(u.derniereConnexion):'jamais connectée')+(u.sessions?' · '+u.sessions+' appareil'+(u.sessions>1?'s':''):''):'accès retiré'}</td>`+
+      `<td class="muted" style="font-size:12px">${u.actif?(u.derniereConnexion?'dernière connexion le '+fmtD(u.derniereConnexion):'aucune connexion')+(u.sessions?' · '+u.sessions+' appareil'+(u.sessions>1?'s':''):''):'accès retiré'}</td>`+
       `<td class="r">${u.actif&&u.email!==r.moi?`<a href="#" data-u="${FMT.esc(u.email)}">Retirer l'accès</a>`:u.email===r.moi?'<span class="muted">toi</span>':''}</td></tr>`).join('')}</table>`:'<div class="muted" style="font-size:13px">Personne pour l\'instant.</div>')+
       `<div class="gc-form" style="margin-top:10px"><div><label>Prénom</label><input id="guPrenom" maxlength="30" placeholder="Caro"></div><div><label>Adresse e-mail</label><input id="guEmail" type="email" placeholder="prenom@exemple.fr"></div></div>`+
       `<div class="gc-acts"><button class="btn btn-ghost" id="guAjouter">Donner l'accès</button></div>`+
-      '<div class="gc-why">Chaque personne se connecte avec son adresse (n\'importe quelle messagerie) : elle reçoit un code à 6 chiffres et reste connectée 30 jours sur son appareil. Son prénom signe ses modifications dans le journal. Retirer l\'accès la déconnecte partout. Une fois tout le monde inscrit, change le mot de passe Gestion partagé : il ne restera qu\'un accès de secours.</div>';
+      '<div class="gc-why">Chaque personne se connecte avec son adresse (n\'importe quelle messagerie) : un code à 6 chiffres lui est envoyé, et la connexion reste active 30 jours sur son appareil. Son prénom signe ses modifications dans le journal. Retirer l\'accès ferme toutes ses connexions. Une fois tout le monde inscrit, change le mot de passe Gestion partagé : il ne restera qu\'un accès de secours.</div>';
   }catch(e){$('guCorps').innerHTML='<div class="warn" style="margin:0">⚠️ '+FMT.esc((e&&e.message)||e)+'</div>';}
 }
 $('guCard').addEventListener('click',async e=>{
@@ -1981,7 +1981,7 @@ $('guCard').addEventListener('click',async e=>{
   if(!aj&&!re)return;e.preventDefault();
   const b=aj||re;let action,params,msg;
   if(aj){const email=$('guEmail').value.trim(),prenom=$('guPrenom').value.trim();action='gestion_utilisateur_ajouter';params={email,prenom};msg=()=>prenom+' peut maintenant se connecter avec '+email;}
-  else{if(!confirm('Retirer l\'accès de '+re.dataset.u+' ? Elle sera déconnectée de tous ses appareils.'))return;action='gestion_utilisateur_retirer';params={email:re.dataset.u};msg=()=>'Accès retiré';}
+  else{if(!confirm('Retirer l\'accès de '+re.dataset.u+' ? Toutes ses connexions seront fermées.'))return;action='gestion_utilisateur_retirer';params={email:re.dataset.u};msg=()=>'Accès retiré';}
   b.disabled=true;
   try{const r=await API.gestion(action,params);if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide du serveur');toast(msg(r));await guCharger();}
   catch(err){toast((err&&err.message)||String(err),true);b.disabled=false;}
@@ -3360,7 +3360,7 @@ const DEMO_B=(function(){
       case 'gestion_benevolat_poser':{
         const c=st.createurs.find(x=>x.id===p.idCreateur),[y,m,j]=p.date.split('-').map(Number);
         if(new Date(y,m-1,j).getDay()<2)return {ok:false,message:'La boutique est fermée le dimanche et le lundi.'};
-        if(!c.benevole)return {ok:false,message:c.nom+" n'est pas cochée bénévole."};
+        if(!c.benevole)return {ok:false,message:"La fiche de "+c.nom+" n'est pas cochée « bénévole »."};
         if(st.evts.some(x=>x.date===p.date&&x.benevoles.includes(c.id)))return {ok:false,message:c.nom+' a déjà une permanence ce jour-là.'};
         const h={matin:'11:00-15:00',apres_midi:'15:00-19:00',journee:'11:00-19:00'}[p.creneau];
         st.evts.push({id:'ev'+(++st.nEv),date:p.date,creneau:p.creneau,jours:p.creneau==='journee'?1:0.5,heure:h,titre:'Permanence '+c.nom,benevoles:[c.id],invites:[],recurrent:false});

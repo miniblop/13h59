@@ -271,7 +271,7 @@ function _gBenevolatPoser(body) {
   if (!h) throw new Error('Créneau inconnu.');
   const c = _lireTable(_onglet(ss, SHEET_CREATEURS)).filter(function (r) { return String(r['id_createur']) === String(body.idCreateur); })[0];
   if (!c) throw new Error('Créateur inconnu : « ' + body.idCreateur + ' ».');
-  if (c['benevole'] !== true) throw new Error(_nomPropre(c['nom']) + " n'est pas cochée bénévole : retiens d'abord sa demande (ou coche la case sur sa fiche).");
+  if (c['benevole'] !== true) throw new Error("La fiche de " + _nomPropre(c['nom']) + " n'est pas cochée « bénévole » : retiens d'abord sa demande (ou coche la case sur la fiche).");
   const email = _email(c['email']);
   if (!email) throw new Error(_nomPropre(c['nom']) + " n'a pas d'adresse e-mail valide sur sa fiche : impossible de l'inviter.");
   const agenda = _agendaBenevoles();
