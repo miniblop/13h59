@@ -39,6 +39,7 @@ function _gestion(body) {
     gestion_benevolat_planning: _gBenevolatPlanning,
     gestion_benevolat_poser: _gBenevolatPoser,
     gestion_benevolat_retirer: _gBenevolatRetirer,
+    gestion_benevolat_associer: _gBenevolatAssocier,
     gestion_bilan: _gBilan,
     gestion_utilisateurs: _gUtilisateurs,
     gestion_utilisateur_ajouter: _gUtilisateurAjouter,

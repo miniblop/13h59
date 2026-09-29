@@ -237,6 +237,8 @@
   .gbp-p small{display:block;font-weight:400;color:var(--muted);font-size:11px}
   .gbp-p.inconnu{background:var(--chip);color:var(--muted)}
   .gbp-p button{border:none;background:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 2px;line-height:1}
+  .gbp-assoc{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)}
+  .gbp-assoc>div{flex:1;min-width:200px}
   .gbp-p button:hover{color:var(--neg)}
   .gbp-poser{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px;background:var(--tot)}
   #gbpTbl td.r,#gbpTbl th.r{text-align:right}
@@ -668,7 +670,8 @@
           <div class="muted" style="font-size:12px;margin-bottom:10px" id="gbpResume"></div>
           <div id="gbpPoser"></div>
           <div class="gbp-cal" id="gbpCal"></div>
-          <div class="gc-why">Lu dans l'agenda BÉNÉVOLES : ce que les filles y ajoutent à la main apparaît aussi. « + » pose une permanence et invite la personne ; « × » la retire de l'agenda. Une journée compte pour 1, une demi-journée pour 0,5 ; la facturation relit l'agenda.</div>
+          <div id="gbpInconnus"></div>
+          <div class="gc-why">Lu dans l'agenda BÉNÉVOLES : ce que l'équipe y ajoute à la main apparaît aussi. « + » pose une permanence et invite la personne ; « × » la retire de l'agenda. Une journée compte pour 1, une demi-journée pour 0,5 ; la facturation relit l'agenda.</div>
         </div>
         <div class="card"><h2>Bénévoles du mois</h2><div class="tblwrap"><table id="gbpTbl"></table></div></div>
       </div>
@@ -1531,7 +1534,9 @@ const GC={data:null,filtre:'actif',cat:'',stand:'',q:'',sel:null,charge:false};
 /* prénom saisi à la connexion : signe chaque ligne du journal */
 function gcPrenom(){return S.prenom||'';}
 const STAND_COURT={illu:'Illu',unique:'Unique',grand:'Grand',friperie:'Friperie'};
-const GC_LIB={actif:'Actif',preavis:'En préavis',inactif:'Inactif',tous:'Tous'};
+const GC_LIB={actif:'Actif',preavis:'En préavis',inactif:'Inactif',tous:'Tous',verif:'Arrivée à vérifier'};
+/** Date d'arrivée devinée à la reprise (première vente) ou absente : à confirmer, sinon le loyer du premier mois est au prorata. */
+function gcDebutAVerifier(c){const e=gcCourant(c.id);return !!e&&c.statut==='actif'&&/^début (= première vente \(à vérifier\)|inconnu)/.test(e.remarque||'');}
 /* champs de la fiche : clé côté site, libellé, type, nom de la colonne du Sheet */
 const GC_CHAMPS=[['nom','Nom de marque','text','nom'],['nomLegal','Nom légal','text','nom_legal'],['email','E-mail','email','email'],['telephone','Téléphone','tel','telephone'],
   ['adresse','Adresse','text','adresse',true],['codePostal','Code postal','text','code_postal'],['ville','Ville','text','ville'],['siret','SIRET','text','siret'],
@@ -1601,15 +1606,16 @@ function gcRenderAgenda(){
   $('gcAgenda').innerHTML=ev.length?ev.map(l=>`<div class="gc-ev"><span class="d">${fmtD(l.d).slice(0,5)}</span><span>${l.t}</span></div>`).join(''):'<div class="muted">Aucune arrivée ni aucun départ prévu.</div>';
 }
 function gcRenderListe(){
-  const all=GC.data.createurs,cnt=k=>k==='tous'?all.length:all.filter(c=>gcEtat(c)===k).length;
-  $('gcChips').innerHTML=['actif','preavis','inactif','tous'].map(k=>`<span class="gc-chip${GC.filtre===k?' on':''}" data-f="${k}">${GC_LIB[k]}<span class="c">${cnt(k)}</span></span>`).join('');
+  const all=GC.data.createurs,cnt=k=>k==='tous'?all.length:k==='verif'?all.filter(gcDebutAVerifier).length:all.filter(c=>gcEtat(c)===k).length;
+  if(GC.filtre==='verif'&&!cnt('verif'))GC.filtre='actif';
+  $('gcChips').innerHTML=['actif','preavis','inactif','tous',...(cnt('verif')?['verif']:[])].map(k=>`<span class="gc-chip${GC.filtre===k?' on':''}" data-f="${k}">${GC_LIB[k]}<span class="c">${cnt(k)}</span></span>`).join('');
   const q=GC.q.trim().toLowerCase(),a=gcAuj();
-  const rows=all.filter(c=>(GC.filtre==='tous'||gcEtat(c)===GC.filtre)&&(!GC.cat||c.categorie===GC.cat)&&gcFiltreStand(c)&&(!q||[c.nom,c.nomLegal,c.email,c.id].join(' ').toLowerCase().includes(q)))
+  const rows=all.filter(c=>(GC.filtre==='tous'||(GC.filtre==='verif'?gcDebutAVerifier(c):gcEtat(c)===GC.filtre))&&(!GC.cat||c.categorie===GC.cat)&&gcFiltreStand(c)&&(!q||[c.nom,c.nomLegal,c.email,c.id].join(' ').toLowerCase().includes(q)))
     .sort((x,y)=>x.nom.localeCompare(y.nom,'fr',{sensitivity:'base'}));
   $('gcTbl').innerHTML='<thead><tr><th>Créateur</th><th>Catégorie</th><th>Stand</th><th>Dates</th><th>Infos</th><th>Documents</th><th>Statut</th></tr></thead><tbody>'+
     (rows.length?rows.map(c=>{
       const e=gcCourant(c.id),etat=gcEtat(c),m=gcManque(c),[dm,dv]=gcDocsManque(c);
-      const dates=e?(e.fin&&e.fin>=a?'départ <b>'+fmtD(e.fin)+'</b>':(e.debut>a?'arrivée '+fmtD(e.debut):'depuis '+fmtD(e.debut))):(c.derniereVente?'<span class="gc-sub">dernière vente '+fmtD(c.derniereVente)+'</span>':'—');
+      const dates=e?(e.fin&&e.fin>=a?'départ <b>'+fmtD(e.fin)+'</b>':(e.debut>a?'arrivée '+fmtD(e.debut):'depuis '+fmtD(e.debut))+(gcDebutAVerifier(c)?'<span class="gc-sub gc-ko">arrivée à vérifier</span>':'')):(c.derniereVente?'<span class="gc-sub">dernière vente '+fmtD(c.derniereVente)+'</span>':'—');
       return `<tr data-id="${FMT.esc(c.id)}" class="${c.id===GC.sel?'sel':''}"><td><b>${FMT.esc(c.nom)}</b>${c.benevole?' <span class="gc-st benev">bénévole</span>':''}<span class="gc-sub">${FMT.esc([c.nomLegal,c.id].filter(Boolean).join(' · '))}</span></td>`+
         `<td>${FMT.esc(gcCat(c.categorie))}</td><td>${e?'<span class="pill">'+FMT.esc(gcStand(e.stand))+'</span>':'—'}</td><td>${dates}</td>`+
         `<td>${etat==='inactif'?'':(m.length?'<span class="gc-ko">⚠ '+FMT.esc(m.join(', '))+'</span>':'<span class="gc-ok">✓</span>')}</td>`+
@@ -1644,6 +1650,7 @@ function gcRenderFiche(){
   h+='<div class="gc-h4">Emplacement</div>';
   const sc=e&&GC.data.stands.find(s=>s.code===e.stand),fixe=sc&&sc.dureeMois&&!e.fin;
   if(e)h+=`<div class="gc-form"><div><label>${fixe?'Début du contrat (date d\'arrivée)':'Date d\'arrivée'} · ${FMT.esc(gcStand(e.stand))}</label><input type="date" id="gcDeb" value="${FMT.esc(e.debut)}"></div></div>`+
+    (gcDebutAVerifier(c)?`<div class="warn" style="font-size:12px;margin:0 0 8px">Date reprise ${e.debut?'de la première vente':'inconnue'} : à confirmer. Si ${FMT.esc(c.nom)} était déjà là au début du mois, mets la vraie date d'arrivée (ou le 1er du mois) : sinon le loyer du mois est calculé au prorata. Si la date est juste, enregistre-la telle quelle.</div>`:'')+
     `<div class="gc-acts" style="margin-top:0;margin-bottom:10px"><button class="btn btn-ghost" data-a="debut" data-e="${FMT.esc(e.id)}">${fixe?'Enregistrer le début du contrat':'Corriger la date d\'arrivée'}</button></div>`+
     (fixe?`<div class="muted" style="font-size:12px;margin:-4px 0 10px">L'échéance se calcule toute seule : ${sc.dureeMois} mois complets après le mois d'arrivée (payé au prorata), fin de mois ; période en cours si le contrat a déjà été renouvelé.</div>`:'');
   if(e&&sc&&sc.dureeMois&&!e.fin){
@@ -1823,7 +1830,7 @@ const DEMO_G=(function(){
       categories:[['bijoux','Bijoux'],['illustration','Illustration'],['accessoires','Accessoires'],['deco','Déco & maison'],['friperie','Friperie'],['shop','Shop & résidents']].map(([code,libelle])=>({code,libelle,actif:true})),
       stands:[{code:'illu',libelle:'Exposant illustration · espace partagé',loyer:28,places:10},{code:'unique',libelle:'Exposant créateur · petit espace unique',loyer:48,places:18},{code:'grand',libelle:'Exposant créateur · grand stand',loyer:68,places:6,dureeMois:4},{code:'friperie',libelle:'Exposant friperie',loyer:70,places:3}],
       createurs:[['C001','solenne','shop'],['C002','caro','shop'],['C003','riri','illustration'],['C004','Jackline','illustration'],['C005','NYU','bijoux']].map(([id,nom,categorie])=>({id,nom,email:nom.toLowerCase()+'@exemple.fr',statut:'actif',categorie,nomLegal:'',telephone:'',adresse:'',codePostal:'',ville:'',siret:'',ibanFin:'',benevole:false,permsPrevues:'',rcPro:false,adhesion:'',instagram:'',creeLe:'',modifieLe:'',ca:0,nbVentes:0,derniereVente:''})),
-      emplacements:[{id:'E001',idCreateur:'C004',stand:'grand',debut:'2025-06-03',fin:'',preavisRecuLe:'',accueilPar:'',motifFin:'',remarque:''},{id:'E002',idCreateur:'C005',stand:'unique',debut:'2025-09-10',fin:'',preavisRecuLe:'',accueilPar:'',motifFin:'',remarque:''},{id:'E003',idCreateur:'C003',stand:'illu',debut:'2026-01-13',fin:dans(12),preavisRecuLe:dans(-19),accueilPar:'',motifFin:'depart',remarque:''}]};
+      emplacements:[{id:'E001',idCreateur:'C004',stand:'grand',debut:'2025-06-03',fin:'',preavisRecuLe:'',accueilPar:'',motifFin:'',remarque:''},{id:'E002',idCreateur:'C005',stand:'unique',debut:'2025-09-10',fin:'',preavisRecuLe:'',accueilPar:'',motifFin:'',remarque:'début = première vente (à vérifier)'},{id:'E003',idCreateur:'C003',stand:'illu',debut:'2026-01-13',fin:dans(12),preavisRecuLe:dans(-19),accueilPar:'',motifFin:'depart',remarque:''}]};
     DEMO_ROWS.forEach(r=>{const c=st.createurs.find(c=>c.nom.toLowerCase()===String(r.createur).toLowerCase());if(c){c.ca=round2(c.ca+r.prixClient);c.nbVentes++;if(r.date>c.derniereVente)c.derniereVente=r.date;}});
   };
   const nextId=(l,p)=>p+String(l.reduce((m,x)=>Math.max(m,+String(x.id).slice(1)||0),0)+1).padStart(3,'0');
@@ -1851,7 +1858,7 @@ const DEMO_G=(function(){
       case 'gestion_preavis':{const x=e(p.idEmplacement);if(p.sansPreavis){x.preavisRecuLe='';x.fin=p.fin;x.motifFin='fin_contrat';return {ok:true,fin:p.fin};}x.preavisRecuLe=p.recuLe;x.fin=plusUnMois(p.recuLe);x.motifFin=p.pause?'pause':'depart';return {ok:true,fin:x.fin};}
       case 'gestion_renouvellement_envoyer':{const x=e(p.idEmplacement);const l=isoJour(new Date(Date.now()+7*864e5));x.renouvellement={echeance:x.echeance,envoyeLe:aujourdhui(),dateLimite:l,statut:'en_attente',reponse:'',reponduLe:'',note:'',commentaire:''};return {ok:true,envoye:true,dateLimite:l};}
       case 'gestion_contrat_echeance':{const x=e(p.idEmplacement);let d=p.echeance,n=0;while(d<aujourdhui()&&n<60){const [y,m]=d.split('-').map(Number);d=isoJour(new Date(y,m+4,0));n++;}x.echeance=d;return {ok:true,echeance:d,origine:p.echeance,periodes:n};}
-      case 'gestion_emplacement_debut':{const x=e(p.idEmplacement);x.debut=p.debut;let ech='',n=0;if(x.stand==='grand'&&!x.fin){const [y,m,j]=p.debut.split('-').map(Number);ech=isoJour(new Date(y,m-1+(j===1?4:5),0));while(ech<aujourdhui()&&n<60){const [a,b]=ech.split('-').map(Number);ech=isoJour(new Date(a,b+4,0));n++;}x.echeance=ech;}return {ok:true,debut:p.debut,echeance:ech,periodes:n};}
+      case 'gestion_emplacement_debut':{const x=e(p.idEmplacement);x.debut=p.debut;if(/^début (= première vente|inconnu)/.test(x.remarque||''))x.remarque='';return {ok:true,debut:p.debut,echeance:'',periodes:0};}
       case 'gestion_contrat_renouveler':{const x=e(p.idEmplacement);if(x.fin)return {ok:false,message:'Une fin est déjà enregistrée pour cet emplacement : annule-la avant de renouveler.'};const [y,m]=x.echeance.split('-').map(Number);x.echeance=isoJour(new Date(y,m+4,0));return {ok:true,echeance:x.echeance};}
       case 'gestion_utilisateurs':st.users=st.users||[{email:'mo@exemple.fr',prenom:'Mo',actif:true,ajouteLe:aujourdhui(),ajoutePar:'Rémi',derniereConnexion:'',sessions:0}];return JSON.parse(JSON.stringify({ok:true,utilisateurs:st.users,moi:''}));
       case 'gestion_utilisateur_ajouter':{st.users=st.users||[];const m=String(p.email).toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(m))return {ok:false,message:'Adresse e-mail invalide.'};if(!p.prenom)return {ok:false,message:'Indique le prénom.'};if(st.users.some(u=>u.email===m&&u.actif))return {ok:false,message:m+' a déjà accès.'};st.users.push({email:m,prenom:p.prenom,actif:true,ajouteLe:aujourdhui(),ajoutePar:S.prenom||'',derniereConnexion:'',sessions:0});return {ok:true};}
@@ -3278,6 +3285,16 @@ function gbpRender(){
     d.setDate(d.getDate()+7);
   }
   $('gbpCal').innerHTML=h;
+  /* permanences dont l'invité n'est pas retrouvé (adresse différente de celle de la fiche) */
+  const inc=D.evenements.filter(ev=>!ev.benevoles.length).sort((a,b)=>(a.date+a.heure).localeCompare(b.date+b.heure));
+  const adr=[...new Set(inc.flatMap(ev=>ev.invites))];
+  $('gbpInconnus').innerHTML=!inc.length?'':`<div class="gc-h4">Permanences sans bénévole retrouvé (${inc.length})</div>`+
+    `<div class="gc-why" style="margin-top:0">La personne a été invitée avec une autre adresse que celle de sa fiche : indique à qui elle appartient, la permanence sera comptée (planning et facturation), ce mois-ci et les suivants.</div>`+
+    adr.map(m=>{const evs=inc.filter(ev=>ev.invites.includes(m));
+      return `<div class="gbp-assoc"><div><b>${FMT.esc(m)}</b><span class="gc-sub">${evs.map(ev=>FMT.esc(gbpJourLib(ev.date)+' · '+ev.titre)).join(' ; ')}</span></div>`+
+        `<select data-m="${FMT.esc(m)}"><option value="">— c'est qui ? —</option>${D.benevoles.slice().sort((a,b)=>a.nom.localeCompare(b.nom,'fr')).map(b=>`<option value="${FMT.esc(b.id)}">${FMT.esc(b.nom)}</option>`).join('')}</select>`+
+        `<button class="btn btn-ghost" data-p="associer" data-m="${FMT.esc(m)}">Associer</button></div>`;}).join('')+
+    (inc.some(ev=>!ev.invites.length)?`<div class="gc-sub" style="margin-top:6px">Sans invité : ${inc.filter(ev=>!ev.invites.length).map(ev=>FMT.esc(gbpJourLib(ev.date)+' · '+ev.titre)).join(' ; ')}. Ajoute la personne comme invitée dans l'agenda, ou saisis ses journées dans Facturation.</div>`:'');
   /* bénévoles du mois */
   const cr=o=>String(o||'').split(/\s+/).filter(Boolean).map(x=>{const [j,c]=x.split(':');return GBP_JLIB[GBP_JOURS.indexOf(j)].slice(0,3)+'. '+(c==='journee'?'journée':c==='matin'?'matin':'ap.-midi');}).join(', ');
   $('gbpTbl').innerHTML='<thead><tr><th>Bénévole</th><th>Stand</th><th class="r">Posées</th><th class="r">Loyer offert à</th><th>Disponibilités</th></tr></thead><tbody>'+
@@ -3305,6 +3322,17 @@ $('gbVuePla').addEventListener('click',async e=>{
       if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
       toast('Permanence posée : '+ben.nom+(r.invitation?' · invitation envoyée':''));GBP.poser=null;await gbpCharger();
     }catch(err){toast((err&&err.message)||String(err),true);if(b.isConnected){b.disabled=false;b.textContent=t;}}
+    return;
+  }
+  if(a==='associer'){
+    const m=b.dataset.m,sel=[...$('gbpInconnus').querySelectorAll('select')].find(s=>s.dataset.m===m),id=sel&&sel.value,ben=id&&gbpBen(id);
+    if(!ben){toast('Choisis la personne.',true);return;}
+    b.disabled=true;
+    try{
+      const r=await API.gestion('gestion_benevolat_associer',{email:m,idCreateur:id,mois:GBP.mois});
+      if(!r||!r.ok) throw new Error((r&&r.message)||'réponse invalide du serveur');
+      toast('Adresse '+m+' associée à '+ben.nom);await gbpCharger();
+    }catch(err){toast((err&&err.message)||String(err),true);if(b.isConnected)b.disabled=false;}
     return;
   }
   if(a==='retirer'){
@@ -3366,6 +3394,7 @@ const DEMO_B=(function(){
         st.evts.push({id:'ev'+(++st.nEv),date:p.date,creneau:p.creneau,jours:p.creneau==='journee'?1:0.5,heure:h,titre:'Permanence '+c.nom,benevoles:[c.id],invites:[],recurrent:false});
         return {ok:true,invitation:p.date>=aujourdhui()};}
       case 'gestion_benevolat_retirer':{const i=st.evts.findIndex(x=>x.id===p.idEvenement);if(i<0)return {ok:false,message:'Permanence introuvable.'};st.evts.splice(i,1);return {ok:true};}
+      case 'gestion_benevolat_associer':st.evts.forEach(ev=>{if(!ev.benevoles.length&&ev.invites.includes(p.email)){ev.benevoles=[p.idCreateur];ev.invites=[];}});return {ok:true};
       case 'gestion_benevolat_remarque':d.remarque=p.remarque;return {ok:true};
       case 'gestion_benevolat_statut':{
         if(p.statut==='retenu'){const c=st.createurs.find(x=>x.id===d.idCreateur);if(!c)return {ok:false,message:"Rattache d'abord la demande à une fiche créateur."};c.benevole=true;c.permsPrevues=p.perms||d.perms;}

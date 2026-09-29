@@ -183,6 +183,24 @@ function _gBenevolatStatut(body) {
   return { ok: true, fiche: fiche };
 }
 
+/** Planning : une permanence invite une adresse inconnue → on la rattache à une fiche (colonne emails_agenda). */
+function _gBenevolatAssocier(body) {
+  const email = _email(body.email), id = String(body.idCreateur || ''), ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!email) throw new Error('Adresse e-mail invalide.');
+  const t = _assurerColonne(ss, SHEET_CREATEURS, 'emails_agenda'), i = t.lignes.findIndex(function (r) { return String(_val(t, r, 'id_createur')) === id; });
+  if (i < 0) throw new Error('Créateur inconnu : « ' + id + ' ».');
+  // une adresse ne désigne qu'une fiche : on la retire des autres
+  t.lignes.forEach(function (r, k) {
+    const l = _emailsAgenda(_val(t, r, 'emails_agenda'));
+    if (k !== i && l.indexOf(email) >= 0) { r[t.M['emails_agenda']] = l.filter(function (m) { return m !== email; }).join(', '); _ecrireLigne(t, k, r); }
+  });
+  const r = t.lignes[i], l = _emailsAgenda(_val(t, r, 'emails_agenda'));
+  if (_norm(_val(t, r, 'email')) !== email && l.indexOf(email) < 0) { l.push(email); r[t.M['emails_agenda']] = l.join(', '); _ecrireLigne(t, i, r); }
+  if (body.mois) CacheService.getScriptCache().remove('permanences_' + body.mois);   // la facturation relit l'agenda
+  _journaliser('benevolat_agenda', email + ' → ' + _nomPropre(_val(t, r, 'nom')) + ' (' + id + ')');
+  return { ok: true };
+}
+
 function _gBenevolatLier(body) {
   const ss = SpreadsheetApp.getActiveSpreadsheet(), tB = _tableau(ss, SHEET_BENEVOLAT), i = _ligneDemande(tB, body.id), r = tB.lignes[i];
   const idC = String(body.idCreateur || '');
@@ -224,8 +242,8 @@ function _gBenevolatPlanning(body) {
   const g = _gBenevolat();
   const stands = {};
   g.stands.forEach(function (s) { stands[s.code] = s; });
-  const tC = _tableau(ss, SHEET_CREATEURS), emailDe = {};
-  tC.lignes.forEach(function (r) { emailDe[String(_val(tC, r, 'id_createur'))] = _norm(_val(tC, r, 'email')); });
+  const tC = _tableau(ss, SHEET_CREATEURS), emailDe = {}, autresDe = {};
+  tC.lignes.forEach(function (r) { const id = String(_val(tC, r, 'id_createur')); emailDe[id] = _norm(_val(tC, r, 'email')); autresDe[id] = _emailsAgenda(_val(tC, r, 'emails_agenda')); });
   // disponibilités : la demande la plus récente de chaque créateur
   const dispoDe = {};
   g.demandes.slice().sort(function (x, y) { return String(x.majLe || x.recueLe).localeCompare(String(y.majLe || y.recueLe)); })
@@ -235,7 +253,7 @@ function _gBenevolatPlanning(body) {
     return { id: c.id, nom: c.nom, stand: c.stand, quota: s ? s.perms : null, permsPrevues: c.permsPrevues, email: emailDe[c.id] || '', disponibilites: dispoDe[c.id] || '' };
   });
   const parEmail = {}, parMots = {};
-  benevoles.forEach(function (c) { if (c.email) parEmail[c.email] = c; const k = _cleMots(c.nom); if (k) (parMots[k] = parMots[k] || []).push(c); });
+  benevoles.forEach(function (c) { if (c.email) parEmail[c.email] = c; (autresDe[c.id] || []).forEach(function (m) { parEmail[m] = c; }); const k = _cleMots(c.nom); if (k) (parMots[k] = parMots[k] || []).push(c); });
 
   let agenda, evenements = [], agendaErreur = '';
   try {

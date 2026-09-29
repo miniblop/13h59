@@ -82,6 +82,9 @@ function _echeanceEnCours(echeance, n) {
   return { echeance: d, periodes: periodes };
 }
 
+/** Remarque posée par la reprise quand la date d'arrivée a été devinée (première vente) ou manque. */
+function _debutAVerifier(remarque) { return /^début (= première vente \(à vérifier\)|inconnu)/.test(String(remarque || '')); }
+
 /** Corrige la date d'arrivée d'un emplacement (reprise : date de première vente, parfois trop tardive). */
 function _gEmplacementDebut(body) {
   const ss = SpreadsheetApp.getActiveSpreadsheet(), tE = _tableau(ss, SHEET_EMPLACEMENTS), i = _ligneEmplacement(tE, body.idEmplacement), r = tE.lignes[i];
@@ -94,6 +97,8 @@ function _gEmplacementDebut(body) {
   });
   if (chevauche) throw new Error("À cette date, ce créateur avait déjà un autre emplacement : vérifie son historique.");
   r[tE.M['debut']] = d;
+  // date vérifiée : on retire la remarque de la reprise (« début = première vente (à vérifier) »)
+  if (_debutAVerifier(_val(tE, r, 'remarque'))) r[tE.M['remarque']] = '';
   // contrat à durée fixe : l'échéance se déduit du début (période en cours si les premières sont passées)
   _colonnesContrat(ss);
   const n = _dureeContrat(ss, _val(tE, r, 'code_stand'));
