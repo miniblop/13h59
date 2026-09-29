@@ -344,6 +344,19 @@
       <button type="button" id="pwdEye" class="eye" aria-label="Afficher le mot de passe" title="Afficher le mot de passe" aria-pressed="false"></button>
     </div>
     <button class="btn btn-accent" id="btnLogin" style="width:100%;margin-top:12px">Entrer</button>
+    <button class="btn btn-ghost" id="btnCodeOuvrir" style="width:100%;margin-top:8px">Gestion : recevoir un code par e-mail</button>
+    </div>
+    <div id="loginCode" class="hide">
+      <p class="muted" style="margin:6px 0 14px">Accès à la gestion avec ton adresse e-mail : on t'envoie un code à 6 chiffres. Tu restes connectée 30 jours sur cet appareil.</p>
+      <label>Ton adresse e-mail</label>
+      <input id="codeEmail" type="email" autocomplete="email" placeholder="prenom@exemple.fr">
+      <button class="btn btn-accent" id="btnCodeEnvoyer" style="width:100%;margin-top:12px">Recevoir le code</button>
+      <div id="codeSaisie" class="hide" style="margin-top:14px">
+        <label>Code reçu par e-mail</label>
+        <input id="codeValeur" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">
+        <button class="btn btn-accent" id="btnCodeValider" style="width:100%;margin-top:12px">Se connecter</button>
+      </div>
+      <button class="btn btn-ghost" id="btnCodeRetour" style="width:100%;margin-top:8px">Retour au mot de passe</button>
     </div>
     <div id="loginQui" class="hide">
       <p class="muted" style="margin:6px 0 14px">Ton prénom signe les modifications faites dans la gestion (onglet « journal »).</p>
@@ -603,6 +616,7 @@
           <div class="gc-acts" style="margin-top:0"><button class="btn-dl" id="grRefresh">↻ Actualiser</button></div>
         </div>
       </div>
+      <div class="card" id="guCard"><details data-sec="acces"><summary><b>Accès à la gestion</b> <span class="muted" style="font-weight:400">· qui peut se connecter avec un code par e-mail</span></summary><div id="guCorps" style="margin-top:10px"><div class="muted">Chargement…</div></div></details></div>
       <div id="grTables"></div>
       <details class="card gr-sec" data-sec="emails"><summary><span><b class="gr-titre">E-mails types</b><span class="gr-resume" id="grResumeEmails"></span></span></summary>
         <div class="gc-why" style="margin:0 0 10px">Envoyés depuis 13h59shop@gmail.com ; les réponses arrivent dans la boîte du shop. Champs remplacés à l'envoi : <b>{prenom}</b> <b>{marque}</b> <b>{stand}</b>, et <b>{date}</b> (date d'arrivée) dans l'e-mail de bienvenue. Un modèle désactivé n'est jamais envoyé.</div>
@@ -849,9 +863,18 @@ const CHART = {
 
 /* ===================== API ===================== */
 const API = {
+  async publique(action,params){
+    if(DEMO_MODE){
+      if(action==='connexion_code')return {ok:true,message:'Démo : le code est 123456.'};
+      if(action==='connexion_verifier')return params.code==='123456'?{ok:true,jeton:'S:demo',prenom:'Démo'}:{ok:false,message:'Code incorrect (démo : 123456).'};
+      return {ok:true};
+    }
+    const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify(Object.assign({action},params||{}))});
+    return res.json();
+  },
   async data(password){
     if(DEMO_MODE){
-      const role=['gestion','caisse','createur'].includes(password)?password:null;
+      const role=String(password).indexOf('S:')===0?'gestion':['gestion','caisse','createur'].includes(password)?password:null;
       if(!role) return {ok:false,message:'Mot de passe incorrect (démo : "createur", "caisse" ou "gestion").'};
       const zones=ACCES_LOCAL[role];
       return {ok:true,role,zones,rows:zones.includes('createur')||zones.includes('gestion')?DEMO_ROWS:[]};
@@ -1127,7 +1150,53 @@ function ouvrirApp(){
     /* gestion : les onglets les plus utilisés se chargent en arrière-plan, ils s'ouvrent ensuite sans attente */
     if(peut('gestion')&&!DEMO_MODE) setTimeout(()=>{if(!GC.charge)gcCharger();if(!GK.charge)gkCharger();},300);
 }
-$('btnLogout').addEventListener('click',()=>location.reload());
+$('btnLogout').addEventListener('click',async()=>{
+  if(String(S.pwd).indexOf('S:')===0){try{await API.publique('connexion_fin',{password:S.pwd});}catch(e){}}
+  try{localStorage.removeItem('13h59_session');}catch(e){}
+  location.reload();
+});
+/* ---------- Connexion nominative à la gestion : code par e-mail, session de 30 jours ---------- */
+function voirLogin(v){$('loginPwd').classList.toggle('hide',v!=='pwd');$('loginCode').classList.toggle('hide',v!=='code');$('loginQui').classList.add('hide');}
+$('btnCodeOuvrir').addEventListener('click',()=>{voirLogin('code');let m='';try{m=localStorage.getItem('13h59_email')||'';}catch(e){}$('codeEmail').value=m;$('codeEmail').focus();});
+$('btnCodeRetour').addEventListener('click',()=>voirLogin('pwd'));
+async function codeEnvoyer(){
+  const email=$('codeEmail').value.trim(),b=$('btnCodeEnvoyer');if(!email){toast('Indique ton adresse e-mail.',true);return;}
+  b.disabled=true;b.textContent='Envoi…';
+  try{const r=await API.publique('connexion_code',{email});toast(r.message||'',!r.ok);if(r.ok){try{localStorage.setItem('13h59_email',email);}catch(e){}$('codeSaisie').classList.remove('hide');$('codeValeur').focus();b.textContent='Renvoyer un code';}}
+  catch(e){toast('Envoi impossible : '+e.message,true);}
+  finally{b.disabled=false;if(b.textContent==='Envoi…')b.textContent='Recevoir le code';}
+}
+async function codeValider(){
+  const b=$('btnCodeValider');b.disabled=true;b.textContent='…';
+  try{
+    const r=await API.publique('connexion_verifier',{email:$('codeEmail').value.trim(),code:$('codeValeur').value.trim()});
+    if(!r.ok){toast(r.message||'Code incorrect.',true);return;}
+    try{localStorage.setItem('13h59_session',JSON.stringify({jeton:r.jeton,prenom:r.prenom}));}catch(e){}
+    await connecterSession(r.jeton,r.prenom);
+  }catch(e){toast('Connexion impossible : '+e.message,true);}
+  finally{b.disabled=false;b.textContent='Se connecter';}
+}
+/** Ouvre le site avec une session (prénom connu : pas d'étape « ton prénom »). Renvoie false si la session n'est plus valable. */
+async function connecterSession(jeton,prenom){
+  const r=await API.data(jeton);
+  if(!r||!r.ok){try{localStorage.removeItem('13h59_session');}catch(e){}return false;}
+  S.rows=lignesDonnees(r);S.role=r.role;S.pwd=jeton;CALC.indexerMois(S.rows);
+  S.zones=Array.isArray(r.zones)&&r.zones.length?r.zones:(ACCES_LOCAL[r.role]||[]);
+  S.prenom=prenom||'';$('btnLogout').textContent='Déconnexion · '+(prenom||'');
+  ouvrirApp();return true;
+}
+$('btnCodeEnvoyer').addEventListener('click',codeEnvoyer);
+$('codeEmail').addEventListener('keydown',e=>{if(e.key==='Enter')codeEnvoyer();});
+$('btnCodeValider').addEventListener('click',codeValider);
+$('codeValeur').addEventListener('keydown',e=>{if(e.key==='Enter')codeValider();});
+/* session gardée sur cet appareil : reconnexion automatique */
+(async()=>{
+  let s=null;try{s=JSON.parse(localStorage.getItem('13h59_session')||'null');}catch(e){}
+  if(!s||!s.jeton)return;
+  const b=$('btnLogin');b.disabled=true;b.textContent='Reconnexion…';
+  try{if(!await connecterSession(s.jeton,s.prenom))toast('Session expirée : reconnecte-toi.',true);}catch(e){}
+  finally{b.disabled=false;b.textContent='Entrer';}
+})();
 document.querySelectorAll('.tab[data-tab]').forEach(t=>t.addEventListener('click',()=>showTab(t.dataset.tab)));
 
 /* ===================== VUE CRÉATEUR ===================== */
@@ -1739,7 +1808,7 @@ $('gSubtabs').addEventListener('click',e=>{
   if(t.dataset.sub==='createurs'&&!GC.charge)gcCharger();
   if(t.dataset.sub==='candidatures'&&!GK.charge)gkCharger();
   if(t.dataset.sub==='benevolat'&&!GB.charge)gbCharger();
-  if(t.dataset.sub==='reglages')grCharger();
+  if(t.dataset.sub==='reglages'){grCharger();guCharger();}
   if(t.dataset.sub==='ventes'&&!GV.charge)gvCharger();
   if(t.dataset.sub==='journal')gjCharger();
   if(t.dataset.sub==='facturation'&&!GF.charge){gfInitMois();gfCharger();}
@@ -1784,6 +1853,9 @@ const DEMO_G=(function(){
       case 'gestion_contrat_echeance':{const x=e(p.idEmplacement);let d=p.echeance,n=0;while(d<aujourdhui()&&n<60){const [y,m]=d.split('-').map(Number);d=isoJour(new Date(y,m+4,0));n++;}x.echeance=d;return {ok:true,echeance:d,origine:p.echeance,periodes:n};}
       case 'gestion_emplacement_debut':{const x=e(p.idEmplacement);x.debut=p.debut;let ech='',n=0;if(x.stand==='grand'&&!x.fin){const [y,m,j]=p.debut.split('-').map(Number);ech=isoJour(new Date(y,m-1+(j===1?4:5),0));while(ech<aujourdhui()&&n<60){const [a,b]=ech.split('-').map(Number);ech=isoJour(new Date(a,b+4,0));n++;}x.echeance=ech;}return {ok:true,debut:p.debut,echeance:ech,periodes:n};}
       case 'gestion_contrat_renouveler':{const x=e(p.idEmplacement);if(x.fin)return {ok:false,message:'Une fin est déjà enregistrée pour cet emplacement : annule-la avant de renouveler.'};const [y,m]=x.echeance.split('-').map(Number);x.echeance=isoJour(new Date(y,m+4,0));return {ok:true,echeance:x.echeance};}
+      case 'gestion_utilisateurs':st.users=st.users||[{email:'mo@exemple.fr',prenom:'Mo',actif:true,ajouteLe:aujourdhui(),ajoutePar:'Rémi',derniereConnexion:'',sessions:0}];return JSON.parse(JSON.stringify({ok:true,utilisateurs:st.users,moi:''}));
+      case 'gestion_utilisateur_ajouter':{st.users=st.users||[];const m=String(p.email).toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(m))return {ok:false,message:'Adresse e-mail invalide.'};if(!p.prenom)return {ok:false,message:'Indique le prénom.'};if(st.users.some(u=>u.email===m&&u.actif))return {ok:false,message:m+' a déjà accès.'};st.users.push({email:m,prenom:p.prenom,actif:true,ajouteLe:aujourdhui(),ajoutePar:S.prenom||'',derniereConnexion:'',sessions:0});return {ok:true};}
+      case 'gestion_utilisateur_retirer':{const u=(st.users||[]).find(x=>x.email===p.email);if(u)u.actif=false;return {ok:true,sessions:0};}
       case 'gestion_dossier_creer':{const c=st.createurs.find(x=>x.id===p.id);c.dossier='demo-'+c.id;return {ok:true,dossier:c.dossier,factures:0};}
       case 'gestion_documents':{st.docs=st.docs||[];return JSON.parse(JSON.stringify({ok:true,documents:st.docs.filter(d=>d.idCreateur===p.idCreateur),types:[['siret','Justificatif SIRET (avis INSEE ou extrait INPI)'],['rc_pro','Attestation RC Pro'],['rib','RIB'],['identite',"Pièce d'identité"],['demarche','Justificatif de démarche en cours (URSSAF, INPI, assureur)'],['convention','Convention signée'],['autre','Autre document']]}));}
       case 'gestion_document_ajouter':{st.docs=st.docs||[];st.nDoc=(st.nDoc||0)+1;const lib={siret:'Justificatif SIRET',rc_pro:'Attestation RC Pro',rib:'RIB',identite:"Pièce d'identité",demarche:'Justificatif de démarche en cours',convention:'Convention signée',autre:'Autre document'}[p.type];
@@ -1888,6 +1960,31 @@ document.addEventListener('click',async e=>{
   try{const r=await API.gestion(action,params);if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide du serveur');toast(msg(r));
     if(GC.charge)await gcCharger(true);else await gdocCharger(id);}
   catch(err){toast((err&&err.message)||String(err),true);if(b.isConnected){b.disabled=false;b.textContent=t;}}
+});
+
+/* ---------- Réglages ▸ Accès à la gestion (connexion par code e-mail) ---------- */
+async function guCharger(){
+  try{
+    const r=await API.gestion('gestion_utilisateurs');
+    if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide du serveur');
+    const U=r.utilisateurs;
+    $('guCorps').innerHTML=(U.length?`<table class="gbi-mini">${U.map(u=>`<tr><td><b>${FMT.esc(u.prenom)}</b><span class="gc-sub">${FMT.esc(u.email)}</span></td>`+
+      `<td class="muted" style="font-size:12px">${u.actif?(u.derniereConnexion?'dernière connexion le '+fmtD(u.derniereConnexion):'jamais connectée')+(u.sessions?' · '+u.sessions+' appareil'+(u.sessions>1?'s':''):''):'accès retiré'}</td>`+
+      `<td class="r">${u.actif&&u.email!==r.moi?`<a href="#" data-u="${FMT.esc(u.email)}">Retirer l'accès</a>`:u.email===r.moi?'<span class="muted">toi</span>':''}</td></tr>`).join('')}</table>`:'<div class="muted" style="font-size:13px">Personne pour l\'instant.</div>')+
+      `<div class="gc-form" style="margin-top:10px"><div><label>Prénom</label><input id="guPrenom" maxlength="30" placeholder="Caro"></div><div><label>Adresse e-mail</label><input id="guEmail" type="email" placeholder="prenom@exemple.fr"></div></div>`+
+      `<div class="gc-acts"><button class="btn btn-ghost" id="guAjouter">Donner l'accès</button></div>`+
+      '<div class="gc-why">Chaque personne se connecte avec son adresse (n\'importe quelle messagerie) : elle reçoit un code à 6 chiffres et reste connectée 30 jours sur son appareil. Son prénom signe ses modifications dans le journal. Retirer l\'accès la déconnecte partout. Une fois tout le monde inscrit, change le mot de passe Gestion partagé : il ne restera qu\'un accès de secours.</div>';
+  }catch(e){$('guCorps').innerHTML='<div class="warn" style="margin:0">⚠️ '+FMT.esc((e&&e.message)||e)+'</div>';}
+}
+$('guCard').addEventListener('click',async e=>{
+  const aj=e.target.closest('#guAjouter'),re=e.target.closest('[data-u]');
+  if(!aj&&!re)return;e.preventDefault();
+  const b=aj||re;let action,params,msg;
+  if(aj){const email=$('guEmail').value.trim(),prenom=$('guPrenom').value.trim();action='gestion_utilisateur_ajouter';params={email,prenom};msg=()=>prenom+' peut maintenant se connecter avec '+email;}
+  else{if(!confirm('Retirer l\'accès de '+re.dataset.u+' ? Elle sera déconnectée de tous ses appareils.'))return;action='gestion_utilisateur_retirer';params={email:re.dataset.u};msg=()=>'Accès retiré';}
+  b.disabled=true;
+  try{const r=await API.gestion(action,params);if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide du serveur');toast(msg(r));await guCharger();}
+  catch(err){toast((err&&err.message)||String(err),true);b.disabled=false;}
 });
 /* ===================== GESTION ▸ CANDIDATURES ===================== */
 const GK={data:null,filtre:'a_traiter',stand:'',q:'',sel:null,charge:false,retenir:false};
@@ -2411,7 +2508,7 @@ $('gvRefresh').addEventListener('click',()=>gvCharger());
 
 /* ===================== GESTION ▸ JOURNAL ===================== */
 const GJ={data:null};
-const GJ_ACTIONS={createur_maj:'Fiche créateur modifiée',createur_creer:'Créateur ajouté',preavis:'Préavis enregistré',fin_contrat:'Fin de contrat sans préavis',contrat_renouvele:'Contrat renouvelé',contrat_echeance:'Échéance du contrat',emplacement_debut:"Date d'arrivée corrigée",renouvellement_demande:'E-mail de renouvellement envoyé',renouvellement_accepte:'Renouvellement accepté par le créateur',renouvellement_refuse:'Non-renouvellement choisi par le créateur',renouvellement_expire:'Sans réponse : contrat non renouvelé',renouvellement_echec:'Renouvellement : échec',avis_depart:'Avis de départ reçu',dossier_drive:'Dossier Drive',dossier_echec:'Dossier Drive : échec',acces_drive:'Accès aux dossiers Drive',document_ajoute:'Document ajouté',document_statut:'Document vérifié',document_retire:'Document retiré',preavis_annule:'Préavis annulé',changement_stand:'Changement de stand',
+const GJ_ACTIONS={createur_maj:'Fiche créateur modifiée',createur_creer:'Créateur ajouté',preavis:'Préavis enregistré',fin_contrat:'Fin de contrat sans préavis',contrat_renouvele:'Contrat renouvelé',contrat_echeance:'Échéance du contrat',emplacement_debut:"Date d'arrivée corrigée",renouvellement_demande:'E-mail de renouvellement envoyé',renouvellement_accepte:'Renouvellement accepté par le créateur',renouvellement_refuse:'Non-renouvellement choisi par le créateur',renouvellement_expire:'Sans réponse : contrat non renouvelé',renouvellement_echec:'Renouvellement : échec',avis_depart:'Avis de départ reçu',dossier_drive:'Dossier Drive',dossier_echec:'Dossier Drive : échec',acces_drive:'Accès aux dossiers Drive',acces_gestion:'Accès à la gestion',connexion:'Connexion par code',document_ajoute:'Document ajouté',document_statut:'Document vérifié',document_retire:'Document retiré',preavis_annule:'Préavis annulé',changement_stand:'Changement de stand',
   emplacement_creer:'Emplacement créé',statut_automatique:'Statut mis à jour',candidature_recue:'Candidature reçue',candidature_maj:'Candidature mise à jour',candidature_statut:'Candidature : décision',
   candidature_retenue:'Candidature retenue',candidature_remarque:'Candidature : remarque',email_envoye:'E-mail envoyé',email_echec:'E-mail non envoyé',email_modele_maj:'E-mail type modifié',
   reglage_categories:'Réglage : catégorie',reglage_stands:'Réglage : stand',reglage_remises:'Réglage : remise',reglage_paiements:'Réglage : paiement',

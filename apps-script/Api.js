@@ -33,7 +33,7 @@ function _acces() {
 }
 
 /** Numéro de version du code — sert à vérifier ce qui est réellement DÉPLOYÉ. */
-function _version() { return '2026-09-iban-prive'; }
+function _version() { return '2026-09-acces-nominatif'; }
 
 /** Point d'entrée des appels POST du site. */
 function doPost(e) {
@@ -48,6 +48,9 @@ function doPost(e) {
     if (body.action === 'candidature_envoyer') return _json(_candidatureEnvoyer(body));
     if (body.action === 'benevolat_infos')     return _json(_lecturePure(_benevolatInfos));
     if (body.action === 'benevolat_envoyer')   return _json(_benevolatEnvoyer(body));
+    if (body.action === 'connexion_code')     return _json(_connexionCode(body));
+    if (body.action === 'connexion_verifier') return _json(_connexionVerifier(body));
+    if (body.action === 'connexion_fin')      return _json(_connexionFin(body));
     if (body.action === 'renouvellement_infos')    return _json(_renouvellementInfos(body));
     if (body.action === 'renouvellement_repondre') return _json(_renouvellementRepondre(body));
     if (body.action === 'renouvellement_avis')     return _json(_renouvellementAvis(body));
@@ -73,6 +76,10 @@ function doGet(e) {
 
 /** Renvoie le rôle ('gestion' / 'caisse' / 'createur') d'un mot de passe, ou null. */
 function _role(password) {
+  // session ouverte par un code reçu par e-mail : « S:<jeton> » → gestion, au nom de la personne
+  _sessionUtilisateur = null;
+  const session = _session(password);
+  if (session) { _sessionUtilisateur = session; return 'gestion'; }
   const props = PropertiesService.getScriptProperties();
   // on ignore les espaces parasites de part et d'autre (copier-coller, clavier mobile)
   const net = function (v) { return String(v == null ? '' : v).trim(); };

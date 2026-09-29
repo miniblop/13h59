@@ -40,6 +40,9 @@ function _gestion(body) {
     gestion_benevolat_poser: _gBenevolatPoser,
     gestion_benevolat_retirer: _gBenevolatRetirer,
     gestion_bilan: _gBilan,
+    gestion_utilisateurs: _gUtilisateurs,
+    gestion_utilisateur_ajouter: _gUtilisateurAjouter,
+    gestion_utilisateur_retirer: _gUtilisateurRetirer,
     gestion_dossier_creer: _gDossierCreer,
     gestion_dossiers_creer_tous: _gDossiersCreerTous,
     gestion_dossiers_etat: _gDossiersEtat,
@@ -87,6 +90,7 @@ function _gestion(body) {
   const f = actions[body.action];
   if (!f) return { ok: false, message: 'Action inconnue.' };
   _auteurJournal = _auteur(body.qui);
+  if (_sessionUtilisateur) _auteurJournal = _auteur(_sessionUtilisateur.prenom || _sessionUtilisateur.email);   // connexion par code : prénom enregistré
   // Les écrans en lecture seule n'attendent pas derrière une vente en cours d'écriture.
   if (LECTURES_SEULES.indexOf(body.action) !== -1) {
     try { return _lecturePure(function () { return f(body); }); } catch (e) { return { ok: false, message: String(e && e.message ? e.message : e) }; }
