@@ -56,8 +56,11 @@ function inventaireClasseur() {
     }
     const role = SCHEMA[nom] ? 'table' : ONGLETS_DE_TRAVAIL.indexOf(nom) !== -1 ? 'travail (stock)' : 'INCONNU DU CODE';
     if (!SCHEMA[nom] && ONGLETS_DE_TRAVAIL.indexOf(nom) === -1) inconnus.push(nom);
+    const entetes = nc ? sh.getRange(1, 1, 1, nc).getValues()[0].map(String) : [];
+    const pasSnake = entetes.filter(function (h) { return h && !/^[a-z][a-z0-9_]*$/.test(h); });
     lignes.push('• ' + nom + ' — ' + role + ' · ' + Math.max(0, nl - 1) + ' ligne(s) × ' + nc + ' col.' + (sh.isSheetHidden() ? ' · masqué' : '') +
-      (formules ? ' · ' + formules + ' formule(s), ex. ' + exemple : ''));
+      (formules ? ' · ' + formules + ' formule(s), ex. ' + exemple : '') +
+      '\n    colonnes : ' + entetes.join(', ') + (pasSnake.length ? '\n    ⚠️ noms de colonnes hors norme (minuscules_sans_accents attendues) : ' + pasSnake.join(', ') : ''));
   });
   const absentes = Object.keys(SCHEMA).filter(function (t) { return !ss.getSheetByName(t); });
   Logger.log('ONGLETS (' + lignes.length + ') :\n' + lignes.join('\n'));
