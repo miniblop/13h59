@@ -154,6 +154,7 @@ function _nettoyerOnglets(apercu) {
 /**
  * Mise aux normes (30/09/2026) : les colonnes à plusieurs valeurs deviennent des tables.
  *  benevolat.disponibilites → benevolat_disponibilites ; createurs.emails_agenda → createurs_emails_agenda.
+ *  createurs.rc_pro (case en double avec le registre documents) : retirée, les cases sans attestation sont listées.
  *  Les valeurs existantes sont recopiées, puis la colonne est retirée.
  */
 function apercuNormalisation() { _normaliser(true); }
@@ -178,6 +179,16 @@ function _normaliser(apercu) {
         .forEach(function (m) { _ajouterLigne(t, { email: m, id_createur: String(r['id_createur']), ajoute_le: new Date(), ajoute_par: 'normalisation' }); }); });
       c.sh.deleteColumn(c.i + 1);
     }
+  }
+  const rc = colonne(SHEET_CREATEURS, 'rc_pro');
+  if (rc) {
+    // la case ne sert plus : « RC Pro » = attestation validée dans `documents`. On liste les cases cochées sans attestation.
+    const ok = {};
+    _lireSi(ss, SHEET_DOCUMENTS).forEach(function (d) { if (String(d['type']) === 'rc_pro' && String(d['statut']) === 'valide') ok[String(d['id_createur'])] = true; });
+    const sans = _lireTable(_onglet(ss, SHEET_CREATEURS)).filter(function (r) { return r['id_createur'] && r['rc_pro'] === true && !ok[String(r['id_createur'])]; });
+    faits.push('createurs.rc_pro retirée (la RC Pro se lit dans documents). Case cochée sans attestation dans le registre (' + sans.length + ') : ' +
+      (sans.map(function (r) { return _nomPropre(r['nom']) + ' (' + r['id_createur'] + ')'; }).join(', ') || 'aucune') + ' — attestation à déposer dans leur fiche ▸ Documents');
+    if (!apercu) rc.sh.deleteColumn(rc.i + 1);
   }
   if (!faits.length) { Logger.log('✅ Rien à faire : les tables sont déjà aux normes.'); return; }
   if (apercu) { Logger.log('APERÇU :\n• ' + faits.join('\n• ')); return; }

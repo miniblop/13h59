@@ -1673,7 +1673,7 @@ function gcRenderFiche(){
     `<div class="gc-doc"><div class="k">Dernière vente</div><div class="v">${c.derniereVente?fmtD(c.derniereVente):'—'}</div></div>`+
     `<div class="gc-doc"><div class="k">Adhésion 15 €</div><div class="v">${adh}</div></div>`+
     `<div class="gc-doc"><div class="k">Instagram</div><div class="v">${ig}</div></div>`+
-    `<div class="gc-doc"><div class="k">RC Pro</div><div class="v">${c.rcPro?'<span class="gc-ok">Attestation ✓</span>':'<span class="gc-ko">Non renseignée</span>'}</div></div>`+
+    `<div class="gc-doc"><div class="k">RC Pro</div><div class="v">${c.rcPro?'<span class="gc-ok">Attestation validée ✓</span>':'<span class="gc-ko">Pas d\'attestation validée</span> <span class="muted">(Documents)</span>'}</div></div>`+
     `<div class="gc-doc"><div class="k">Dossier Drive</div><div class="v">${c.dossier?`<a href="https://drive.google.com/drive/folders/${encodeURIComponent(c.dossier)}" target="_blank" rel="noopener">Ouvrir son dossier</a> <span class="muted">(factures, documents, convention)</span>`:`<a href="#" data-a="dossier">Créer son dossier</a>`}</div></div></div>`;
 
   /* emplacement */
@@ -1727,7 +1727,7 @@ function gcRenderFiche(){
     `<div class="full"><label class="gc-check"><input type="checkbox" data-k="benevole"${c.benevole?' checked':''}> Bénévole : loyer payé en permanences, pas de commission le mois où au moins une permanence est faite</label></div>`+
     `<div class="full"><label class="gc-check"><input type="checkbox" data-k="benevoleAtelier"${c.benevoleAtelier?' checked':''}> Bénévole qui utilise l'atelier : 27 h d'atelier offertes, la commission s'applique</label></div>`+
     `<div><label>Permanences prévues / mois</label><input data-k="permsPrevues" type="number" min="0" step="0.5" value="${FMT.esc(c.permsPrevues)}"></div>`+
-    `<div style="align-self:end"><label class="gc-check"><input type="checkbox" data-k="rcPro"${c.rcPro?' checked':''}> Attestation RC Pro reçue</label></div></div>`+
+    `</div>`+
     `<div class="gc-acts"><button class="btn btn-accent" data-a="enregistrer">Enregistrer la fiche</button></div>`+
     `<div class="gc-h4">Fiche en double ?</div><div class="gc-why" style="margin-top:0">Si cette fiche et une autre sont le même créateur (ancien nom, faute de frappe), rattache tout à la bonne fiche : ventes, emplacements et candidatures. Les infos manquantes de la bonne fiche sont complétées, puis cette fiche-ci est supprimée.</div>`+
     `<div class="gc-form" style="margin-top:8px"><div class="full"><label>Tout rattacher à</label><select id="gcFusVers"><option value="">— Choisis la bonne fiche —</option>${GC.data.createurs.filter(x=>x.id!==c.id).sort((x,y)=>x.nom.localeCompare(y.nom,'fr',{sensitivity:'base'})).map(x=>`<option value="${FMT.esc(x.id)}">${FMT.esc(x.nom)} · ${FMT.esc(x.id)} · ${x.nbVentes} vente${x.nbVentes>1?'s':''}${x.statut==='actif'?'':' · inactif'}</option>`).join('')}</select></div></div>`+
@@ -1742,7 +1742,7 @@ function gcRenderFiche(){
   const sp=$('gcPrSans');if(sp)sp.addEventListener('change',()=>{$('gcPrBloc').classList.toggle('hide',sp.checked);$('gcSansBloc').classList.toggle('hide',!sp.checked);$('gcPrBtn').textContent=sp.checked?'Clôturer le stand':'Enregistrer le préavis';});
 }
 
-const GC_SERVEUR={nom:'nom',nomLegal:'nom_legal',email:'email',telephone:'telephone',adresse:'adresse',codePostal:'code_postal',ville:'ville',siret:'siret',iban:'iban',instagram:'instagram',adhesion:'adhesion_payee_le',categorie:'categorie',statut:'statut',benevole:'benevole',benevoleAtelier:'benevole_atelier',permsPrevues:'perms_prevues',rcPro:'rc_pro'};
+const GC_SERVEUR={nom:'nom',nomLegal:'nom_legal',email:'email',telephone:'telephone',adresse:'adresse',codePostal:'code_postal',ville:'ville',siret:'siret',iban:'iban',instagram:'instagram',adhesion:'adhesion_payee_le',categorie:'categorie',statut:'statut',benevole:'benevole',benevoleAtelier:'benevole_atelier',permsPrevues:'perms_prevues'};
 function gcChampsModifies(c){
   const champs={};
   $('gcFiche').querySelectorAll('[data-k]').forEach(el=>{
@@ -1868,7 +1868,7 @@ const DEMO_G=(function(){
   const nextId=(l,p)=>p+String(l.reduce((m,x)=>Math.max(m,+String(x.id).slice(1)||0),0)+1).padStart(3,'0');
   const occ=(stand,d,sauf)=>st.emplacements.filter(e=>e.stand===stand&&e.idCreateur!==sauf&&gcActifLe(e,d)).length;
   const places=s=>st.stands.find(x=>x.code===s).places;
-  const CLIENT={nom:'nom',nom_legal:'nomLegal',email:'email',telephone:'telephone',adresse:'adresse',code_postal:'codePostal',ville:'ville',siret:'siret',instagram:'instagram',adhesion_payee_le:'adhesion',categorie:'categorie',statut:'statut',benevole:'benevole',benevole_atelier:'benevoleAtelier',perms_prevues:'permsPrevues',rc_pro:'rcPro'};
+  const CLIENT={nom:'nom',nom_legal:'nomLegal',email:'email',telephone:'telephone',adresse:'adresse',code_postal:'codePostal',ville:'ville',siret:'siret',instagram:'instagram',adhesion_payee_le:'adhesion',categorie:'categorie',statut:'statut',benevole:'benevole',benevole_atelier:'benevoleAtelier',perms_prevues:'permsPrevues'};
   return async function(action,p){
     if(!st)init();
     const e=id=>st.emplacements.find(x=>x.id===id);

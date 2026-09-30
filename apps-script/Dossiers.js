@@ -164,15 +164,8 @@ function _ajouterDocument(ss, idCreateur, type, nom, mime, contenu, source, par,
   _ajouterLigne(t, { id_document: id, id_createur: idCreateur, type: type, nom_fichier: propre, id_fichier: fichier.getId(), taille_ko: Math.ceil(octets.length / 1024),
     ajoute_le: new Date(), ajoute_par: par, source: source, statut: valide ? 'valide' : 'a_verifier', verifie_le: valide ? new Date() : '', verifie_par: valide ? par : '',
     remarque: _textePublic(remarque, 300) });
-  if (valide && type === 'rc_pro') _cocherRcPro(ss, idCreateur);
   _journaliser('document_ajoute', idCreateur + ' · ' + id + ' ' + _typeDocument(type) + ' (' + propre + ')' + (valide ? '' : ' · à vérifier'), par);
   return { id: id, idFichier: fichier.getId() };
-}
-function _cocherRcPro(ss, idCreateur) {
-  const t = _tableau(ss, SHEET_CREATEURS), i = t.lignes.findIndex(function (r) { return String(_val(t, r, 'id_createur')) === String(idCreateur); });
-  if (i < 0 || _val(t, t.lignes[i], 'rc_pro') === true) return;
-  const r = t.lignes[i]; r[t.M['rc_pro']] = true; if (t.M['modifie_le'] != null) r[t.M['modifie_le']] = new Date();
-  _ecrireLigne(t, i, r);
 }
 
 function _gDocuments(body) {
@@ -206,7 +199,6 @@ function _gDocumentStatut(body) {
   r[t.M['statut']] = body.statut; r[t.M['verifie_le']] = new Date(); r[t.M['verifie_par']] = _signataire();
   if (body.remarque != null) r[t.M['remarque']] = _textePublic(body.remarque, 300);
   _ecrireLigne(t, i, r);
-  if (body.statut === 'valide' && String(_val(t, r, 'type')) === 'rc_pro') _cocherRcPro(ss, String(_val(t, r, 'id_createur')));
   _journaliser('document_statut', _val(t, r, 'id_createur') + ' · ' + body.id + ' → ' + body.statut);
   return { ok: true };
 }

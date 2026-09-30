@@ -6,7 +6,7 @@
 
 const CHAMPS_CREATEUR_MODIFIABLES = [
   'nom', 'email', 'statut', 'categorie', 'nom_legal', 'telephone', 'adresse', 'code_postal', 'ville',
-  'siret', 'iban', 'benevole', 'benevole_atelier', 'perms_prevues', 'rc_pro', 'adhesion_payee_le', 'instagram'
+  'siret', 'iban', 'benevole', 'benevole_atelier', 'perms_prevues', 'adhesion_payee_le', 'instagram'
 ];
 
 /** Actions qui ne font que lire (pas de verrou). gestion_createurs écrit les statuts : elle garde le verrou. */
@@ -246,7 +246,8 @@ function _gCreateursLecture(ss) {
       ville: String(_val(tC, r, 'ville') || ''), siret: String(_val(tC, r, 'siret') || ''),
       ibanFin: iban ? iban.slice(-4) : '', benevole: _val(tC, r, 'benevole') === true, benevoleAtelier: _val(tC, r, 'benevole_atelier') === true,
       permsPrevues: _val(tC, r, 'perms_prevues') === '' ? '' : Number(_val(tC, r, 'perms_prevues')),
-      rcPro: _val(tC, r, 'rc_pro') === true, adhesion: _iso(_val(tC, r, 'adhesion_payee_le')),
+      rcPro: (docs[id] || { valides: [] }).valides.indexOf('rc_pro') !== -1,   // une seule source : l'attestation validée dans `documents`
+      adhesion: _iso(_val(tC, r, 'adhesion_payee_le')),
       instagram: String(_val(tC, r, 'instagram') || ''), creeLe: _iso(_val(tC, r, 'cree_le')),
       modifieLe: _iso(_val(tC, r, 'modifie_le')), dossier: String(_val(tC, r, 'dossier_drive') || ''), docs: docs[id] || { valides: [], aVerifier: [] },
       ca: _round2(v.ca), nbVentes: v.n, derniereVente: _iso(v.derniere)
@@ -306,7 +307,7 @@ function _valeurChamp(champ, v, ctx) {
       if (i && !_ibanValide(i)) throw new Error('IBAN invalide.');
       return i;
     }
-    case 'benevole': case 'benevole_atelier': case 'rc_pro': return v === true || v === 'true';
+    case 'benevole': case 'benevole_atelier': return v === true || v === 'true';
     case 'perms_prevues':
       if (s === '') return '';
       if (!(Number(s) >= 0)) throw new Error('Nombre de permanences invalide.');
@@ -379,7 +380,7 @@ function _gCreateurCreer(body) {
     detail = ' · stand ' + body.stand + ' dès le ' + body.debut;
   }
   _ajouterLigne(tC, { id_createur: id, nom: nom, email: email, statut: statut, categorie: categorie, instagram: instagram, nom_legal: String(body.nomLegal || ''),
-                      benevole: false, rc_pro: false, cree_le: new Date(), modifie_le: new Date() });
+                      benevole: false, cree_le: new Date(), modifie_le: new Date() });
   _journaliser('createur_creer', id + ' ' + nom + detail);
   let dossier = '';
   try { dossier = _dossierCreateur(ss, id, true).getId(); }
