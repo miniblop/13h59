@@ -141,7 +141,7 @@ const COLONNES_DOCUMENTS = ['id_document', 'id_createur', 'type', 'nom_fichier',
   'statut', 'verifie_le', 'verifie_par', 'remarque'];
 const TYPES_DOCUMENTS = [
   ['siret', 'Justificatif SIRET (avis INSEE ou extrait INPI)'], ['rc_pro', 'Attestation RC Pro'], ['rib', 'RIB'], ['identite', "Pièce d'identité"],
-  ['demarche', 'Justificatif de démarche en cours (URSSAF, INPI, assureur)'], ['convention', 'Convention signée'], ['autre', 'Autre document']
+  ['demarche', 'Justificatif de démarche en cours (URSSAF, INPI, assureur)'], ['convention', 'Convention signée'], ['mandat', 'Mandat de prélèvement signé (papier)'], ['autre', 'Autre document']
 ];
 const STATUTS_DOCUMENTS = ['a_verifier', 'valide', 'refuse'];
 const MIMES_DOCUMENTS = ['application/pdf', 'image/jpeg', 'image/png', 'image/heic', 'image/heif', 'image/webp'];
@@ -157,7 +157,7 @@ function _ajouterDocument(ss, idCreateur, type, nom, mime, contenu, source, par,
   if (!octets.length) throw new Error('Fichier vide.');
   if (octets.length > TAILLE_MAX_DOCUMENT) throw new Error('Fichier trop lourd (10 Mo au plus).');
   const propre = String(nom || 'document').replace(/[\/\\<>:"|?*\x00-\x1f]/g, '-').slice(0, 120);
-  const dossier = _sousDossier(_dossierCreateur(ss, idCreateur, true), type === 'convention' ? 'Convention' : 'Documents');
+  const dossier = _sousDossier(_dossierCreateur(ss, idCreateur, true), type === 'convention' || type === 'mandat' ? 'Convention' : 'Documents');
   const fichier = dossier.createFile(Utilities.newBlob(octets, mime, _typeDocument(type).split(' (')[0] + ' · ' + propre));
   _creerOngletSiAbsent(ss, SHEET_DOCUMENTS, COLONNES_DOCUMENTS);
   const t = _tableau(ss, SHEET_DOCUMENTS), id = _prochainId(t, 'id_document', 'DOC');

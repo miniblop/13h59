@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>13H59 SHOP — Mandat de prélèvement</title>
+<meta name="robots" content="noindex">
+<meta name="description" content="Mandat de prélèvement SEPA du loyer au 13H59 Shop.">
+<style>
+  :root{
+    --bg:#f6f6f4; --card:#fff; --ink:#0f0f0f; --muted:#9a978f; --line:#eae7e1;
+    --accent:#0f0f0f; --band:#000; --pos:#1f8a4c; --neg:#c0392b; --chip:#f0efec; --tot:#f3f1ec;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+  .band{background:var(--band);color:#fff;text-align:center;font-weight:800;letter-spacing:4px;font-size:26px;padding:18px}
+  .wrap{max-width:720px;margin:0 auto;padding:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+  h1{margin:0;font-size:20px;line-height:1.3}
+  h2{margin:0 0 12px;font-size:15px}
+  .muted{color:var(--muted)}
+  .lead{margin:8px 0 0;line-height:1.6;color:#4a4843}
+  label{display:block;font-size:11px;color:var(--muted);font-weight:700;margin:0 0 5px;letter-spacing:.4px;text-transform:uppercase}
+  input{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:10px;font-size:15px;background:#fff;color:var(--ink);outline:none;font-family:inherit}
+  input:focus{border-color:#c9c6bf;box-shadow:0 0 0 3px rgba(0,0,0,.06)}
+  .bad{border-color:#e5b9b3!important;background:#fdf6f5!important}
+  .f{margin-bottom:12px}
+  .grid2{display:grid;grid-template-columns:1fr 2fr;gap:12px}
+  .err{color:var(--neg);font-size:12px;margin-top:5px}
+  .hint{color:var(--muted);font-size:12px;margin-top:6px;line-height:1.5}
+  .btn{border:none;border-radius:10px;padding:13px 16px;font-weight:700;cursor:pointer;font-size:15px;width:100%;font-family:inherit}
+  .btn-accent{background:var(--accent);color:#fff}.btn-accent:hover{background:#000}
+  .btn[disabled]{opacity:.5;cursor:wait}
+  .check{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;cursor:pointer;margin:14px 0 12px;text-transform:none;letter-spacing:0;color:var(--ink);font-weight:400}
+  .check input{width:18px;height:18px;margin:2px 0 0;flex:0 0 auto;accent-color:#111}
+  .note{background:var(--tot);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.55;color:#4a4843}
+  .infos{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px;line-height:1.45}
+  .infos dt{color:var(--muted)}
+  .infos dd{margin:0;font-weight:600;word-break:break-word}
+  .done{text-align:center;padding:32px 20px}
+  .done .ic{width:54px;height:54px;border-radius:50%;background:#eef6f0;color:var(--pos);display:inline-flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;margin-bottom:12px}
+  .chargement{color:var(--muted);font-size:13px;padding:6px 0}
+  .foot{text-align:center;color:var(--muted);font-size:12px;padding:6px 0 24px;line-height:1.6}
+  a{color:var(--ink);font-weight:600;text-decoration:underline;text-decoration-color:#cfccc5;text-decoration-thickness:1px;text-underline-offset:3px}
+  .foot a{color:inherit;font-weight:400}
+  .hide{display:none!important}
+  @media(max-width:560px){
+    .band{font-size:20px;letter-spacing:2px;padding:14px}
+    .wrap{padding:12px}
+    .card{padding:16px;border-radius:14px}
+    .grid2{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="band">13H59 SHOP</div>
+
+<div class="wrap">
+  <div class="card" id="vChargement"><div class="chargement">Chargement…</div></div>
+
+  <div id="vForm" class="hide">
+    <div class="card">
+      <h1>Mandat de prélèvement SEPA</h1>
+      <p class="lead" id="mIntro"></p>
+      <dl class="infos" style="margin:14px 0 0">
+        <dt>Créancier</dt><dd id="mCreancier"></dd>
+        <dt>Identifiant créancier SEPA</dt><dd id="mIcs"></dd>
+        <dt>Référence du mandat (RUM)</dt><dd id="mRum"></dd>
+        <dt>Type de paiement</dt><dd>Récurrent (loyer mensuel)</dd>
+      </dl>
+    </div>
+    <div class="card">
+      <h2>Le compte à prélever</h2>
+      <div class="f"><label for="mTitulaire">Titulaire du compte</label><input id="mTitulaire" maxlength="70" autocomplete="name"><div class="hint">Nom et prénom, ou nom de l'entreprise, comme sur le RIB.</div></div>
+      <div class="f"><label for="mAdresse">Adresse</label><input id="mAdresse" maxlength="120" autocomplete="street-address"></div>
+      <div class="grid2 f">
+        <div><label for="mCp">Code postal</label><input id="mCp" maxlength="10" autocomplete="postal-code" inputmode="numeric"></div>
+        <div><label for="mVille">Ville</label><input id="mVille" maxlength="60" autocomplete="address-level2"></div>
+      </div>
+      <div class="f"><label for="mIban">IBAN</label><input id="mIban" maxlength="42" autocomplete="off" spellcheck="false" placeholder="FR76 …"><div class="err hide" id="mIbanErr"></div></div>
+      <div class="f"><label for="mBic">BIC (facultatif)</label><input id="mBic" maxlength="11" autocomplete="off" spellcheck="false"></div>
+      <div class="note">En signant ce formulaire de mandat, vous autorisez le Collectif 13H59 à envoyer des instructions à votre banque pour débiter votre compte, et votre banque à débiter votre compte conformément aux instructions du Collectif 13H59.
+        Vous bénéficiez du droit d'être remboursé par votre banque selon les conditions décrites dans la convention que vous avez passée avec elle. Une demande de remboursement doit être présentée dans les 8 semaines suivant la date de débit de votre compte pour un prélèvement autorisé.
+        Vos droits concernant le présent mandat sont expliqués dans un document que vous pouvez obtenir auprès de votre banque.</div>
+      <label class="check"><input type="checkbox" id="mAccepte"> J'ai lu ce mandat et j'autorise le Collectif 13H59 à prélever sur ce compte les loyers de mon stand. Ma signature en ligne est enregistrée avec la date, l'heure et mon adresse e-mail.</label>
+      <button class="btn btn-accent" id="mSigner">Signer le mandat</button>
+      <div class="err hide" id="mErr" style="text-align:center"></div>
+      <div class="hint" style="text-align:center">Tu reçois une confirmation par e-mail. Ton IBAN n'est visible que par l'équipe de gestion du Collectif.</div>
+    </div>
+  </div>
+
+  <div class="card done hide" id="vFin">
+    <div class="ic">✓</div>
+    <h1>Ton mandat est signé</h1>
+    <p class="muted" style="line-height:1.6;margin:10px 0 0" id="mFinTexte"></p>
+  </div>
+
+  <div class="foot">Collectif 13H59 · 27 rue du Plat, 59800 Lille · <a href="mailto:13h59shop@gmail.com">13h59shop@gmail.com</a></div>
+</div>
+
+<script>
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwKx5Wr_N24BPfisZM74sgZcldr-L3TSZHjPJ3WDIGaENIVa3ANVWRn5UgPTOVCeMeObw/exec';
+const P = new URLSearchParams(location.search);
+const DEMO = P.has('demo');
+const JETON = P.get('j') || '';
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const dateFr = iso => iso ? new Date(iso.slice(0, 10) + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+
+async function appeler(action, params){
+  if (DEMO) return demo(action, params || {});
+  const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action, jeton: JETON }, params || {})) });
+  return res.json();
+}
+function voir(id){ ['vChargement', 'vForm', 'vFin'].forEach(v => $(v).classList.toggle('hide', v !== id)); }
+function fin(r){
+  $('mFinTexte').innerHTML = 'Référence du mandat : <b>' + esc(r.rum) + '</b>' + (r.ibanFin ? '<br>Compte prélevé : IBAN se terminant par <b>' + esc(r.ibanFin) + '</b>' : '') +
+    (r.signeLe ? '<br>Signé le ' + esc(dateFr(r.signeLe)) : '') + '<br><br>Avant chaque prélèvement, tu recevras le montant et la date par e-mail. Pour changer de compte, écris-nous à 13h59shop@gmail.com.';
+  voir('vFin');
+}
+/** IBAN : clé de contrôle (mod 97), comme le serveur. */
+function ibanValide(i){
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(i)) return false;
+  const r = (i.slice(4) + i.slice(0, 4)).replace(/[A-Z]/g, c => c.charCodeAt(0) - 55);
+  let m = 0; for (const ch of r) m = (m * 10 + +ch) % 97;
+  return m === 1;
+}
+(async function charger(){
+  try {
+    if (!JETON && !DEMO) throw new Error('Lien incomplet : ouvre le lien reçu par e-mail.');
+    const r = await appeler('mandat_infos');
+    if (!r.ok) throw new Error(r.message);
+    if (r.statut === 'signe') { fin(r); return; }
+    const c = r.creancier;
+    $('mIntro').innerHTML = 'Bonjour ' + esc(r.marque) + ', ce mandat autorise le prélèvement automatique de ton loyer, le 25 du mois précédent. Il reste valable tant que tu ne demandes pas à y mettre fin.';
+    $('mCreancier').textContent = c.nom + ', ' + c.adresse + ', ' + c.ville + ', ' + c.pays;
+    $('mIcs').textContent = c.ics; $('mRum').textContent = r.rum;
+    $('mTitulaire').value = r.titulaire || ''; $('mAdresse').value = r.adresse || ''; $('mCp').value = r.codePostal || ''; $('mVille').value = r.ville || '';
+    voir('vForm');
+  } catch (e) {
+    $('vChargement').innerHTML = '<div class="err" style="text-align:center">' + esc((e && e.message) || 'Le lien n\'a pas pu se charger.') + '</div>';
+  }
+})();
+$('mIban').addEventListener('input', e => {
+  const v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  e.target.value = v.replace(/(.{4})/g, '$1 ').trim();
+  $('mIban').classList.remove('bad'); $('mIbanErr').classList.add('hide');
+});
+$('mSigner').addEventListener('click', async () => {
+  const iban = $('mIban').value.replace(/\s/g, ''), champs = [['mTitulaire'], ['mAdresse'], ['mCp'], ['mVille']];
+  let ok = true;
+  champs.forEach(([id]) => { const vide = !$(id).value.trim(); $(id).classList.toggle('bad', vide); if (vide) ok = false; });
+  if (!ibanValide(iban)) { $('mIban').classList.add('bad'); $('mIbanErr').textContent = 'IBAN invalide : vérifie la saisie.'; $('mIbanErr').classList.remove('hide'); ok = false; }
+  const err = m => { $('mErr').textContent = m; $('mErr').classList.remove('hide'); };
+  if (!ok) { err('Complète les champs en rouge.'); return; }
+  if (!$('mAccepte').checked) { err('Coche la case d\'autorisation pour signer le mandat.'); return; }
+  $('mErr').classList.add('hide');
+  const b = $('mSigner'); b.disabled = true; b.textContent = 'Signature…';
+  try {
+    const r = await appeler('mandat_signer', { titulaire: $('mTitulaire').value.trim(), adresse: $('mAdresse').value.trim(), codePostal: $('mCp').value.trim(),
+      ville: $('mVille').value.trim(), iban, bic: $('mBic').value.trim(), accepte: true });
+    if (!r.ok) { if (r.deja) { const i = await appeler('mandat_infos'); if (i.ok && i.statut === 'signe') { fin(i); return; } } throw new Error(r.message); }
+    fin(r);
+  } catch (e) { err((e && e.message) || 'La signature a échoué : réessaie.'); b.disabled = false; b.textContent = 'Signer le mandat'; }
+});
+
+/* ---------- Démo (?demo) : aucune donnée envoyée ---------- */
+function demo(action, p){
+  const st = demo.st = demo.st || { signe: false };
+  return new Promise(ok => setTimeout(() => ok(
+    action === 'mandat_infos' ? (st.signe ? { ok: true, statut: 'signe', rum: '13H59-C004-01', ibanFin: st.fin, signeLe: new Date().toISOString() }
+      : { ok: true, statut: 'a_signer', rum: '13H59-C004-01', marque: 'Atelier Lune', titulaire: 'Lucie Vasseur', adresse: '', codePostal: '', ville: '',
+          creancier: { nom: 'COLLECTIF 13H59', adresse: '17 rue Jean Jaurès', ville: '59160 Lomme', pays: 'France', ics: 'FR12ZZZ123456' } })
+    : action === 'mandat_signer' ? (st.signe ? { ok: false, deja: true } : (st.signe = true, st.fin = p.iban.slice(-4), { ok: true, rum: '13H59-C004-01', ibanFin: st.fin, signeLe: new Date().toISOString() }))
+    : { ok: false, message: 'Action inconnue.' }), 300));
+}
+</script>
+</body>
+</html>

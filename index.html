@@ -568,7 +568,7 @@
           <div class="gc-acts" style="margin-top:0"><select id="gfMois" style="width:auto"></select><button class="btn-dl" id="gfRefresh">↻ Actualiser</button></div>
         </div>
       </div>
-      <div id="gfVues" class="ge-vues"><span class="gc-chip on" data-vue="Fac">Factures</span><span class="gc-chip" data-vue="Enc">À encaisser · loyers</span><span class="gc-chip" data-vue="Ver">À verser · ventes</span></div>
+      <div id="gfVues" class="ge-vues"><span class="gc-chip on" data-vue="Fac">Factures</span><span class="gc-chip" data-vue="Enc">À encaisser · loyers</span><span class="gc-chip" data-vue="Ver">À verser · ventes</span><span class="gc-chip" data-vue="Prl">Prélèvements</span></div>
       <div id="gVueFac">
       <div class="gc-places" id="gfKpis"></div>
       <div id="gfWarn"></div>
@@ -614,6 +614,24 @@
           <div id="gwDetail"></div>
         </div>
         <div class="card"><div class="gc-h4" style="margin-top:0">Comment ça marche avec la banque</div><div class="gc-why" style="margin-top:0;line-height:1.6">1. « Fichier de virements groupés » télécharge un fichier SEPA (format standard des banques). 2. Dans l'espace pro du CIC, cherche l'import de fichier de virements (remise de virements SEPA) et importe-le : une seule validation pour tous. 3. Reviens ici : « J'ai validé ces virements à la banque ». Le site ne déclenche jamais de paiement. Si l'import de fichier n'est pas proposé par ton contrat CIC, la liste des virements à saisir s'affiche sous le tableau ; « Marquer versé » note un virement fait à la main.</div></div>
+      </div>
+      <div id="gVuePrl" class="hide">
+        <div id="gpErr" class="warn hide"></div>
+        <div class="card" id="gpConfig"></div>
+        <div class="card">
+          <div class="cardhead"><h2 id="gpTitre">Prélèvements</h2><div class="gc-acts" style="margin-top:0"><button class="btn-dl" id="gpRefresh">↻ Actualiser</button></div></div>
+          <div id="gpEtapes"></div>
+          <div class="tblwrap"><table id="gpTbl"></table></div>
+          <div id="gpLots"></div>
+          <div id="gpDetail"></div>
+          <div class="gc-why">1. Choisis la date (le 25 du mois précédent, ou le jour ouvré d'avant) et envoie la pré-notification au moins 14 jours avant. 2. Crée le fichier de prélèvements et dépose-le dans l'espace pro du CIC (remise de prélèvements SEPA), quelques jours ouvrés avant la date. 3. Quand l'argent est arrivé sur le compte, « Marquer prélevés » pointe les loyers dans À encaisser. Un prélèvement rejeté par la banque du créateur : « Rejeté », le loyer redevient dû et se relance comme d'habitude. Les créateurs sans mandat paient par virement.</div>
+        </div>
+        <div class="card">
+          <div class="cardhead"><div><h2>Mandats</h2><div class="muted" style="font-size:12px;margin-top:4px" id="gpMandatsResume"></div></div><button class="btn btn-ghost" id="gpDemTous" data-gp="dem-tous">Envoyer le lien</button></div>
+          <div class="tblwrap"><table id="gpMandats"></table></div>
+          <div id="gpPapier"></div>
+          <div class="gc-why">Le lien personnel (valable 30 jours) ouvre la page de signature : le créateur y saisit son IBAN, que seule la gestion voit (4 derniers chiffres ici). Un nouveau mandat signé remplace l'ancien (changement de compte). Mandat signé sur papier : « Mandat papier », puis range le scan dans sa fiche ▸ Documents.</div>
+        </div
       </div>
     </div>
     <div id="gRegl" class="hide">
@@ -914,7 +932,7 @@ const API = {
     return res.json();
   },
   async gestion(action,params){
-    if(DEMO_MODE) return (/^gestion_bilan/.test(action)?DEMO_BI:/^gestion_benevolat/.test(action)?DEMO_B:/^gestion_versements/.test(action)?DEMO_W:/^gestion_(encaissements|paiements?_|relancer)/.test(action)?DEMO_E:/^gestion_(factures?|email_modele)/.test(action)?DEMO_F:/^gestion_(ventes?|panier|journal)/.test(action)?DEMO_V:action.indexOf('gestion_reglage')===0?DEMO_R:action.indexOf('gestion_candidature')===0||action==='gestion_email_maj'?DEMO_K:DEMO_G)(action,params||{});
+    if(DEMO_MODE) return (/^gestion_bilan/.test(action)?DEMO_BI:/^gestion_(prelevement|mandat)/.test(action)?DEMO_P:/^gestion_benevolat/.test(action)?DEMO_B:/^gestion_versements/.test(action)?DEMO_W:/^gestion_(encaissements|paiements?_|relancer)/.test(action)?DEMO_E:/^gestion_(factures?|email_modele)/.test(action)?DEMO_F:/^gestion_(ventes?|panier|journal)/.test(action)?DEMO_V:action.indexOf('gestion_reglage')===0?DEMO_R:action.indexOf('gestion_candidature')===0||action==='gestion_email_maj'?DEMO_K:DEMO_G)(action,params||{});
     const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify(Object.assign({action,password:S.pwd,qui:gcPrenom()},params||{}))});
     return res.json();
   },
@@ -2746,7 +2764,7 @@ async function dialogueMailGroupe(code,titre,liste,champs){
   try{m=await API.gestion('gestion_email_modele',{code});if(!m||!m.ok)throw new Error((m&&m.message)||'modèle introuvable');}
   catch(e){toast((e&&e.message)||String(e),true);return null;}
   if(!m.actif){toast("Ce modèle d'e-mail est désactivé (Réglages ▸ E-mails types) : rien n'a été envoyé.",true);return null;}
-  return dialogueMail(titre,liste,m,'Envoi groupé : garde les champs entre accolades, ils sont remplacés pour chaque personne ('+champs+'). Tes modifications valent pour cet envoi seulement.');
+  return dialogueMail(titre,liste,m,'Garde les champs entre accolades : ils sont remplacés pour chaque destinataire ('+champs+'). Tes modifications valent pour cet envoi seulement.');
 }
 $('gfEnvTout').addEventListener('click',async()=>{
   const L=GF.data.factures.filter(f=>f.facture&&f.facture.statut==='generee'&&f.email);if(!L.length)return;
@@ -2775,6 +2793,8 @@ const DEMO_F=(function(){
       return {ok:true,html:`<div style="font-family:Arial;padding:20px"><div style="background:#000;color:#fff;padding:12px;font-weight:bold;letter-spacing:4px">13H59 · ${lib.toUpperCase()}</div><h3>${f.facture?'FACTURE N° '+f.facture.numero:'APERÇU'} · ${f.nom}</h3>${f.lignes.map(l=>`<div>${l.ref} · ${l.libelle} · ${l.montant} €</div>`).join('')}<p><b>Total ${f.total} €</b></p><p style="color:#888">(démo : aperçu simplifié)</p></div>`,
         email:{a:f.email,objet:'Collectif 13H59 · ta facture · '+lib,texte:'Bonjour '+f.nom+',\n\nTu trouveras ci-joint ta facture…',actif:true}};}
     if(action==='gestion_facture_generer'){num++;const n=String(mois).slice(2,4)+'-'+String(mois).slice(5,7)+'-'+String(num).padStart(3,'0');factures[mois+p.idCreateur]={numero:n,statut:'generee',total:0,emiseLe:aujourdhui(),envoyeeLe:'',pdfId:'x'};return {ok:true,numero:n};}
+    if(action==='gestion_email_modele'&&p.code==='mandat_demande')return {ok:true,actif:true,objet:'Collectif 13H59 · ton mandat de prélèvement à signer',texte:'Bonjour {marque},\n\nLe Collectif met en place le prélèvement automatique des loyers…\n\nMerci !\nL\'équipe du 13H59 Shop'};
+    if(action==='gestion_email_modele'&&p.code==='prelevement_prenotification')return {ok:true,actif:true,objet:'Collectif 13H59 · prélèvement de ton loyer · {mois}',texte:'Bonjour {marque},\n\nLe {date}, nous prélèverons {montant} sur ton compte (IBAN se terminant par {iban_fin}) pour ton loyer de {mois}.\n\nRéférence du mandat : {rum} · identifiant créancier SEPA : {ics}.\n\nL\'équipe du 13H59 Shop'};
     if(action==='gestion_email_modele')return {ok:true,actif:true,objet:p.code==='relance_loyer'?'Collectif 13H59 · ton loyer · {mois}':'Collectif 13H59 · ta facture · {mois}',texte:p.code==='relance_loyer'?'Bonjour {marque},\n\nIl reste {montant} à régler pour ton loyer ({mois}).\n\nMerci !\nL\'équipe du 13H59 Shop':'Bonjour {marque},\n\nTu trouveras ci-joint ta facture n° {numero}.\n\nL\'équipe du 13H59 Shop'};
     if(action==='gestion_facture_email'){const f=Object.values(factures).find(x=>x.numero===p.numero);return {ok:true,a:'contact@exemple.fr',objet:'Collectif 13H59 · ta facture · '+lib,texte:'Bonjour,\n\nTu trouveras ci-joint ta facture n° '+p.numero+'.\n\nÀ très vite à la boutique,\nL\'équipe du 13H59 Shop',actif:true};}
     if(action==='gestion_facture_envoyer'){const f=Object.values(factures).find(x=>x.numero===p.numero);f.statut='envoyee';f.envoyeeLe=aujourdhui();return {ok:true};}
@@ -3028,11 +3048,12 @@ $('geRelancer').addEventListener('click',async()=>{
 $('gfVues').addEventListener('click',e=>{
   const v=e.target.closest('[data-vue]');if(!v)return;
   $('gfVues').querySelectorAll('[data-vue]').forEach(x=>x.classList.toggle('on',x===v));
-  ['Fac','Enc','Ver'].forEach(k=>$('gVue'+k).classList.toggle('hide',v.dataset.vue!==k));
+  ['Fac','Enc','Ver','Prl'].forEach(k=>$('gVue'+k).classList.toggle('hide',v.dataset.vue!==k));
+  if(v.dataset.vue==='Prl'&&(!GP.charge||GP.mois!==$('gfMois').value))gpCharger();
   if(v.dataset.vue==='Enc'&&(!GE.charge||GE.mois!==$('gfMois').value))geCharger();
   if(v.dataset.vue==='Ver'&&(!GW.charge||GW.mois!==$('gfMois').value))gwCharger();
 });
-$('gfMois').addEventListener('change',()=>{GE.charge=false;GW.charge=false;GW.choix={};if(!$('gVueEnc').classList.contains('hide'))geCharger();if(!$('gVueVer').classList.contains('hide'))gwCharger();});
+$('gfMois').addEventListener('change',()=>{GE.charge=false;GW.charge=false;GW.choix={};GP.charge=false;if(!$('gVuePrl').classList.contains('hide'))gpCharger();if(!$('gVueEnc').classList.contains('hide'))geCharger();if(!$('gVueVer').classList.contains('hide'))gwCharger();});
 
 /* démo : loyers en mémoire */
 const DEMO_E=(function(){
@@ -3131,6 +3152,160 @@ $('gwFichier').addEventListener('click',async()=>{
   }catch(err){toast((err&&err.message)||String(err),true);b.disabled=false;b.textContent=t;}
 });
 $('gwRefresh').addEventListener('click',()=>gwCharger());
+
+/* ===================== FACTURATION ▸ PRÉLÈVEMENTS ===================== */
+const GP={data:null,charge:false,mois:'',date:'',dateMois:'',choix:{},papier:null,icsEdit:false};
+const GP_ST={a_prenotifier:['preavis','à pré-notifier'],prenotifie:['actif','pré-notifié'],fichier:['preavis','dans un fichier'],preleve:['inactif','prélevé'],rejete:['gv-neg','rejeté'],rien:['inactif','rien à prélever']};
+async function gpCharger(){
+  GP.mois=$('gfMois').value;$('gpErr').classList.add('hide');
+  try{
+    const r=await API.gestion('gestion_prelevements',{mois:GP.mois});
+    if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide du serveur');
+    GP.data=r;GP.charge=true;
+    if(!GP.date||GP.dateMois!==GP.mois){GP.date=r.dateDefaut;GP.dateMois=GP.mois;}
+    gpRender();
+  }catch(e){$('gpErr').classList.remove('hide');$('gpErr').textContent='⚠️ Prélèvements indisponibles : '+((e&&e.message)||e);}
+}
+function gpJoursAvant(){const D=GP.data;return Math.round((new Date(GP.date+'T12:00:00')-new Date(D.aujourdhui+'T12:00:00'))/864e5);}
+function gpRender(){
+  const D=GP.data;
+  /* configuration */
+  $('gpConfig').innerHTML=`<h2 style="margin:0 0 6px">Prélèvement SEPA des loyers</h2><div class="muted" style="font-size:12px;line-height:1.5">Semi-automatique : le site prépare la pré-notification et le fichier, une personne du bureau dépose le fichier dans l'espace pro du CIC. Créancier : ${FMT.esc(D.creancier.nom)}, ${FMT.esc(D.creancier.adresse)}, ${FMT.esc(D.creancier.ville)}.</div>`+
+    (D.ics&&!GP.icsEdit?`<div style="margin-top:10px;font-size:13px">Identifiant créancier SEPA (ICS) : <b>${FMT.esc(D.ics)}</b> · <a href="#" data-gp="ics-modifier">modifier</a></div>`
+      :`${D.ics?'':'<div class="warn" style="margin:10px 0 0">Saisis l\'ICS donné par le CIC : sans lui, ni mandat ni prélèvement.</div>'}<div class="gc-form" style="margin-top:10px"><div><label>Identifiant créancier SEPA (ICS)</label><input id="gpIcs" placeholder="FR12ZZZ123456" maxlength="20" value="${FMT.esc(D.ics)}"></div></div><div class="gc-acts"><button class="btn btn-accent" data-gp="ics">Enregistrer l'ICS</button>${D.ics?'<button class="btn btn-ghost" data-gp="ics-fermer">Annuler</button>':''}</div>`)+
+    (D.banqueOk?'':'<div class="warn" style="margin:10px 0 0">L\'IBAN ou le BIC de l\'association manque dans les propriétés du script (ASSO_IBAN, ASSO_BIC) : le fichier de prélèvements ne peut pas être créé.</div>');
+  /* prélèvements du mois */
+  const L=D.lignes,aPre=L.filter(l=>l.statut==='a_prenotifier'),pre=L.filter(l=>l.statut==='prenotifie');
+  [...aPre,...pre].forEach(l=>{if(GP.choix[l.idCreateur]==null)GP.choix[l.idCreateur]=true;});
+  const nA=aPre.filter(l=>GP.choix[l.idCreateur]),nP=pre.filter(l=>GP.choix[l.idCreateur]),som=x=>FMT.eur(x.reduce((s,l)=>s+l.montant,0)),j=gpJoursAvant();
+  $('gpTitre').textContent='Prélèvements · loyer de '+D.libelle;
+  $('gpEtapes').innerHTML=`<div class="gc-form"><div><label>Date du prélèvement</label><input type="date" id="gpDate" value="${FMT.esc(GP.date)}"></div></div>`+
+    `<div class="gc-sub" style="margin:-4px 0 8px">${j>0?'Dans '+j+' jour'+(j>1?'s':''):'Date passée'}${j<D.prenotificationJours?' · <b style="color:var(--neg)">moins de '+D.prenotificationJours+' jours</b> : la pré-notification doit partir au moins '+D.prenotificationJours+' jours avant, sauf délai plus court prévu avec le créateur':''}</div>`+
+    `<div class="gc-acts" style="margin:0 0 12px"><button class="btn btn-accent" data-gp="prenotifier"${nA.length&&D.ics?'':' disabled'}>1. Envoyer la pré-notification${nA.length?' ('+nA.length+' · '+som(nA)+')':''}</button>`+
+    `<button class="btn btn-accent" data-gp="fichier"${nP.length&&D.banqueOk?'':' disabled'}>2. Créer le fichier de prélèvements${nP.length?' ('+nP.length+' · '+som(nP)+')':''}</button></div>`;
+  $('gpTbl').innerHTML='<thead><tr><th></th><th>Créateur</th><th>Mandat</th><th class="r">Montant</th><th>Statut</th><th></th></tr></thead><tbody>'+
+    (L.length?L.map(l=>{
+      const p=l.prelevement,[cl,lib]=GP_ST[l.statut]||['inactif',l.statut];
+      const quand=p?(p.date?'le '+fmtD(p.date):'')+(p.prenotifieLe&&l.statut==='prenotifie'?' · prévenu le '+fmtD(p.prenotifieLe):'')+(p.remarque&&l.statut==='rejete'?' · '+FMT.esc(p.remarque):''):'';
+      return `<tr data-c="${FMT.esc(l.idCreateur)}"><td>${['a_prenotifier','prenotifie'].includes(l.statut)?`<input type="checkbox" data-gpk="choix"${GP.choix[l.idCreateur]?' checked':''}>`:''}</td>`+
+        `<td><b>${FMT.esc(l.nom)}</b></td><td class="muted">${FMT.esc(l.rum)}${l.ibanFin?' · •••• '+FMT.esc(l.ibanFin):''}</td><td class="r"><b>${FMT.eur(l.montant)}</b></td>`+
+        `<td><span class="gc-st ${cl}">${lib}</span>${quand?'<span class="gc-sub">'+quand+'</span>':''}</td>`+
+        `<td>${['preleve','fichier'].includes(l.statut)&&p?`<button class="btn-dl" data-gp="rejete" data-p="${FMT.esc(p.id)}">Rejeté</button>`:''}</td></tr>`;
+    }).join(''):'<tr><td colspan="6" class="muted" style="text-align:center;padding:20px">Aucun mandat signé pour l\'instant : envoie les liens (plus bas).</td></tr>')+'</tbody>';
+  $('gpLots').innerHTML=D.lots.map(x=>`<div class="warn" style="margin:12px 0 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between"><span>Fichier <b>${FMT.esc(x.lot)}</b> · ${x.nb} prélèvement${x.nb>1?'s':''} · ${FMT.eur(x.total)} · le ${fmtD(x.date)}</span>`+
+    `<span class="gc-acts" style="margin:0"><button class="btn btn-accent" data-gp="valider" data-l="${FMT.esc(x.lot)}">L'argent est arrivé : marquer prélevés</button><button class="btn btn-ghost" data-gp="annuler-lot" data-l="${FMT.esc(x.lot)}">Annuler ce fichier</button></span></div>`).join('');
+  /* mandats */
+  const C=D.createurs,sans=C.filter(c=>c.email&&(!c.mandat||['expire','revoque','remplace'].includes(c.mandat.statut)));
+  const nb=k=>C.filter(c=>c.mandat&&c.mandat.statut===k).length;
+  $('gpMandatsResume').textContent=`${nb('signe')} signé${nb('signe')>1?'s':''} · ${nb('a_signer')} en attente de signature · ${C.length-nb('signe')-nb('a_signer')} sans mandat, sur ${C.length} créateurs actifs`;
+  $('gpDemTous').textContent=sans.length?'Envoyer le lien aux '+sans.length+' sans mandat':'Envoyer le lien';$('gpDemTous').disabled=!sans.length||!D.ics;
+  const etat=m=>!m?'<span class="muted">aucun</span>':m.statut==='signe'?`<span class="gc-ok">signé</span> le ${fmtD(m.signeLe)} (${m.mode==='papier'?'papier':'en ligne'}) · •••• ${FMT.esc(m.ibanFin)}<span class="gc-sub">${FMT.esc(m.rum)}</span>`
+    :m.statut==='a_signer'?`lien envoyé le ${fmtD(m.demandeLe)}`:m.statut==='expire'?`<span class="gc-ko">lien expiré</span> (envoyé le ${fmtD(m.demandeLe)})`:`<span class="muted">révoqué${m.revoqueLe?' le '+fmtD(m.revoqueLe):''}</span>`;
+  $('gpMandats').innerHTML='<thead><tr><th>Créateur</th><th>Mandat</th><th></th></tr></thead><tbody>'+C.map(c=>{
+    const m=c.mandat,st=m?m.statut:'';
+    const act=!c.email?'<span class="gc-ko">pas d\'e-mail</span>':(st==='signe'?`<button class="btn-dl" data-gp="revoquer">Révoquer</button>`:`<button class="btn-dl" data-gp="dem"${D.ics?'':' disabled'}>${st==='a_signer'||st==='expire'?'Renvoyer le lien':'Envoyer le lien'}</button>`)+
+      ` <button class="btn-dl" data-gp="papier"${D.ics?'':' disabled'}>Mandat papier</button>`;
+    return `<tr data-c="${FMT.esc(c.id)}"><td><b>${FMT.esc(c.nom)}</b></td><td>${etat(m)}</td><td style="white-space:nowrap">${act}</td></tr>`;
+  }).join('')+'</tbody>';
+  const cp=GP.papier&&C.find(c=>c.id===GP.papier);
+  $('gpPapier').innerHTML=cp?`<div class="gc-h4">Mandat papier · ${FMT.esc(cp.nom)}</div><div class="gc-form">`+
+    `<div><label>Titulaire du compte</label><input id="gpPTit" maxlength="70"></div><div><label>IBAN</label><input id="gpPIban" maxlength="42" placeholder="FR76 …"></div>`+
+    `<div><label>BIC (facultatif)</label><input id="gpPBic" maxlength="11"></div><div><label>Signé le</label><input type="date" id="gpPDate" value="${FMT.esc(D.aujourdhui)}"></div>`+
+    `<div class="full"><label>Adresse du titulaire</label><input id="gpPAdr" maxlength="120"></div><div><label>Code postal</label><input id="gpPCp" maxlength="10"></div><div><label>Ville</label><input id="gpPVille" maxlength="60"></div></div>`+
+    `<div class="gc-acts"><button class="btn btn-accent" data-gp="papier-ok">Enregistrer le mandat</button><button class="btn btn-ghost" data-gp="papier-fermer">Annuler</button></div>`+
+    `<div class="gc-why">Recopie exactement le mandat signé. Une référence (RUM) est créée ; reporte-la sur le papier. Range ensuite le scan dans la fiche du créateur ▸ Documents (« Mandat de prélèvement signé »).</div>`:'';
+}
+async function gpAppel(b,action,params,msg){
+  const t=b.textContent;b.disabled=true;b.textContent='…';
+  try{
+    const r=await API.gestion(action,params);
+    if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide du serveur');
+    const err=r.erreurs&&r.erreurs.length?r.erreurs:null;
+    toast(msg(r)+(err?' · '+err.length+' en erreur':''),!!err);
+    if(err)$('gpErr').classList.remove('hide'),$('gpErr').innerHTML=err.map(FMT.esc).join('<br>');
+    await gpCharger();if(err)$('gpErr').classList.remove('hide');
+    return r;
+  }catch(e){toast((e&&e.message)||String(e),true);if(b.isConnected){b.disabled=false;b.textContent=t;}}
+}
+$('gVuePrl').addEventListener('change',e=>{
+  if(e.target.id==='gpDate'){GP.date=e.target.value;gpRender();return;}
+  if(e.target.dataset.gpk==='choix'){GP.choix[e.target.closest('tr').dataset.c]=e.target.checked;gpRender();}
+});
+$('gVuePrl').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-gp]');if(!b||b.disabled)return;
+  e.preventDefault();
+  const D=GP.data,a=b.dataset.gp,tr=b.closest('tr[data-c]'),c=tr&&D.createurs.find(x=>x.id===tr.dataset.c);
+  if(a==='ics-modifier'){GP.icsEdit=true;gpRender();return;}
+  if(a==='ics-fermer'){GP.icsEdit=false;gpRender();return;}
+  if(a==='ics'){const v=$('gpIcs').value.trim();if(!v){toast('Indique l\'ICS.',true);return;}
+    if(D.ics&&D.createurs.some(x=>x.mandat&&x.mandat.statut==='signe')&&!confirm('Des mandats sont déjà signés avec l\'ICS '+D.ics+'. Le changer ?'))return;
+    GP.icsEdit=false;await gpAppel(b,'gestion_prelevement_ics',{ics:v},r=>'ICS enregistré : '+r.ics);return;}
+  if(a==='dem'||a==='dem-tous'){
+    const L=a==='dem'?[c]:D.createurs.filter(x=>x.email&&(!x.mandat||['expire','revoque','remplace'].includes(x.mandat.statut)));if(!L.length)return;
+    const perso=await dialogueMailGroupe('mandat_demande',L.length>1?'Envoyer le lien du mandat à '+L.length+' créateurs':'Envoyer le lien du mandat à '+L[0].nom,L.map(x=>x.nom).join(', '),'{marque} = nom');if(!perso)return;
+    await gpAppel(b,'gestion_mandats_demander',{ids:L.map(x=>x.id),emailPerso:perso},r=>r.envoyes+' lien'+(r.envoyes>1?'s':'')+' envoyé'+(r.envoyes>1?'s':''));return;}
+  if(a==='revoquer'){const m=prompt('Révoquer le mandat de '+c.nom+' ? Plus aucun prélèvement ne sera possible avec ce mandat (le loyer se paiera par virement).\n\nMotif :','');if(!m)return;
+    await gpAppel(b,'gestion_mandat_revoquer',{idCreateur:c.id,motif:m},()=>'Mandat de '+c.nom+' révoqué');return;}
+  if(a==='papier'){GP.papier=c.id;gpRender();$('gpPapier').scrollIntoView({behavior:'smooth',block:'center'});return;}
+  if(a==='papier-fermer'){GP.papier=null;gpRender();return;}
+  if(a==='papier-ok'){const cp=D.createurs.find(x=>x.id===GP.papier);
+    const r=await gpAppel(b,'gestion_mandat_papier',{idCreateur:cp.id,titulaire:$('gpPTit').value.trim(),iban:$('gpPIban').value,bic:$('gpPBic').value,signeLe:$('gpPDate').value,
+      adresse:$('gpPAdr').value.trim(),codePostal:$('gpPCp').value.trim(),ville:$('gpPVille').value.trim()},r=>'Mandat papier de '+cp.nom+' enregistré : '+r.rum);
+    if(r){GP.papier=null;gpRender();}return;}
+  if(a==='prenotifier'){
+    const L=D.lignes.filter(l=>l.statut==='a_prenotifier'&&GP.choix[l.idCreateur]);if(!L.length)return;
+    if(!GP.date){toast('Choisis la date du prélèvement.',true);return;}
+    const j=gpJoursAvant();if(j<D.prenotificationJours&&!confirm('Le prélèvement est dans '+j+' jour'+(j>1?'s':'')+' : moins de '+D.prenotificationJours+' jours. Envoyer quand même la pré-notification ?'))return;
+    const perso=await dialogueMailGroupe('prelevement_prenotification','Pré-notifier '+L.length+' prélèvement'+(L.length>1?'s':'')+' du '+fmtD(GP.date),L.map(l=>l.nom+' ('+FMT.eur(l.montant)+')').join(', '),'{marque}, {montant}, {date}, {mois}, {rum}, {ics}, {iban_fin}');if(!perso)return;
+    await gpAppel(b,'gestion_prelevements_prenotifier',{mois:D.mois,date:GP.date,ids:L.map(l=>l.idCreateur),emailPerso:perso},r=>r.envoyes+' pré-notification'+(r.envoyes>1?'s':'')+' envoyée'+(r.envoyes>1?'s':''));return;}
+  if(a==='fichier'){
+    const L=D.lignes.filter(l=>l.statut==='prenotifie'&&GP.choix[l.idCreateur]);if(!L.length)return;
+    if(!confirm('Créer le fichier de '+L.length+' prélèvement'+(L.length>1?'s':'')+' ('+FMT.eur(L.reduce((s,l)=>s+l.montant,0))+') ?\n\nDépose-le ensuite dans l\'espace pro du CIC (remise de prélèvements SEPA).'))return;
+    const t=b.textContent;b.disabled=true;b.textContent='…';
+    try{
+      const r=await API.gestion('gestion_prelevements_fichier',{mois:D.mois,ids:L.map(l=>l.idCreateur)});
+      if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide du serveur');
+      gwTelecharger(r.nom,r.xml);
+      await gpCharger();
+      $('gpDetail').innerHTML=`<div class="gc-h4">Fichier ${FMT.esc(r.nom)} · ${r.nb} prélèvement${r.nb>1?'s':''} · ${FMT.eur(r.total)}</div>`+(r.erreurs.length?'<div class="warn" style="margin:0 0 8px">'+r.erreurs.map(FMT.esc).join('<br>')+'</div>':'')+
+        `<div class="gc-why" style="margin-top:0">Le détail, si le CIC demande une saisie à la main :</div><div class="tblwrap"><table class="gw-detail"><tbody>${r.detail.map(d=>`<tr><td>${FMT.esc(d.nom)}</td><td class="muted">•••• ${FMT.esc(d.ibanFin)}</td><td class="muted">${FMT.esc(d.rum)} · ${FMT.esc(d.sequence)}</td><td class="r"><b>${FMT.eur(d.montant)}</b></td><td class="muted">${fmtD(d.date)}</td></tr>`).join('')}</tbody></table></div>`;
+      toast('Fichier téléchargé : '+r.nb+' prélèvement'+(r.nb>1?'s':''));
+    }catch(err){toast((err&&err.message)||String(err),true);if(b.isConnected){b.disabled=false;b.textContent=t;}}
+    return;}
+  if(a==='valider'){if(!confirm('L\'argent du fichier '+b.dataset.l+' est arrivé sur le compte du Collectif ?\n\nLes loyers seront pointés reçus dans À encaisser.'))return;
+    await gpAppel(b,'gestion_prelevements_valider',{lot:b.dataset.l},r=>r.nb+' loyer'+(r.nb>1?'s':'')+' pointé'+(r.nb>1?'s':'')+' reçu'+(r.nb>1?'s':''));return;}
+  if(a==='annuler-lot'){const m=prompt('Annuler le fichier '+b.dataset.l+' ? À faire seulement s\'il n\'a pas été déposé au CIC (ou s\'il a été refusé). Les prélèvements redeviennent « pré-notifiés ».\n\nMotif :','');if(!m)return;
+    await gpAppel(b,'gestion_prelevements_annuler_lot',{lot:b.dataset.l,motif:m},()=>'Fichier annulé');return;}
+  if(a==='rejete'){const m=prompt('Prélèvement rejeté par la banque du créateur ? Le loyer redevient dû (relance habituelle).\n\nMotif (ex. provision insuffisante) :','');if(!m)return;
+    await gpAppel(b,'gestion_prelevement_rejete',{idPrelevement:b.dataset.p,motif:m},()=>'Prélèvement marqué rejeté');return;}
+});
+$('gpRefresh').addEventListener('click',()=>gpCharger());
+
+/* démo : mandats et prélèvements en mémoire */
+const DEMO_P=(function(){
+  let ics='',n=0;const mand={C004:{rum:'13H59-C004-01',statut:'signe',signeLe:'2026-10-02',mode:'en_ligne',ibanFin:'4521',demandeLe:'2026-10-01',revoqueLe:''}},prl={};
+  const base=[['C004','Jackline',68],['C005','NYU',48],['C003','riri',28],['C007','Studio Looleï',28]];
+  return async(action,p)=>{
+    const auj=aujourdhui(),[y,m]=String(p.mois||'2026-11').split('-').map(Number),lib=MOIS_LONG[m-1]+' '+y;
+    if(action==='gestion_prelevements'){
+      const d=new Date(y,m-2,25);while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()-1);
+      const lignes=base.filter(([id])=>mand[id]&&mand[id].statut==='signe'||prl[p.mois+id]).map(([id,nom,loyer])=>{const x=prl[p.mois+id]||null;return {idCreateur:id,nom,rum:mand[id].rum,ibanFin:mand[id].ibanFin,loyer,reste:loyer,montant:x?x.montant:loyer,statut:x?x.statut:'a_prenotifier',prelevement:x};});
+      const lots={};lignes.forEach(l=>{const x=l.prelevement;if(x&&x.statut==='fichier'){const o=lots[x.lot]=lots[x.lot]||{lot:x.lot,nb:0,total:0,date:x.date};o.nb++;o.total+=x.montant;}});
+      return {ok:true,mois:p.mois,libelle:lib,aujourdhui:auj,ics,banqueOk:true,creancier:{nom:'COLLECTIF 13H59',adresse:'17 rue Jean Jaurès',ville:'59160 Lomme'},dateDefaut:isoJour(d),prenotificationJours:14,
+        createurs:base.map(([id,nom])=>({id,nom,email:nom.toLowerCase().replace(/\W/g,'')+'@exemple.fr',mandat:mand[id]||null})),lignes,lots:Object.values(lots)};}
+    if(action==='gestion_prelevement_ics'){ics=p.ics.replace(/\s/g,'').toUpperCase();return /^FR\d{2}[A-Z0-9]{9}$/.test(ics)?{ok:true,ics}:(ics='',{ok:false,message:'ICS invalide : 13 caractères, par exemple FR12ZZZ123456.'});}
+    if(action==='gestion_mandats_demander'){p.ids.forEach(id=>{mand[id]={rum:'13H59-'+id+'-0'+(mand[id]?2:1),statut:'a_signer',demandeLe:auj,signeLe:'',mode:'',ibanFin:'',revoqueLe:''};});return {ok:true,envoyes:p.ids.length,erreurs:[]};}
+    if(action==='gestion_mandat_revoquer'){mand[p.idCreateur].statut='revoque';mand[p.idCreateur].revoqueLe=auj;return {ok:true};}
+    if(action==='gestion_mandat_papier'){if(!p.titulaire)return {ok:false,message:'Indique le titulaire du compte, comme sur le mandat.'};mand[p.idCreateur]={rum:'13H59-'+p.idCreateur+'-02',statut:'signe',signeLe:p.signeLe,mode:'papier',ibanFin:String(p.iban).replace(/\s/g,'').slice(-4),demandeLe:auj,revoqueLe:''};return {ok:true,rum:mand[p.idCreateur].rum};}
+    if(action==='gestion_prelevements_prenotifier'){p.ids.forEach(id=>{const l=base.find(b=>b[0]===id);prl[p.mois+id]={id:'PR'+String(++n).padStart(4,'0'),montant:l[2],date:p.date,statut:'prenotifie',prenotifieLe:auj,lot:'',rum:mand[id].rum};});return {ok:true,envoyes:p.ids.length,erreurs:[],joursAvant:14};}
+    if(action==='gestion_prelevements_fichier'){const lot='PRL-DEMO',L=p.ids.map(id=>prl[p.mois+id]).filter(x=>x&&x.statut==='prenotifie');L.forEach(x=>{x.statut='fichier';x.lot=lot;});
+      return {ok:true,lot,nb:L.length,total:L.reduce((s,x)=>s+x.montant,0),nom:'13H59-prelevements-demo.xml',xml:'<Document>démo</Document>',erreurs:[],detail:L.map(x=>({nom:'Titulaire',ibanFin:'4521',montant:x.montant,rum:x.rum,date:x.date,sequence:'FRST'}))};}
+    if(action==='gestion_prelevements_valider'){let k=0;Object.values(prl).filter(x=>x.lot===p.lot&&x.statut==='fichier').forEach(x=>{x.statut='preleve';k++;});return {ok:true,nb:k};}
+    if(action==='gestion_prelevements_annuler_lot'){Object.values(prl).filter(x=>x.lot===p.lot).forEach(x=>{x.statut='prenotifie';x.lot='';});return {ok:true,nb:1};}
+    if(action==='gestion_prelevement_rejete'){const x=Object.values(prl).find(x=>x.id===p.idPrelevement);x.statut='rejete';x.remarque=p.motif;return {ok:true};}
+    return {ok:false,message:'Action inconnue (démo).'};
+  };
+})();
 
 /* démo : versements en mémoire */
 const DEMO_W=(function(){

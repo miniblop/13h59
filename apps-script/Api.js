@@ -33,7 +33,7 @@ function _acces() {
 }
 
 /** Numéro de version du code — sert à vérifier ce qui est réellement DÉPLOYÉ. */
-function _version() { return '2026-09-emails-retouchables'; }
+function _version() { return '2026-10-prelevements-sepa'; }
 
 /** Point d'entrée des appels POST du site. */
 function doPost(e) {
@@ -54,6 +54,8 @@ function doPost(e) {
     if (body.action === 'renouvellement_infos')    return _json(_renouvellementInfos(body));
     if (body.action === 'renouvellement_repondre') return _json(_renouvellementRepondre(body));
     if (body.action === 'renouvellement_avis')     return _json(_renouvellementAvis(body));
+    if (body.action === 'mandat_infos')   return _json(_mandatInfos(body));
+    if (body.action === 'mandat_signer')  return _json(_mandatSigner(body));
     if (String(body.action).indexOf('gestion_') === 0) return _json(_gestion(body));
     return _json({ ok: false, message: 'Action inconnue.' });
   } catch (err) {

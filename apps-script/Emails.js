@@ -72,7 +72,7 @@ const EMAILS_PAR_DEFAUT = [
   ['benevolat_recu', 'Ta demande de bénévolat au 13H59 Shop',
     "Bonjour {prenom},\n\nMerci d'avoir pris le temps de nous transmettre tes disponibilités pour tenir la boutique ({marque}, {stand}) !\n\n" +
     "On te répond au plus vite pour organiser tes permanences et ta formation. Avant ta première permanence, un passage en boutique est prévu " +
-    "pour te former avec une gérante et te remettre les clés ; le contrat de bénévolat se signe ce jour-là.\n\n" +
+    "pour te former avec un membre de l'équipe et te remettre les clés ; le contrat de bénévolat se signe ce jour-là.\n\n" +
     "Pour toute question, réponds simplement à cet e-mail.\n\nÀ très vite,\nL'équipe du 13H59 Shop",
     true, 'Page bénévolat : envoyé automatiquement à chaque demande reçue.'],
   ['renouvellement_demande', 'Ton stand au 13H59 Shop : on continue ensemble ?',
@@ -85,7 +85,24 @@ const EMAILS_PAR_DEFAUT = [
     "Bonjour {marque},\n\nNous n'avons pas reçu ta réponse pour le renouvellement de ton stand : ton contrat prend donc fin le {echeance}.\n\n" +
     "Pense à venir récupérer tes créations et ton matériel à cette date. Si tu souhaites malgré tout rester, réponds vite à cet e-mail : nous verrons si la place est encore libre.\n\n" +
     "Merci pour ces mois passés avec nous,\nL'équipe du 13H59 Shop",
-    true, 'Envoyé automatiquement quand un créateur n\'a pas répondu à la demande de renouvellement dans les 7 jours.']
+    true, 'Envoyé automatiquement quand un créateur n\'a pas répondu à la demande de renouvellement dans les 7 jours.'],
+  ['mandat_demande', 'Collectif 13H59 · ton mandat de prélèvement à signer',
+    "Bonjour {marque},\n\nLe Collectif met en place le prélèvement automatique des loyers : ton loyer sera prélevé le 25 du mois précédent, sans virement à faire.\n\n" +
+    "Pour cela, il nous faut ton autorisation : un mandat de prélèvement SEPA à signer en ligne, en 2 minutes, avec ton IBAN. " +
+    "Avant chaque prélèvement, tu reçois le montant et la date par e-mail, et ta banque peut te rembourser un prélèvement dans les 8 semaines.\n\n" +
+    "Le lien ci-dessous est personnel et valable 30 jours.\n\nMerci !\nL'équipe du 13H59 Shop",
+    true, 'Gestion ▸ Facturation ▸ Prélèvements : bouton « Envoyer le lien », avec le bouton « Signer mon mandat ».'],
+  ['mandat_signe', 'Collectif 13H59 · ton mandat de prélèvement est enregistré',
+    "Bonjour {marque},\n\nTon mandat de prélèvement SEPA est bien enregistré.\n\n" +
+    "Référence unique du mandat (RUM) : {rum}\nCréancier : Collectif 13H59, identifiant créancier SEPA {ics}\nCompte prélevé : IBAN se terminant par {iban_fin}, au nom de {titulaire}\nSigné en ligne le {date}\n\n" +
+    "Avant chaque prélèvement, on t'envoie le montant et la date par e-mail. Tu peux demander à ta banque le remboursement d'un prélèvement autorisé dans les 8 semaines qui suivent le débit. " +
+    "Pour changer de compte ou arrêter le prélèvement, réponds simplement à cet e-mail.\n\nL'équipe du 13H59 Shop",
+    true, 'Envoyé automatiquement quand un créateur signe son mandat en ligne.'],
+  ['prelevement_prenotification', 'Collectif 13H59 · prélèvement de ton loyer · {mois}',
+    "Bonjour {marque},\n\nLe {date}, nous prélèverons {montant} sur ton compte (IBAN se terminant par {iban_fin}) pour ton loyer de {mois}.\n\n" +
+    "Référence du mandat : {rum} · identifiant créancier SEPA : {ics}.\n\n" +
+    "Pense à vérifier que ton compte est approvisionné à cette date. Si quelque chose ne va pas, réponds simplement à cet e-mail avant le prélèvement.\n\nL'équipe du 13H59 Shop",
+    true, 'Gestion ▸ Facturation ▸ Prélèvements : bouton « Envoyer la pré-notification », au moins 14 jours avant le prélèvement.']
 ];
 
 /** Crée l'onglet `emails` avec les textes par défaut s'il n'existe pas. */
@@ -197,11 +214,12 @@ function envoyerModele(ss, code, to, vars, boutons) {
  * Envoie un texte relu et retouché dans la fenêtre d'envoi (objet et message déjà remplis), si le modèle
  * `code` est actif. Même mise en page que envoyerModele.
  */
-function envoyerTexte(ss, code, to, perso, vars) {
+function envoyerTexte(ss, code, to, perso, vars, boutons) {
   const m = _modelesEmails(ss)[code];
   if (!m || !m.actif) return false;
   const x = _textePerso(perso, vars);
-  envoyerEmailShop({ to: to, subject: x.objet, texte: x.texte, html: _htmlShop(x.texte) });
+  const brut = boutons && boutons.length ? x.texte + '\n\n' + boutons.map(function (b) { return b.libelle + ' : ' + b.url; }).join('\n') : x.texte;
+  envoyerEmailShop({ to: to, subject: x.objet, texte: brut, html: _htmlShop(x.texte, boutons) });
   return true;
 }
 /** Objet et message retouchés → nettoyés ; les {champs} restants (envois groupés) sont remplis pour chaque destinataire. */
