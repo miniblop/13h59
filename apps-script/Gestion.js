@@ -77,6 +77,8 @@ function _gestion(body) {
     gestion_facture_apercu: _gFactureApercu,
     gestion_facture_generer: _gFactureGenerer,
     gestion_facture_envoyer: _gFactureEnvoyer,
+    gestion_facture_email: _gFactureEmail,
+    gestion_email_modele: _gEmailModele,
     gestion_facture_annuler: _gFactureAnnuler,
     gestion_facture_pdf: _gFacturePdf,
     gestion_encaissements: _gEncaissements,

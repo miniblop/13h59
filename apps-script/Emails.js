@@ -193,6 +193,32 @@ function envoyerModele(ss, code, to, vars, boutons) {
   return true;
 }
 
+/**
+ * Envoie un texte relu et retouché dans la fenêtre d'envoi (objet et message déjà remplis), si le modèle
+ * `code` est actif. Même mise en page que envoyerModele.
+ */
+function envoyerTexte(ss, code, to, perso, vars) {
+  const m = _modelesEmails(ss)[code];
+  if (!m || !m.actif) return false;
+  const x = _textePerso(perso, vars);
+  envoyerEmailShop({ to: to, subject: x.objet, texte: x.texte, html: _htmlShop(x.texte) });
+  return true;
+}
+/** Objet et message retouchés → nettoyés ; les {champs} restants (envois groupés) sont remplis pour chaque destinataire. */
+function _textePerso(perso, vars) {
+  const nettoyer = function (v, max) { return String(v == null ? '' : v).replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, '').trim().slice(0, max); };
+  const objet = nettoyer(_remplir(String(perso.objet || '').replace(/\n/g, ' '), vars || {}), 200), texte = nettoyer(_remplir(String(perso.texte || ''), vars || {}), 8000);
+  if (!objet || !texte) throw new Error("l'objet ou le message de l'e-mail est vide");
+  return { objet: objet, texte: texte };
+}
+/** Modèle brut (avec ses {champs}) pour la fenêtre d'un envoi groupé. */
+function _gEmailModele(body) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), code = String(body.code || '');
+  const m = _modelesEmails(ss)[code], d = EMAILS_PAR_DEFAUT.filter(function (l) { return l[0] === code; })[0];
+  if (!m && !d) throw new Error('Modèle d\'e-mail inconnu : « ' + code + ' ».');
+  return { ok: true, objet: m ? m.objet : d[1], texte: m ? m.texte : d[2], actif: m ? m.actif : true };
+}
+
 /** TEST — à lancer depuis l'éditeur. N'écrit à personne d'autre que toi. */
 function testEnvoiAlias() {
   const moi = Session.getEffectiveUser().getEmail();

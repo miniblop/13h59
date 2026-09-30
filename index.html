@@ -319,6 +319,12 @@
   .gk-mod summary::-webkit-details-marker{display:none}
   .gk-mod .corps{padding:0 14px 14px;border-top:1px solid var(--line)}
   .gk-mod textarea{width:100%;min-height:190px;padding:10px 11px;border:1px solid var(--line);border-radius:10px;font:inherit;line-height:1.5;resize:vertical}
+  .dlg{border:none;border-radius:16px;padding:18px;width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 32px);background:var(--card);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  .dlg::backdrop{background:rgba(0,0,0,.4)}
+  .dlg h3{margin:0 0 4px;font-size:16px}
+  .dlg label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:12px 0 4px;text-transform:uppercase;letter-spacing:.04em}
+  .dlg input,.dlg textarea{width:100%;box-sizing:border-box;font:inherit;font-size:14px;line-height:1.5;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+  .dlg textarea{min-height:260px;resize:vertical}
   .gk-apercu{background:var(--tot);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.55;white-space:pre-wrap}
   .gk-modifie{font-size:11px;color:#8a6d3b;font-weight:700}
   .gk-retenir{border:1px dashed var(--line);border-radius:12px;padding:12px;margin-top:12px}
@@ -680,6 +686,13 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<dialog class="dlg" id="dlgMail"><form method="dialog">
+  <h3 id="dlgMailTitre"></h3><div class="muted" style="font-size:13px" id="dlgMailA"></div><div class="gc-why" id="dlgMailNote"></div>
+  <label for="dlgMailObjet">Objet</label><input id="dlgMailObjet" maxlength="200">
+  <label for="dlgMailTexte">Message</label><textarea id="dlgMailTexte" maxlength="8000"></textarea>
+  <div class="gc-why">Tes modifications valent pour cet envoi seulement : le modèle ne change pas (Réglages ▸ E-mails types). <a href="#" id="dlgMailModele">Revenir au texte du modèle</a></div>
+  <div class="gc-acts"><button class="btn btn-accent" value="ok">Confirmer et envoyer</button><button class="btn btn-ghost" value="annuler" formnovalidate>Annuler</button></div>
+</form></dialog>
 
 <script>
 /* ===================== CONFIG ===================== */
@@ -901,7 +914,7 @@ const API = {
     return res.json();
   },
   async gestion(action,params){
-    if(DEMO_MODE) return (/^gestion_bilan/.test(action)?DEMO_BI:/^gestion_benevolat/.test(action)?DEMO_B:/^gestion_versements/.test(action)?DEMO_W:/^gestion_(encaissements|paiements?_|relancer)/.test(action)?DEMO_E:/^gestion_factures?/.test(action)?DEMO_F:/^gestion_(ventes?|panier|journal)/.test(action)?DEMO_V:action.indexOf('gestion_reglage')===0?DEMO_R:action.indexOf('gestion_candidature')===0||action==='gestion_email_maj'?DEMO_K:DEMO_G)(action,params||{});
+    if(DEMO_MODE) return (/^gestion_bilan/.test(action)?DEMO_BI:/^gestion_benevolat/.test(action)?DEMO_B:/^gestion_versements/.test(action)?DEMO_W:/^gestion_(encaissements|paiements?_|relancer)/.test(action)?DEMO_E:/^gestion_(factures?|email_modele)/.test(action)?DEMO_F:/^gestion_(ventes?|panier|journal)/.test(action)?DEMO_V:action.indexOf('gestion_reglage')===0?DEMO_R:action.indexOf('gestion_candidature')===0||action==='gestion_email_maj'?DEMO_K:DEMO_G)(action,params||{});
     const res=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify(Object.assign({action,password:S.pwd,qui:gcPrenom()},params||{}))});
     return res.json();
   },
@@ -2097,12 +2110,28 @@ async function gkAppel(btn,action,params,msg){
   }catch(e){toast((e&&e.message)||String(e),true);}
   finally{if(btn.isConnected){btn.disabled=false;btn.textContent=t;}}
 }
-function gkConfirmer(k,code,stand,date,action){
+/** Fenêtre d'envoi : objet et message du modèle, modifiables pour cet envoi. → {objet, texte, modifie} ou null. */
+function dialogueMail(titre,a,ap,note){
+  const d=$('dlgMail');
+  if(!d.showModal) return Promise.resolve(confirm(titre+' ?\n\nÀ : '+a+'\nObjet : '+ap.objet+'\n\n'+ap.texte)?{objet:ap.objet,texte:ap.texte,modifie:false}:null);
+  $('dlgMailTitre').textContent=titre;$('dlgMailA').textContent='À : '+a;$('dlgMailNote').innerHTML=note||'';$('dlgMailNote').classList.toggle('hide',!note);
+  const remplir=()=>{$('dlgMailObjet').value=ap.objet;$('dlgMailTexte').value=ap.texte;};
+  remplir();$('dlgMailModele').onclick=e=>{e.preventDefault();remplir();};
+  d.returnValue='';d.showModal();$('dlgMailTexte').scrollTop=0;
+  return new Promise(res=>d.addEventListener('close',()=>{
+    if(d.returnValue!=='ok'){res(null);return;}
+    const objet=$('dlgMailObjet').value.trim(),texte=$('dlgMailTexte').value.trim();
+    if(!objet||!texte){toast("L'objet ou le message est vide : rien n'a été fait.",true);res(null);return;}
+    res({objet,texte,modifie:objet!==ap.objet||texte!==ap.texte.trim()});
+  },{once:true}));
+}
+async function gkConfirmer(k,code,stand,date,action){
   const mail=$('gkMail')&&$('gkMail').checked;
   if(!mail) return confirm(action+' ?\n\nAucun e-mail ne sera envoyé.')?{email:false}:null;
   const ap=gkApercu(code,k,stand,date);
-  if(!ap) return confirm(action+' ?\n\nLe modèle d\'e-mail « '+code+' » est désactivé dans l\'onglet emails du Sheet : aucun e-mail ne partira.')?{email:false}:null;
-  return confirm(action+' et envoyer cet e-mail à '+k.email+' ?\n\nObjet : '+ap.objet+'\n\n'+ap.texte)?{email:true}:null;
+  if(!ap) return confirm(action+' ?\n\nLe modèle d\'e-mail « '+code+' » est désactivé (Réglages ▸ E-mails types) : aucun e-mail ne partira.')?{email:false}:null;
+  const perso=await dialogueMail(action+' et envoyer cet e-mail',k.email,ap);
+  return perso?{email:true,perso}:null;
 }
 function gkOuvrirCreateur(id){
   GC.sel=id;GC.filtre='tous';
@@ -2110,7 +2139,7 @@ function gkOuvrirCreateur(id){
   document.querySelector('#gSubtabs [data-sub="createurs"]').click();
   gcCharger(true);
 }
-$('gCand').addEventListener('click',e=>{
+$('gCand').addEventListener('click',async e=>{
   const f=e.target.closest('[data-kf]');if(f){GK.filtre=f.dataset.kf;gkRenderListe();return;}
   const tr=e.target.closest('#gkTbl tbody tr[data-k]');if(tr){GK.sel=tr.dataset.k;GK.retenir=false;gkRenderListe();gkRenderFiche();return;}
   const b=e.target.closest('#gkFiche [data-a]');if(!b||b.disabled)return;
@@ -2124,13 +2153,13 @@ $('gCand').addEventListener('click',e=>{
   if(a==='statut'){
     const st=b.dataset.s;
     if(st==='a_traiter'){gkAppel(b,'gestion_candidature_statut',{id:k.id,statut:st},()=>k.marque+' remise à traiter');return;}
-    const ok=gkConfirmer(k,st,'','',st==='non_retenu'?'Marquer « '+k.marque+' » non retenue':'Mettre « '+k.marque+' » en liste d\'attente');if(!ok)return;
-    gkAppel(b,'gestion_candidature_statut',{id:k.id,statut:st,email:ok.email},()=>k.marque+' : '+GK_LIB[st].toLowerCase());
+    const ok=await gkConfirmer(k,st,'','',st==='non_retenu'?'Marquer « '+k.marque+' » non retenue':'Mettre « '+k.marque+' » en liste d\'attente');if(!ok)return;
+    gkAppel(b,'gestion_candidature_statut',{id:k.id,statut:st,email:ok.email,emailPerso:ok.perso||null},()=>k.marque+' : '+GK_LIB[st].toLowerCase());
   }else if(a==='retenir'){
     const stand=$('gkRStand').value,debut=$('gkRDebut').value;if(!stand||!debut){toast('Choisis le stand et la date d\'arrivée.',true);return;}
     const reint=$('gkRReint')&&$('gkRReint').checked;
-    const ok=gkConfirmer(k,'retenu',stand,debut,'Retenir « '+k.marque+' » en '+gcStand(stand)+' dès le '+fmtD(debut));if(!ok)return;
-    gkAppel(b,'gestion_candidature_retenir',{id:k.id,stand,debut,accueilPar:$('gkRAccueil').value.trim(),categorie:$('gkRCat').value,idCreateur:reint?k.createur.id:'',email:ok.email},
+    const ok=await gkConfirmer(k,'retenu',stand,debut,'Retenir « '+k.marque+' » en '+gcStand(stand)+' dès le '+fmtD(debut));if(!ok)return;
+    gkAppel(b,'gestion_candidature_retenir',{id:k.id,stand,debut,accueilPar:$('gkRAccueil').value.trim(),categorie:$('gkRCat').value,idCreateur:reint?k.createur.id:'',email:ok.email,emailPerso:ok.perso||null},
       r=>k.marque+' retenue → '+r.idCreateur).then(r=>{if(r){GK.retenir=false;GC.charge=false;gkRenderFiche();}});
   }else if(a==='remarque'){
     gkAppel(b,'gestion_candidature_remarque',{id:k.id,remarque:$('gkRemarque').value},()=>'Remarque enregistrée');
@@ -2675,12 +2704,16 @@ $('gFact').addEventListener('click',async e=>{
   try{
     if(a==='pdf'){const r=await gfUne('gestion_facture_pdf',{numero:f.facture.numero});window.open(r.url,'_blank','noopener');return;}
     if(a==='generer'&&!confirm(`Générer la facture de ${f.nom} (${FMT.eur(f.total)}) ?\n\nLe numéro est attribué et les montants sont figés.`))return;
-    if(a==='envoyer'&&!confirm(`Envoyer la facture ${f.facture.numero} à ${f.email} ?`))return;
-    let motif='';
+    let motif='',perso=null;
+    if(a==='envoyer'){
+      const m=await gfUne('gestion_facture_email',{numero:f.facture.numero});
+      if(!m.actif){toast("Le modèle d'e-mail « Facture mensuelle » est désactivé (Réglages ▸ E-mails types).",true);return;}
+      perso=await dialogueMail('Envoyer la facture '+f.facture.numero,m.a,m,'La facture est jointe en PDF.');if(!perso)return;
+    }
     if(a==='annuler'){motif=prompt(`Annuler la facture ${f.facture.numero} ? Son numéro ne sera pas réutilisé.\n\nMotif :`,'');if(!motif)return;}
     b.disabled=true;b.textContent='…';
     if(a==='generer'){const r=await gfUne('gestion_facture_generer',gfParamsGen(f));toast('Facture '+r.numero+' générée');}
-    if(a==='envoyer'){await gfUne('gestion_facture_envoyer',{numero:f.facture.numero});toast('Facture '+f.facture.numero+' envoyée à '+f.email);}
+    if(a==='envoyer'){await gfUne('gestion_facture_envoyer',{numero:f.facture.numero,emailPerso:perso});toast('Facture '+f.facture.numero+' envoyée à '+f.email);}
     if(a==='annuler'){await gfUne('gestion_facture_annuler',{numero:f.facture.numero,motif});toast('Facture '+f.facture.numero+' annulée');}
     await gfCharger(true);
   }catch(err){toast((err&&err.message)||String(err),true);if(b.isConnected){b.disabled=false;b.textContent=t;}}
@@ -2707,10 +2740,18 @@ $('gfGenTout').addEventListener('click',()=>{
   if(!confirm(`Générer ${L.length} facture${L.length>1?'s':''} pour ${GF.data.libelle} ?\n\nLes numéros sont attribués et les montants figés. Vérifie d'abord les permanences des bénévoles.`))return;
   gfEnSerie(L,'gestion_facture_generer',gfParamsGen,'Génération');
 });
-$('gfEnvTout').addEventListener('click',()=>{
+/** Envoi groupé : le modèle brut, retouchable ; ses {champs} sont remplis pour chaque destinataire. */
+async function dialogueMailGroupe(code,titre,liste,champs){
+  let m;
+  try{m=await API.gestion('gestion_email_modele',{code});if(!m||!m.ok)throw new Error((m&&m.message)||'modèle introuvable');}
+  catch(e){toast((e&&e.message)||String(e),true);return null;}
+  if(!m.actif){toast("Ce modèle d'e-mail est désactivé (Réglages ▸ E-mails types) : rien n'a été envoyé.",true);return null;}
+  return dialogueMail(titre,liste,m,'Envoi groupé : garde les champs entre accolades, ils sont remplacés pour chaque personne ('+champs+'). Tes modifications valent pour cet envoi seulement.');
+}
+$('gfEnvTout').addEventListener('click',async()=>{
   const L=GF.data.factures.filter(f=>f.facture&&f.facture.statut==='generee'&&f.email);if(!L.length)return;
-  if(!confirm(`Envoyer ${L.length} facture${L.length>1?'s':''} par e-mail, depuis l'adresse du shop ?`))return;
-  gfEnSerie(L,'gestion_facture_envoyer',f=>({numero:f.facture.numero}),'Envoi');
+  const perso=await dialogueMailGroupe('facture',`Envoyer ${L.length} facture${L.length>1?'s':''} par e-mail`,L.map(f=>f.nom).join(', '),'{marque} = nom, {numero} = n° de facture, {mois} = mois du loyer, {mois_ventes} = mois des ventes');if(!perso)return;
+  gfEnSerie(L,'gestion_facture_envoyer',f=>({numero:f.facture.numero,emailPerso:perso}),'Envoi');
 });
 $('gfMois').addEventListener('change',()=>{GF.perms={};GF.sel=null;gfCharger();});
 $('gfRefresh').addEventListener('click',()=>{GF.rafraichirAgenda=true;gfCharger(true);});
@@ -2734,6 +2775,8 @@ const DEMO_F=(function(){
       return {ok:true,html:`<div style="font-family:Arial;padding:20px"><div style="background:#000;color:#fff;padding:12px;font-weight:bold;letter-spacing:4px">13H59 · ${lib.toUpperCase()}</div><h3>${f.facture?'FACTURE N° '+f.facture.numero:'APERÇU'} · ${f.nom}</h3>${f.lignes.map(l=>`<div>${l.ref} · ${l.libelle} · ${l.montant} €</div>`).join('')}<p><b>Total ${f.total} €</b></p><p style="color:#888">(démo : aperçu simplifié)</p></div>`,
         email:{a:f.email,objet:'Collectif 13H59 · ta facture · '+lib,texte:'Bonjour '+f.nom+',\n\nTu trouveras ci-joint ta facture…',actif:true}};}
     if(action==='gestion_facture_generer'){num++;const n=String(mois).slice(2,4)+'-'+String(mois).slice(5,7)+'-'+String(num).padStart(3,'0');factures[mois+p.idCreateur]={numero:n,statut:'generee',total:0,emiseLe:aujourdhui(),envoyeeLe:'',pdfId:'x'};return {ok:true,numero:n};}
+    if(action==='gestion_email_modele')return {ok:true,actif:true,objet:p.code==='relance_loyer'?'Collectif 13H59 · ton loyer · {mois}':'Collectif 13H59 · ta facture · {mois}',texte:p.code==='relance_loyer'?'Bonjour {marque},\n\nIl reste {montant} à régler pour ton loyer ({mois}).\n\nMerci !\nL\'équipe du 13H59 Shop':'Bonjour {marque},\n\nTu trouveras ci-joint ta facture n° {numero}.\n\nL\'équipe du 13H59 Shop'};
+    if(action==='gestion_facture_email'){const f=Object.values(factures).find(x=>x.numero===p.numero);return {ok:true,a:'contact@exemple.fr',objet:'Collectif 13H59 · ta facture · '+lib,texte:'Bonjour,\n\nTu trouveras ci-joint ta facture n° '+p.numero+'.\n\nÀ très vite à la boutique,\nL\'équipe du 13H59 Shop',actif:true};}
     if(action==='gestion_facture_envoyer'){const f=Object.values(factures).find(x=>x.numero===p.numero);f.statut='envoyee';f.envoyeeLe=aujourdhui();return {ok:true};}
     if(action==='gestion_facture_annuler'){const k=Object.keys(factures).find(k=>factures[k].numero===p.numero);delete factures[k];return {ok:true};}
     if(action==='gestion_facture_pdf')return {ok:true,url:'about:blank'};
@@ -2971,10 +3014,10 @@ $('gVueEnc').addEventListener('click',async e=>{
 });
 $('geRelancer').addEventListener('click',async()=>{
   const D=GE.data,L=D.lignes.filter(l=>(l.statut==='retard'||l.statut==='partiel')&&l.email&&l.reste>0);if(!L.length)return;
-  if(!confirm(`Envoyer un e-mail de rappel à ${L.length} créateur${L.length>1?'s':''} ?\n\n${L.map(l=>'· '+l.nom+' : '+FMT.eur(l.reste)+(l.relanceLe?' (déjà relancé le '+fmtD(l.relanceLe)+')':'')).join('\n')}\n\nTexte : Réglages ▸ E-mails types ▸ « Relance loyer ».`))return;
+  const perso=await dialogueMailGroupe('relance_loyer',`Envoyer un rappel de loyer à ${L.length} créateur${L.length>1?'s':''}`,L.map(l=>l.nom+' ('+FMT.eur(l.reste)+(l.relanceLe?', déjà relancé le '+fmtD(l.relanceLe):'')+')').join(', '),'{marque} = nom, {mois} = mois du loyer, {montant} = reste dû');if(!perso)return;
   const b=$('geRelancer'),t=b.textContent;b.disabled=true;b.textContent='Envoi…';
   try{
-    const r=await API.gestion('gestion_relancer',{mois:D.mois,ids:L.map(l=>l.idCreateur)});
+    const r=await API.gestion('gestion_relancer',{mois:D.mois,ids:L.map(l=>l.idCreateur),emailPerso:perso});
     if(!r||!r.ok)throw new Error((r&&r.message)||'réponse invalide');
     toast(r.envoyes+' rappel'+(r.envoyes>1?'s':'')+' envoyé'+(r.envoyes>1?'s':'')+(r.erreurs.length?' · '+r.erreurs.length+' en erreur':''),!!r.erreurs.length);
     if(r.erreurs.length)$('geWarn').insertAdjacentHTML('afterbegin','<div class="warn" style="margin:0 0 10px">'+r.erreurs.map(FMT.esc).join('<br>')+'</div>');

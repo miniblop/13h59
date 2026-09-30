@@ -289,26 +289,38 @@ function _ligneFacture(ss, numero) {
   return { t: t, i: i, r: t.lignes[i] };
 }
 
-function _gFactureEnvoyer(body) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet(), x = _ligneFacture(ss, body.numero), t = x.t, r = x.r;
+/** Objet et message de l'e-mail d'une facture générée, pour la fenêtre d'envoi. */
+function _gFactureEmail(body) {
+  const p = _preparerEnvoiFacture(SpreadsheetApp.getActiveSpreadsheet(), body.numero);
+  return { ok: true, a: p.email, objet: p.e.objet, texte: p.e.texte, actif: p.e.actif };
+}
+function _preparerEnvoiFacture(ss, numero) {
+  const x = _ligneFacture(ss, numero), t = x.t, r = x.r;
   if (String(_val(t, r, 'statut')) === 'annulee') throw new Error('Facture annulée : elle ne s\'envoie pas.');
   const mois = _moisTexte(_val(t, r, 'mois')), ctx = _contexteFactures(ss, mois);
   const rc = ctx.tC.lignes.filter(function (c) { return String(_val(ctx.tC, c, 'id_createur')) === String(_val(t, r, 'id_createur')); })[0];
   const email = rc ? _norm(_val(ctx.tC, rc, 'email')) : '';
   if (!email) throw new Error("Pas d'adresse e-mail pour ce créateur : à compléter dans Gestion ▸ Créateurs.");
   const c = _calculFacture(ctx, rc, _val(t, r, 'perms_faites'), _val(t, r, 'perms_requises'));
-  _appliquerFigee(ss, c, { numero: body.numero, total: _val(t, r, 'total'), loyer: _val(t, r, 'loyer'), commission: _val(t, r, 'commission'), taux_commission: _val(t, r, 'taux_commission'),
+  _appliquerFigee(ss, c, { numero: numero, total: _val(t, r, 'total'), loyer: _val(t, r, 'loyer'), commission: _val(t, r, 'commission'), taux_commission: _val(t, r, 'taux_commission'),
     ventes_mois_precedent: _val(t, r, 'ventes_mois_precedent'), frais_mois_precedent: _val(t, r, 'frais_mois_precedent'), prime_mois_precedent: _val(t, r, 'prime_mois_precedent'), net_a_verser: _val(t, r, 'net_a_verser') });
-  const e = _emailFacture(ss, ctx, c, String(body.numero));
+  return { x: x, email: email, e: _emailFacture(ss, ctx, c, String(numero)) };
+}
+
+function _gFactureEnvoyer(body) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), p = _preparerEnvoiFacture(ss, body.numero), x = p.x, t = x.t, r = x.r, email = p.email;
+  let e = p.e;
   if (!e.actif) throw new Error("Le modèle d'e-mail « facture » est désactivé dans Réglages ▸ E-mails types.");
+  // texte relu dans la fenêtre d'envoi (une facture) ou modèle retouché pour un envoi groupé ({champs} remplis ici)
+  const perso = body.emailPerso && (body.emailPerso.objet || body.emailPerso.texte) ? _textePerso(body.emailPerso, e.vars) : null;
+  if (perso) e = { objet: perso.objet, texte: perso.texte };
   const pdf = DriveApp.getFileById(String(_val(t, r, 'pdf_id'))).getBlob();
   envoyerEmailShop({ to: email, subject: e.objet, texte: e.texte, html: _htmlShop(e.texte), pieces: [pdf] });
   r[t.M['statut']] = 'envoyee'; r[t.M['envoyee_le']] = new Date(); r[t.M['envoyee_a']] = email;
   _ecrireLigne(t, x.i, r);
-  _journaliser('facture_envoyee', body.numero + ' → ' + email);
+  _journaliser('facture_envoyee', body.numero + ' → ' + email + (body.emailPerso && body.emailPerso.modifie ? ' (texte modifié)' : ''));
   return { ok: true };
 }
-
 function _gFactureAnnuler(body) {
   const ss = SpreadsheetApp.getActiveSpreadsheet(), x = _ligneFacture(ss, body.numero), t = x.t, r = x.r;
   if (String(_val(t, r, 'statut')) === 'envoyee') throw new Error('Facture déjà envoyée : elle ne s\'annule pas ici (il faudra un avoir).');
@@ -330,7 +342,7 @@ function _gFacturePdf(body) {
 function _emailFacture(ss, ctx, c, numero) {
   const m = _modelesEmails(ss)['facture'] || { objet: EMAILS_PAR_DEFAUT.filter(function (l) { return l[0] === 'facture'; })[0][1], texte: EMAILS_PAR_DEFAUT.filter(function (l) { return l[0] === 'facture'; })[0][2], actif: true };
   const vars = { prenom: c.nom, marque: c.nom, mois: ctx.b.libelle, mois_ventes: ctx.precBornes.libelle, numero: numero };
-  return { objet: _remplir(m.objet, vars), texte: _remplir(m.texte, vars), actif: m.actif, a: c.email };
+  return { objet: _remplir(m.objet, vars), texte: _remplir(m.texte, vars), actif: m.actif, a: c.email, vars: vars };
 }
 
 /* ---------- Document (aperçu et PDF) ----------

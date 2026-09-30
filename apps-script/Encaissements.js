@@ -140,14 +140,17 @@ function _gRelancer(body) {
   _modeleSiAbsent(ss, 'relance_loyer');
   const d = _gEncaissements({ mois: body.mois }), voulus = body.ids || [];
   const tR = _tableau(ss, SHEET_RELANCES), envoyes = [], erreurs = [];
+  const perso = body.emailPerso && (body.emailPerso.objet || body.emailPerso.texte) ? body.emailPerso : null;   // modèle retouché pour cet envoi
+  if (perso) _textePerso(perso, {});
   d.lignes.filter(function (l) { return voulus.indexOf(l.idCreateur) !== -1 && l.reste > 0; }).forEach(function (l) {
     if (!l.email) { erreurs.push(l.nom + " : pas d'e-mail"); return; }
     try {
-      if (!envoyerModele(ss, 'relance_loyer', l.email, { marque: l.nom, mois: d.libelle, montant: _eurFr(l.reste) })) throw new Error('modèle « relance_loyer » désactivé');
+      const vars = { marque: l.nom, mois: d.libelle, montant: _eurFr(l.reste) };
+      if (!(perso ? envoyerTexte(ss, 'relance_loyer', l.email, perso, vars) : envoyerModele(ss, 'relance_loyer', l.email, vars))) throw new Error('modèle « relance_loyer » désactivé');
       _ajouterLigne(tR, { envoyee_le: new Date(), id_createur: l.idCreateur, mois_loyer: body.mois, email: l.email, reste_du: l.reste, envoyee_par: _signataire() });
       envoyes.push(l.nom);
     } catch (e) { erreurs.push(l.nom + ' : ' + (e && e.message ? e.message : e)); }
   });
-  if (envoyes.length) _journaliser('loyers_relances', d.libelle + ' : ' + envoyes.join(', '));
+  if (envoyes.length) _journaliser('loyers_relances', d.libelle + ' : ' + envoyes.join(', ') + (perso && perso.modifie ? ' (texte modifié)' : ''));
   return { ok: true, envoyes: envoyes.length, erreurs: erreurs };
 }

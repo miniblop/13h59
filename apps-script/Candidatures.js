@@ -187,13 +187,16 @@ function _ligneCandidature(tK, id) {
 function _prenomPourEmail(tK, r) { return _nomPropre(_val(tK, r, 'prenom')) || _nomPropre(_val(tK, r, 'nom')) || _nomPropre(_val(tK, r, 'marque')); }
 function _signataire() { return _auteurJournal.replace(/ \(site\)$/, ''); }
 
-/** Envoie un modèle si demandé ; renvoie {email: true/false, emailErreur?} sans jamais annuler l'action déjà faite. */
-function _emailApresAction(ss, envoyer, code, to, vars, id) {
+/**
+ * Envoie un modèle si demandé ; renvoie {email: true/false, emailErreur?} sans jamais annuler l'action déjà faite.
+ * perso {objet, texte, modifie} : texte relu et retouché juste avant l'envoi (le modèle, lui, ne change pas).
+ */
+function _emailApresAction(ss, envoyer, code, to, vars, id, perso) {
   if (!envoyer) return { email: false };
   if (!to) return { email: false, emailErreur: "pas d'adresse e-mail sur cette candidature" };
   try {
-    const envoye = envoyerModele(ss, code, to, vars);
-    if (envoye) _journaliser('email_envoye', id + ' · modèle ' + code + ' → ' + to);
+    const envoye = perso && (perso.objet || perso.texte) ? envoyerTexte(ss, code, to, perso) : envoyerModele(ss, code, to, vars);
+    if (envoye) _journaliser('email_envoye', id + ' · modèle ' + code + (perso && perso.modifie ? ' (texte modifié)' : '') + ' → ' + to);
     return envoye ? { email: true } : { email: false, emailErreur: 'le modèle « ' + code + ' » est désactivé dans l\'onglet emails' };
   } catch (e) {
     const m = String(e && e.message ? e.message : e);
@@ -215,7 +218,7 @@ function _gCandidatureStatut(body) {
   _ecrireLigne(tK, i, r);
   const marque = _nomPropre(_val(tK, r, 'marque'));
   const mail = body.statut === 'a_traiter' ? { email: false } : _emailApresAction(ss, body.email === true, body.statut, String(_val(tK, r, 'email')),
-    { prenom: _prenomPourEmail(tK, r), marque: marque, stand: _libelleStand(ss, _val(tK, r, 'stand_souhaite')), date: '' }, body.id);
+    { prenom: _prenomPourEmail(tK, r), marque: marque, stand: _libelleStand(ss, _val(tK, r, 'stand_souhaite')), date: '' }, body.id, body.emailPerso);
   _journaliser('candidature_statut', body.id + ' ' + marque + ' : ' + avant + ' → ' + body.statut + (mail.email ? ' (e-mail envoyé)' : ''));
   return { ok: true, email: mail.email, emailErreur: mail.emailErreur || '' };
 }
@@ -248,7 +251,7 @@ function _gCandidatureRetenir(body) {
   _ecrireLigne(tK2, i, r2);
   const d = _dateIso(body.debut);
   const mail = _emailApresAction(ss, body.email === true, 'retenu', String(_val(tK2, r2, 'email')),
-    { prenom: _prenomPourEmail(tK2, r2), marque: marque, stand: _libelleStand(ss, body.stand), date: Utilities.formatDate(d, _tz(), 'dd/MM/yyyy') }, body.id);
+    { prenom: _prenomPourEmail(tK2, r2), marque: marque, stand: _libelleStand(ss, body.stand), date: Utilities.formatDate(d, _tz(), 'dd/MM/yyyy') }, body.id, body.emailPerso);
   _journaliser('candidature_retenue', body.id + ' ' + marque + ' → ' + idCreateur + ' · ' + body.stand + ' dès le ' + body.debut + (mail.email ? ' (e-mail envoyé)' : ''));
   return { ok: true, idCreateur: idCreateur, email: mail.email, emailErreur: mail.emailErreur || '' };
 }
