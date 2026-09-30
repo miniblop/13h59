@@ -34,22 +34,6 @@ const COLONNES_VENTES = [
 
 // ===========================================================
 
-/** Menu ajouté à l'ouverture du classeur. */
-function onOpen() {
-  SpreadsheetApp.getUi()
-    .createMenu('🛒 Caisse')
-    .addItem('Ouvrir la caisse', 'ouvrirCaisse')
-    .addToUi();
-}
-
-/** Ouvre l'interface caisse dans une fenêtre modale. */
-function ouvrirCaisse() {
-  const html = HtmlService.createHtmlOutputFromFile('Caisse')
-    .setWidth(940)
-    .setHeight(700);
-  SpreadsheetApp.getUi().showModalDialog(html, 'Caisse 13h59');
-}
-
 /* ---------- Utilitaires ---------- */
 
 function _norm(s) { return String(s == null ? '' : s).trim().toLowerCase(); }

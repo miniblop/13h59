@@ -18,7 +18,6 @@ const COLONNES_ACCES_DRIVE = ['email', 'ajoute_le', 'ajoute_par'];
 function _sousDossier(parent, nom) { const it = parent.getFoldersByName(nom); return it.hasNext() ? it.next() : parent.createFolder(nom); }
 function _racineCreateurs() { return _sousDossier(_sousDossier(DriveApp.getRootFolder(), '13h59'), DOSSIER_CREATEURS); }
 function _nomDossierCreateur(nom, id) { return String(nom || id).replace(/[\/\\]/g, '-').trim() + ' · ' + id; }
-function _urlDossier(id) { return id ? 'https://drive.google.com/drive/folders/' + id : ''; }
 
 /** Ajoute la colonne dossier_drive à createurs si elle manque ; renvoie le tableau à jour. */
 function _createursAvecDossier(ss) {
