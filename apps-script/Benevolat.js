@@ -10,7 +10,10 @@
 
 const SHEET_BENEVOLAT = 'benevolat';
 const COLONNES_BENEVOLAT = ['id_demande', 'recue_le', 'maj_le', 'nom', 'marque', 'email', 'id_createur', 'stand', 'perms_souhaitees',
-  'disponibilites', 'formation', 'statut', 'traitee_le', 'traitee_par', 'remarque', 'source'];
+  'formation', 'statut', 'traitee_le', 'traitee_par', 'remarque', 'source'];
+/** Disponibilités d'une demande : une ligne par jour (colonne atomique, plus de « mar:matin jeu:journee » dans une cellule). */
+const SHEET_BENEVOLAT_DISPOS = 'benevolat_disponibilites';
+const COLONNES_BENEVOLAT_DISPOS = ['id_demande', 'jour', 'creneau'];
 const STATUTS_BENEVOLAT = ['a_traiter', 'retenu', 'plus_tard', 'non_retenu'];
 const JOURS_BENEVOLAT = ['mar', 'mer', 'jeu', 'ven', 'sam'];
 const CRENEAUX_BENEVOLAT = ['matin', 'apres_midi', 'journee'];
@@ -34,6 +37,22 @@ function _disponibilites(v) {
     if (JOURS_BENEVOLAT.indexOf(p[0]) >= 0 && CRENEAUX_BENEVOLAT.indexOf(p[1]) >= 0) out[p[0]] = p[1];
   });
   return JOURS_BENEVOLAT.filter(function (j) { return out[j]; }).map(function (j) { return j + ':' + out[j]; }).join(' ');
+}
+
+/** Remplace les disponibilités d'une demande (« mar:matin jeu:journee » → une ligne par jour). */
+function _ecrireDisponibilites(ss, id, dispos) {
+  _creerOngletSiAbsent(ss, SHEET_BENEVOLAT_DISPOS, COLONNES_BENEVOLAT_DISPOS);
+  const t = _tableau(ss, SHEET_BENEVOLAT_DISPOS);
+  for (let i = t.lignes.length - 1; i >= 0; i--) if (String(_val(t, t.lignes[i], 'id_demande')) === id) t.sh.deleteRow(i + 2);
+  const lignes = String(dispos || '').split(' ').filter(String).map(function (x) { const p = x.split(':'); return [id, p[0], p[1]]; });
+  if (lignes.length) t.sh.getRange(t.sh.getLastRow() + 1, 1, lignes.length, 3).setValues(lignes);
+}
+/** { id_demande: « mar:matin jeu:journee » } (format attendu par le site). */
+function _lireDisponibilites(ss) {
+  const par = {}, out = {};
+  _lireSi(ss, SHEET_BENEVOLAT_DISPOS).forEach(function (r) { const id = String(r['id_demande']); (par[id] = par[id] || []).push(String(r['jour']) + ':' + String(r['creneau'])); });
+  Object.keys(par).forEach(function (id) { out[id] = _disponibilites(par[id].join(' ')); });
+  return out;
 }
 
 /* ---------- Page publique ---------- */
@@ -79,7 +98,7 @@ function _benevolatEnvoyer(body) {
     _modeleSiAbsent(ss, 'benevolat_recu');
     const tB = _tableau(ss, SHEET_BENEVOLAT), tC = _tableau(ss, SHEET_CREATEURS);
     const createur = _createurDeLaDemande(tC, d.email, d.marque);
-    const valeurs = { maj_le: new Date(), nom: d.nom, marque: d.marque, stand: d.stand, perms_souhaitees: d.perms, disponibilites: d.dispos, formation: d.formation };
+    const valeurs = { maj_le: new Date(), nom: d.nom, marque: d.marque, stand: d.stand, perms_souhaitees: d.perms, formation: d.formation };
     const i = tB.lignes.findIndex(function (r) { return _norm(_val(tB, r, 'email')) === d.email; });
     if (i >= 0) {
       deja = true;
@@ -97,6 +116,7 @@ function _benevolatEnvoyer(body) {
       _ajouterLigne(tB, valeurs);
       _journaliser('benevolat_recu', id + ' ' + d.marque + ' · ' + d.stand + ' · ' + d.perms + ' permanence(s)', 'site public');
     }
+    _ecrireDisponibilites(ss, id, d.dispos);
     SpreadsheetApp.flush();
   } finally {
     lock.releaseLock();
@@ -138,11 +158,12 @@ function _gBenevolat() {
   const parId = {};
   createurs.forEach(function (c) { parId[c.id] = c; });
   const s = function (r, k) { const v = _val(tB, r, k); return v instanceof Date ? _jourIso(v) : String(v == null ? '' : v); };
+  const dispos = _lireDisponibilites(ss);
   const demandes = tB.lignes.filter(function (r) { return _val(tB, r, 'id_demande'); }).map(function (r) {
     const idC = s(r, 'id_createur');
     return { id: s(r, 'id_demande'), recueLe: s(r, 'recue_le'), majLe: s(r, 'maj_le'), nom: s(r, 'nom'), marque: s(r, 'marque'), email: s(r, 'email'),
       idCreateur: idC, createur: parId[idC] || null, stand: s(r, 'stand'), perms: Number(_val(tB, r, 'perms_souhaitees')) || 0,
-      disponibilites: s(r, 'disponibilites'), formation: s(r, 'formation'), statut: s(r, 'statut') || 'a_traiter',
+      disponibilites: dispos[s(r, 'id_demande')] || '', formation: s(r, 'formation'), statut: s(r, 'statut') || 'a_traiter',
       traiteeLe: s(r, 'traitee_le'), traiteePar: s(r, 'traitee_par'), remarque: s(r, 'remarque'), source: s(r, 'source') };
   });
   return { ok: true, aujourdhui: _jourIso(auj), demandes: demandes, stands: _standsBenevolat(ss),
@@ -183,21 +204,19 @@ function _gBenevolatStatut(body) {
   return { ok: true, fiche: fiche };
 }
 
-/** Planning : une permanence invite une adresse inconnue → on la rattache à une fiche (colonne emails_agenda). */
+/** Planning : une permanence invite une adresse inconnue → on la rattache à une fiche (table createurs_emails_agenda, une adresse = une fiche). */
 function _gBenevolatAssocier(body) {
   const email = _email(body.email), id = String(body.idCreateur || ''), ss = SpreadsheetApp.getActiveSpreadsheet();
   if (!email) throw new Error('Adresse e-mail invalide.');
-  const t = _assurerColonne(ss, SHEET_CREATEURS, 'emails_agenda'), i = t.lignes.findIndex(function (r) { return String(_val(t, r, 'id_createur')) === id; });
-  if (i < 0) throw new Error('Créateur inconnu : « ' + id + ' ».');
-  // une adresse ne désigne qu'une fiche : on la retire des autres
-  t.lignes.forEach(function (r, k) {
-    const l = _emailsAgenda(_val(t, r, 'emails_agenda'));
-    if (k !== i && l.indexOf(email) >= 0) { r[t.M['emails_agenda']] = l.filter(function (m) { return m !== email; }).join(', '); _ecrireLigne(t, k, r); }
-  });
-  const r = t.lignes[i], l = _emailsAgenda(_val(t, r, 'emails_agenda'));
-  if (_norm(_val(t, r, 'email')) !== email && l.indexOf(email) < 0) { l.push(email); r[t.M['emails_agenda']] = l.join(', '); _ecrireLigne(t, i, r); }
+  const c = _lireTable(_onglet(ss, SHEET_CREATEURS)).filter(function (x) { return String(x['id_createur']) === id; })[0];
+  if (!c) throw new Error('Créateur inconnu : « ' + id + ' ».');
+  _creerOngletSiAbsent(ss, SHEET_EMAILS_AGENDA, COLONNES_EMAILS_AGENDA);
+  const t = _tableau(ss, SHEET_EMAILS_AGENDA), i = t.lignes.findIndex(function (r) { return _norm(_val(t, r, 'email')) === email; });
+  if (_norm(c['email']) === email) { if (i >= 0) t.sh.deleteRow(i + 2); }   // c'est déjà l'adresse de la fiche
+  else if (i >= 0) { const r = t.lignes[i]; r[t.M['id_createur']] = id; r[t.M['ajoute_le']] = new Date(); r[t.M['ajoute_par']] = _signataire(); _ecrireLigne(t, i, r); }
+  else _ajouterLigne(t, { email: email, id_createur: id, ajoute_le: new Date(), ajoute_par: _signataire() });
   if (body.mois) CacheService.getScriptCache().remove('permanences_' + body.mois);   // la facturation relit l'agenda
-  _journaliser('benevolat_agenda', email + ' → ' + _nomPropre(_val(t, r, 'nom')) + ' (' + id + ')');
+  _journaliser('benevolat_agenda', email + ' → ' + _nomPropre(c['nom']) + ' (' + id + ')');
   return { ok: true };
 }
 
@@ -242,8 +261,8 @@ function _gBenevolatPlanning(body) {
   const g = _gBenevolat();
   const stands = {};
   g.stands.forEach(function (s) { stands[s.code] = s; });
-  const tC = _tableau(ss, SHEET_CREATEURS), emailDe = {}, autresDe = {};
-  tC.lignes.forEach(function (r) { const id = String(_val(tC, r, 'id_createur')); emailDe[id] = _norm(_val(tC, r, 'email')); autresDe[id] = _emailsAgenda(_val(tC, r, 'emails_agenda')); });
+  const tC = _tableau(ss, SHEET_CREATEURS), emailDe = {}, autresDe = _emailsAgendaParCreateur(ss);
+  tC.lignes.forEach(function (r) { emailDe[String(_val(tC, r, 'id_createur'))] = _norm(_val(tC, r, 'email')); });
   // disponibilités : la demande la plus récente de chaque créateur
   const dispoDe = {};
   g.demandes.slice().sort(function (x, y) { return String(x.majLe || x.recueLe).localeCompare(String(y.majLe || y.recueLe)); })

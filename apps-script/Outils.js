@@ -22,6 +22,8 @@ const SCHEMA = {
   emplacements:     { pk: 'id_emplacement', fk: { id_createur: 'createurs.id_createur', code_stand: 'stands.code' }, dates: ['debut', 'fin', 'preavis_recu_le', 'echeance'] },
   candidatures:     { pk: 'id_candidature', fk: { id_createur: 'createurs.id_createur', categorie: 'categories.code', stand_souhaite: 'stands.code' }, emails: ['email'], dates: ['recue_le', 'maj_le', 'traitee_le'] },
   benevolat:        { pk: 'id_demande', fk: { id_createur: 'createurs.id_createur', stand: 'stands.code' }, emails: ['email'], dates: ['recue_le', 'maj_le', 'traitee_le'] },
+  benevolat_disponibilites: { fk: { id_demande: 'benevolat.id_demande' } },
+  createurs_emails_agenda:  { pk: 'email', fk: { id_createur: 'createurs.id_createur' }, emails: ['email'], dates: ['ajoute_le'] },
   emails:           { pk: 'code' },
   factures:         { pk: 'numero', fk: { id_createur: 'createurs.id_createur' }, dates: ['emise_le', 'envoyee_le'] },
   lignes_facture:   { fk: { numero: 'factures.numero' } },
@@ -147,6 +149,40 @@ function _nettoyerOnglets(apercu) {
   L.forEach(function (n) { ss.deleteSheet(ss.getSheetByName(n)); });
   _journaliser('nettoyage_onglets', 'Supprimés après sauvegarde : ' + L.join(', '), Session.getEffectiveUser().getEmail());
   Logger.log('✅ ' + L.length + ' onglet(s) supprimés : ' + L.join(', '));
+}
+
+/**
+ * Mise aux normes (30/09/2026) : les colonnes à plusieurs valeurs deviennent des tables.
+ *  benevolat.disponibilites → benevolat_disponibilites ; createurs.emails_agenda → createurs_emails_agenda.
+ *  Les valeurs existantes sont recopiées, puis la colonne est retirée.
+ */
+function apercuNormalisation() { _normaliser(true); }
+function normaliserTables() { _normaliser(false); }
+function _normaliser(apercu) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), faits = [];
+  const colonne = function (nom, col) { const sh = ss.getSheetByName(nom); if (!sh || !sh.getLastColumn()) return null; const i = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String).indexOf(col); return i < 0 ? null : { sh: sh, i: i }; };
+  const b = colonne(SHEET_BENEVOLAT, 'disponibilites');
+  if (b) {
+    const L = _lireTable(_onglet(ss, SHEET_BENEVOLAT)).filter(function (r) { return r['id_demande'] && r['disponibilites']; });
+    faits.push('benevolat.disponibilites → ' + SHEET_BENEVOLAT_DISPOS + ' (' + L.length + ' demande(s) à recopier), puis colonne retirée');
+    if (!apercu) { L.forEach(function (r) { _ecrireDisponibilites(ss, String(r['id_demande']), _disponibilites(r['disponibilites'])); }); b.sh.deleteColumn(b.i + 1); }
+  }
+  const c = colonne(SHEET_CREATEURS, 'emails_agenda');
+  if (c) {
+    const L = _lireTable(_onglet(ss, SHEET_CREATEURS)).filter(function (r) { return r['id_createur'] && r['emails_agenda']; });
+    faits.push('createurs.emails_agenda → ' + SHEET_EMAILS_AGENDA + ' (' + L.length + ' fiche(s) à recopier), puis colonne retirée');
+    if (!apercu) {
+      _creerOngletSiAbsent(ss, SHEET_EMAILS_AGENDA, COLONNES_EMAILS_AGENDA);
+      const t = _tableau(ss, SHEET_EMAILS_AGENDA);
+      L.forEach(function (r) { String(r['emails_agenda']).split(/[\s,;]+/).map(_norm).filter(function (m) { return m.indexOf('@') > 0; })
+        .forEach(function (m) { _ajouterLigne(t, { email: m, id_createur: String(r['id_createur']), ajoute_le: new Date(), ajoute_par: 'normalisation' }); }); });
+      c.sh.deleteColumn(c.i + 1);
+    }
+  }
+  if (!faits.length) { Logger.log('✅ Rien à faire : les tables sont déjà aux normes.'); return; }
+  if (apercu) { Logger.log('APERÇU :\n• ' + faits.join('\n• ')); return; }
+  _journaliser('normalisation', faits.join(' ; '), Session.getEffectiveUser().getEmail());
+  Logger.log('✅ Fait :\n• ' + faits.join('\n• '));
 }
 
 function sauvegarderClasseur() {

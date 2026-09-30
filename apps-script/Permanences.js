@@ -9,8 +9,15 @@
  *************************************************************/
 
 const NOM_AGENDA_BENEVOLES = /b[ée]n[ée]vole/i;
-/** Autres adresses d'un créateur dans l'agenda (colonne emails_agenda) : invitations faites avec une autre adresse que celle de sa fiche. */
-function _emailsAgenda(v) { return String(v == null ? '' : v).split(/[\s,;]+/).map(_norm).filter(function (m) { return m.indexOf('@') > 0; }); }
+/** Autres adresses des créateurs dans l'agenda (invitations faites avec une autre adresse que celle de la fiche) : une ligne par adresse. */
+const SHEET_EMAILS_AGENDA = 'createurs_emails_agenda';
+const COLONNES_EMAILS_AGENDA = ['email', 'id_createur', 'ajoute_le', 'ajoute_par'];
+/** { id_createur: [adresses] } */
+function _emailsAgendaParCreateur(ss) {
+  const out = {};
+  _lireSi(ss, SHEET_EMAILS_AGENDA).forEach(function (r) { const m = _norm(r['email']), id = String(r['id_createur'] || ''); if (m && id) (out[id] = out[id] || []).push(m); });
+  return out;
+}
 /** Le compte du shop organise les événements (il figure parmi les invités) ; l'équipe n'est pas bénévole. */
 function _horsBenevolat(email, categorie) { return _norm(email) === EMAIL_SHOP || String(categorie) === 'shop'; }
 
@@ -23,13 +30,13 @@ function _agendasPermanences() {
 /** Permanences d'un mois ('yyyy-MM') : { parCreateur: {id: {jours, detail[]}}, nonRattachees: [...] }. */
 function _permanencesDuMois(ss, mois) {
   const b = _moisBornes(mois), fin = new Date(b.fin.getFullYear(), b.fin.getMonth(), b.fin.getDate() + 1);
-  const src = _agendasPermanences(), parEmail = {}, parMots = {};
+  const src = _agendasPermanences(), parEmail = {}, parMots = {}, autres = _emailsAgendaParCreateur(ss);
   _lireTable(_onglet(ss, SHEET_CREATEURS)).forEach(function (c) {
     // agenda dédié : tout créateur invité compte ; sinon seulement les créateurs marqués bénévoles
     if (!(src.dedie || c['benevole'] === true) || _horsBenevolat(c['email'], c['categorie'])) return;
     const f = { id: String(c['id_createur']), nom: _nomPropre(c['nom']) };
     if (c['email']) parEmail[_norm(c['email'])] = f;
-    _emailsAgenda(c['emails_agenda']).forEach(function (m) { parEmail[m] = f; });
+    (autres[f.id] || []).forEach(function (m) { parEmail[m] = f; });
     [c['nom_legal'], c['nom']].forEach(function (n) { const k = _cleMots(n); if (k.indexOf(' ') > 0) (parMots[k] = parMots[k] || []).push(f); });
   });
   // invité retrouvé par son e-mail, sinon par son nom s'il ne désigne qu'une seule fiche
@@ -127,11 +134,11 @@ function _benevolesAgenda(apercu) {
     });
   });
 
-  const tC = _tableau(ss, SHEET_CREATEURS), parEmail = {}, parMots = {};
+  const tC = _tableau(ss, SHEET_CREATEURS), parEmail = {}, parMots = {}, autres = _emailsAgendaParCreateur(ss);
   tC.lignes.forEach(function (r, i) {
     if (_horsBenevolat(_val(tC, r, 'email'), _val(tC, r, 'categorie'))) return;
     if (_val(tC, r, 'email')) parEmail[_norm(_val(tC, r, 'email'))] = i;
-    _emailsAgenda(_val(tC, r, 'emails_agenda')).forEach(function (m) { parEmail[m] = i; });
+    (autres[String(_val(tC, r, 'id_createur'))] || []).forEach(function (m) { parEmail[m] = i; });
     [_val(tC, r, 'nom_legal'), _val(tC, r, 'nom')].forEach(function (n) { const k = _cleMots(n); if (k.indexOf(' ') > 0) (parMots[k] = parMots[k] || []).push(i); });
   });
 
