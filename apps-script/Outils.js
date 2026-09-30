@@ -126,6 +126,29 @@ function controleIntegrite() {
   Logger.log('Tables contrôlées : ' + Object.keys(tables).map(function (t) { return t + ' (' + tables[t].length + ')'; }).join(', '));
 }
 
+/** Restes de la migration de septembre 2026 (inventaire du 30/09 : aucune ligne de code ne les lit). */
+const ONGLETS_MIGRATION = ['All data', '_ancien_ventes', 'vendeurs', '_correspondance_noms', '_controle_migration', '_revue_enrichissement'];
+
+function apercuNettoyageOnglets() { _nettoyerOnglets(true); }
+/** Sauvegarde le classeur, puis supprime les onglets de ONGLETS_MIGRATION présents. */
+function nettoyerOnglets() { _nettoyerOnglets(false); }
+function _nettoyerOnglets(apercu) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const L = ONGLETS_MIGRATION.filter(function (n) { return ss.getSheetByName(n); });
+  if (!L.length) { Logger.log('Rien à supprimer : ces onglets n\'existent plus.'); return; }
+  const code = L.filter(function (n) { return SCHEMA[n]; });
+  if (code.length) throw new Error('Refusé : ' + code.join(', ') + ' est une table du code.');
+  if (apercu) {
+    Logger.log('APERÇU — seraient supprimés (après une copie de sauvegarde) :\n• ' + L.map(function (n) { return n + ' (' + Math.max(0, ss.getSheetByName(n).getLastRow() - 1) + ' lignes)'; }).join('\n• ') +
+      '\nRestent : ' + ss.getSheets().map(function (s) { return s.getName(); }).filter(function (n) { return L.indexOf(n) === -1; }).join(', '));
+    return;
+  }
+  sauvegarderClasseur();
+  L.forEach(function (n) { ss.deleteSheet(ss.getSheetByName(n)); });
+  _journaliser('nettoyage_onglets', 'Supprimés après sauvegarde : ' + L.join(', '), Session.getEffectiveUser().getEmail());
+  Logger.log('✅ ' + L.length + ' onglet(s) supprimés : ' + L.join(', '));
+}
+
 function sauvegarderClasseur() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const dossier = _sousDossier(_sousDossier(DriveApp.getRootFolder(), '13h59'), 'Sauvegardes');
