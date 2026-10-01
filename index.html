@@ -446,6 +446,7 @@
         <div><label>Au</label><input id="fAu" type="date"></div>
         <div><label>Regrouper par</label><select id="fDim"><option value="jour">Jour</option><option value="semaine" selected>Semaine</option><option value="mois">Mois</option></select></div>
       </div>
+      <div class="ge-vues periodes" data-du="fDu" data-au="fAu" style="margin:10px 0 0"></div>
     </div>
     <div id="vWarnPanier" class="warn hide"></div>
     <h3>Monitoring — clique un indicateur pour voir son évolution</h3>
@@ -469,6 +470,7 @@
         <div><label>Dimension</label><select id="gDim"><option value="jour">Jour</option><option value="semaine" selected>Semaine</option><option value="mois">Mois</option></select></div>
         <div><label>Groupement</label><select id="gGroup"><option value="overall" selected>Overall</option><option value="createur">Créateur</option><option value="reduction">Présence de réduction</option><option value="paiement">Type de paiement</option><option value="remise">Type de remise</option></select></div>
       </div>
+      <div class="ge-vues periodes" data-du="gDu" data-au="gAu" style="margin:10px 0 0"></div>
       <div class="filters" style="margin-top:12px">
         <div><label>Filtre créateur</label><div class="ms cap" id="gCreateur"></div></div>
         <div><label>Filtre réduction</label><div class="ms" id="gReduc"></div></div>
@@ -1246,13 +1248,34 @@ $('codeValeur').addEventListener('keydown',e=>{if(e.key==='Enter')codeValider();
 })();
 document.querySelectorAll('.tab[data-tab]').forEach(t=>t.addEventListener('click',()=>showTab(t.dataset.tab)));
 
+/* ===================== PÉRIODES ===================== */
+const PERIODES=[['sem','Semaine dernière'],['sem0','Cette semaine'],['mois','Mois dernier'],['mois0','Ce mois-ci'],['annee','Cette année'],['tout','Tout']];
+/** [du, au] d'un raccourci ; « tout » = de la première à la dernière vente. */
+function bornesPeriode(k){
+  const auj=new Date(),lun=BUCKETS.mondayOf(auj),j=n=>{const d=new Date(lun);d.setDate(d.getDate()+n);return isoJour(d);};
+  const dates=S.rows.map(r=>r.date).sort();
+  if(k==='sem')return [j(-7),j(-1)];
+  if(k==='sem0')return [j(0),isoJour(auj)];
+  if(k==='mois')return [isoJour(new Date(auj.getFullYear(),auj.getMonth()-1,1)),isoJour(new Date(auj.getFullYear(),auj.getMonth(),0))];
+  if(k==='mois0')return [isoJour(new Date(auj.getFullYear(),auj.getMonth(),1)),isoJour(auj)];
+  if(k==='annee')return [auj.getFullYear()+'-01-01',isoJour(auj)];
+  return [dates[0]||'',dates[dates.length-1]||''];
+}
+/** Raccourcis de période au-dessus d'une paire Du / Au ; la puce active suit les dates saisies. */
+function initPeriodes(box,rendre){
+  const du=$(box.dataset.du),au=$(box.dataset.au);
+  const maj=()=>box.querySelectorAll('[data-per]').forEach(c=>{const [d,a]=bornesPeriode(c.dataset.per);c.classList.toggle('on',d===du.value&&a===au.value);});
+  box.innerHTML=PERIODES.map(([k,l])=>`<span class="gc-chip" data-per="${k}">${l}</span>`).join('');
+  box.onclick=e=>{const c=e.target.closest('[data-per]');if(!c)return;[du.value,au.value]=bornesPeriode(c.dataset.per);maj();rendre();};
+  [du,au].forEach(x=>x.addEventListener('change',maj));
+  [du.value,au.value]=bornesPeriode('sem');maj();
+}
+
 /* ===================== VUE CRÉATEUR ===================== */
 function initCreateur(){
   const createurs=[...new Set(S.rows.map(r=>r.createur))].filter(Boolean).sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
   createurSel=makeSingle($('fCreateur'),{values:createurs,onChange:renderCreateur});
-  const dates=S.rows.map(r=>r.date).sort();
-  if(dates.length){$('fDu').value=dates[0];$('fAu').value=dates[dates.length-1];}
-  if(!S.ecouteCreateur){S.ecouteCreateur=true;['fDu','fAu','fDim'].forEach(id=>$(id).addEventListener('change',renderCreateur));}
+  if(!S.ecouteCreateur){S.ecouteCreateur=true;['fDu','fAu','fDim'].forEach(id=>$(id).addEventListener('change',renderCreateur));initPeriodes(document.querySelector('.periodes[data-du="fDu"]'),renderCreateur);}
   renderCreateur();
 }
 function renderCreateur(){
@@ -1325,8 +1348,6 @@ document.addEventListener('click',()=>document.querySelectorAll('.ms-panel').for
 /* ===================== VUE GESTION ===================== */
 function slug(s){return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')||'groupe';}
 function initGestion(){
-  const dates=S.rows.map(r=>r.date).sort();
-  if(dates.length){$('gDu').value=dates[0];$('gAu').value=dates[dates.length-1];}
   const vend=[...new Set(S.rows.map(r=>r.createur))].filter(Boolean).sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
   const paie=[...new Set(S.rows.map(r=>r.paiement))].filter(Boolean).sort();
   const rem=[...new Set(S.rows.map(r=>r.remiseType))].filter(Boolean).sort();
@@ -1334,7 +1355,7 @@ function initGestion(){
   G.selReduc  =makeMulti($('gReduc'),{title:'Réduction',values:['oui','non'],labels:{oui:'Avec réduction',non:'Sans réduction'},onChange:renderGestion}).getSel();
   G.selPaiement=makeMulti($('gPaiement'),{title:'Paiement',values:paie,onChange:renderGestion}).getSel();
   G.selRemise =makeMulti($('gRemise'),{title:'Remise',values:rem,onChange:renderGestion}).getSel();
-  if(!S.ecouteGestion){S.ecouteGestion=true;['gDu','gAu','gDim','gGroup'].forEach(id=>$(id).addEventListener('change',renderGestion));}
+  if(!S.ecouteGestion){S.ecouteGestion=true;['gDu','gAu','gDim','gGroup'].forEach(id=>$(id).addEventListener('change',renderGestion));initPeriodes(document.querySelector('.periodes[data-du="gDu"]'),renderGestion);}
   renderGestion();
 }
 function gestionLignes(){
