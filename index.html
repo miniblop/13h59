@@ -482,6 +482,7 @@
     <div class="card" style="margin-top:16px"><div class="chart-head"><h2 id="gChartTitle">Revenus</h2><span class="cur" id="gChartCur"></span></div><div id="gChart"></div></div>
     <div id="gTables"></div>
     <div class="card"><div class="cardhead"><h2>Récapitulatif (par <span id="gDimLabel">semaine</span>)</h2><button class="btn-dl" data-tbl="gRecap" data-name="recap_gestion">⬇︎ CSV</button></div><div class="tblwrap"><table id="gRecap"></table></div></div>
+    <div class="card"><div class="cardhead"><h2>Récapitulatif par créateur <span id="gRecapCreaNote" class="muted" style="font-weight:400;font-size:12px"></span></h2><button class="btn-dl" data-tbl="gRecapCrea" data-name="recap_par_createur">⬇︎ CSV</button></div><div class="tblwrap"><table id="gRecapCrea"></table></div></div>
     <div class="card"><div class="cardhead"><h2>Détail des ventes <span id="gDetailNote" class="muted" style="font-weight:400;font-size:12px"></span></h2><button class="btn-dl" data-type="detail-g" data-name="detail_gestion">⬇︎ CSV</button></div><div class="tblwrap"><table id="gDetail"></table></div></div>
     </div>
     <div id="gsBil" class="hide">
@@ -1050,6 +1051,18 @@ function recapHTML(buckets,t){
     (provisoire?`<tr class="note"><td colspan="10">« en cours » : la période n'est pas terminée. Le taux marqué <b>≥</b> concerne le mois en cours : le palier de commission se calcule sur la prime du mois entier, d'où le taux noté <b>≥</b> : il ne peut plus que monter si un créateur franchit 100 € ou 250 € d'ici la fin du mois — jamais redescendre. La commission affichée est donc un plancher.</td></tr>`:'')+
     `</tbody>`;
 }
+/** Une ligne par créateur sur toute la période et les filtres choisis, triée par revenus. */
+function recapCreateursHTML(lignes){
+  const par=new Map();
+  lignes.forEach(l=>{const k=l.createur||'(sans créateur)';if(!par.has(k))par.set(k,[]);par.get(k).push(l);});
+  const L=[...par.entries()].map(([k,ls])=>({k,ls,a:CALC.agrege(ls),der:ls.reduce((m,l)=>l.date>m?l.date:m,'')})).sort((x,y)=>y.a.revenus-x.a.revenus);
+  const t=CALC.agrege(lignes),prov=estProvisoire(lignes);
+  const taux=r=>estProvisoire(r.ls)&&r.ls.every(l=>CALC.mois(l.date)===MOIS_COURANT)?`<span class="taux-prov" title="Mois en cours : le taux ne peut plus que monter d'ici la fin du mois">≥&nbsp;${FMT.pct(r.a.taux)}</span>`:FMT.pct(r.a.taux);
+  return `<thead><tr><th>Créateur</th><th>Ventes</th><th>Paniers</th><th>Revenus</th><th>Remise</th><th>Taxe</th><th>Prime</th><th>Taux</th><th>Commission</th><th>Prime nette</th><th>Dernière vente</th></tr></thead><tbody>`+
+    L.map(r=>{const a=r.a;return `<tr><td>${FMT.esc(r.k)}</td><td>${FMT.num(a.nbVentes)}</td><td>${FMT.num(a.nbPaniers)}</td><td>${FMT.eur(a.revenus)}</td><td>${FMT.eur(a.remise)}</td><td>${FMT.eur(a.taxe)}</td><td>${FMT.eur(a.prime)}</td><td>${taux(r)}</td><td>${FMT.eur(a.commission)}</td><td>${FMT.eur(a.primeNet)}</td><td>${fmtD(r.der)}</td></tr>`;}).join('')+
+    `<tr class="tot"><td>Total · ${L.length} créateur${L.length>1?'s':''}</td><td>${FMT.num(t.nbVentes)}</td><td>${FMT.num(t.nbPaniers)}</td><td>${FMT.eur(t.revenus)}</td><td>${FMT.eur(t.remise)}</td><td>${FMT.eur(t.taxe)}</td><td>${FMT.eur(t.prime)}</td><td>${FMT.pct(t.taux)}</td><td>${FMT.eur(t.commission)}</td><td>${FMT.eur(t.primeNet)}</td><td></td></tr>`+
+    `<tr class="note"><td colspan="11">Taux = taux moyen sur la période (commission ÷ prime) : chaque mois garde son palier de 0, 10 ou 15 %. Un panier avec plusieurs créateurs compte une fois par créateur, et une seule fois dans le total.${prov?' La commission du mois en cours est un plancher (taux ≥).':''}</td></tr></tbody>`;
+}
 function detailHTML(lignes,withCreateur,cap){
   const tri=[...lignes].sort((a,b)=>a.date<b.date?1:-1);
   const shown=cap?tri.slice(0,cap):tri;
@@ -1351,6 +1364,8 @@ function renderGestion(){
 
   const gb=BUCKETS.grouper(lignes,dim).map(b=>({...b,agg:CALC.agrege(b.lignes,b.refDate)}));
   $('gRecap').innerHTML=recapHTML(gb,totaux(gb,lignes));
+  $('gRecapCrea').innerHTML=recapCreateursHTML(lignes);
+  $('gRecapCreaNote').textContent=($('gDu').value&&$('gAu').value?'du '+fmtD($('gDu').value)+' au '+fmtD($('gAu').value):'toute la période')+' · filtres appliqués';
   const det=detailHTML(lignes,true,DETAIL_CAP);
   $('gDetail').innerHTML=det.html;
   $('gDetailNote').textContent=det.total>det.shown?`(${det.shown} affichées sur ${det.total} — le CSV exporte tout)`:'';
