@@ -203,3 +203,22 @@ function sauvegarderClasseur() {
   const copie = DriveApp.getFileById(ss.getId()).makeCopy(nom, dossier);
   Logger.log('✅ Copie créée : « ' + nom + ' » dans 13h59/Sauvegardes (' + copie.getUrl() + '). Elle contient des données personnelles : ne la partage pas.');
 }
+
+/**
+ * Bascule vers Athena — à lancer depuis l'éditeur JUSTE AVANT de télécharger le classeur en .xlsx.
+ * Recopie dans l'onglet `_proprietes` les valeurs gardées hors du Sheet (propriétés du script) dont Athena a besoin :
+ * les derniers identifiants attribués (DERNIER_ID_*, pour ne jamais réattribuer un numéro) et l'ICS s'il est saisi.
+ * Les mots de passe, l'IBAN et le BIC de l'association ne sont PAS recopiés (ils sont dans le .env du serveur).
+ */
+function exporterProprietesPourAthena() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), props = PropertiesService.getScriptProperties().getProperties();
+  const lignes = Object.keys(props).filter(function (k) { return /^DERNIER_ID_[A-Z]+$/.test(k) || k === 'ASSO_ICS'; }).sort()
+    .map(function (k) { return [k, String(props[k])]; });
+  const sh = ss.getSheetByName('_proprietes') || ss.insertSheet('_proprietes');
+  sh.clear();
+  sh.getRange(1, 1, 1, 2).setValues([['cle', 'valeur']]).setFontWeight('bold');
+  sh.getRange(1, 1, lignes.length + 1, 2).setNumberFormat('@');
+  if (lignes.length) sh.getRange(2, 1, lignes.length, 2).setValues(lignes);
+  Logger.log('✅ ' + lignes.length + ' valeur(s) recopiée(s) dans l\'onglet _proprietes : ' + lignes.map(function (l) { return l[0] + ' = ' + l[1]; }).join(', ') +
+    '. Télécharge maintenant le classeur : Fichier ▸ Télécharger ▸ Microsoft Excel (.xlsx).');
+}
