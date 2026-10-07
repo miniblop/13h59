@@ -33,13 +33,15 @@ function _acces() {
 }
 
 /** Numéro de version du code — sert à vérifier ce qui est réellement DÉPLOYÉ. */
-function _version() { return '2026-10-rc-pro-documents'; }
+function _version() { return '2026-10-bascule-athena'; }
 
 /** Point d'entrée des appels POST du site. */
 function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents);
     if (body.action === 'ping')        return _json(_ping());
+    const demenage = _demenage();   // bascule vers Athena : plus rien ne s'écrit ni ne se lit ici
+    if (demenage) return _json(demenage);
     if (body.action === 'data')        return _json(_apiDataObj(body.password, body.compact === true));
     if (body.action === 'caisse_data') return _caisseData(body);
     if (body.action === 'caisse_save') return _caisseSave(body);
@@ -67,7 +69,7 @@ function doPost(e) {
  *  Appel : ...exec?action=data&password=xxx&callback=cb  */
 function doGet(e) {
   const p = e.parameter || {};
-  const res = (p.action === 'ping') ? _ping() : _apiDataObj(p.password);
+  const res = (p.action === 'ping') ? _ping() : (_demenage() || _apiDataObj(p.password));
   const txt = JSON.stringify(res);
   if (p.callback) {
     return ContentService.createTextOutput(p.callback + '(' + txt + ')')
@@ -222,6 +224,24 @@ function testConfig() {
   } catch (e) {
     Logger.log('getCaisseData() a échoué ❌ : ' + e.message);
   }
+}
+
+/* ---------- Bascule vers Athena ----------
+ * fermerPourAthena() (à lancer depuis l'éditeur, juste avant l'export final) : toute action du site est refusée avec
+ * la nouvelle adresse ; le Sheet ne bouge plus. rouvrirAncienSysteme() annule (retour en arrière). */
+const ATHENA_ADRESSE = 'https://athena.13h59shop.com';
+function _demenage() {
+  const url = PropertiesService.getScriptProperties().getProperty('ATHENA_DEMENAGE');
+  return url ? { ok: false, demenage: url, message: 'Le site du 13H59 a déménagé : ' + url + ' (mêmes mots de passe). Cette page n’est plus utilisée.' } : null;
+}
+function fermerPourAthena() {
+  PropertiesService.getScriptProperties().setProperty('ATHENA_DEMENAGE', ATHENA_ADRESSE);
+  _journaliser('bascule_athena', 'ancien système fermé : le site renvoie vers ' + ATHENA_ADRESSE, Session.getEffectiveUser().getEmail());
+  Logger.log('✅ Ancien système fermé : chaque action du site affiche « Le site du 13H59 a déménagé : ' + ATHENA_ADRESSE + ' ». Lance maintenant exporterProprietesPourAthena (Outils.js).');
+}
+function rouvrirAncienSysteme() {
+  PropertiesService.getScriptProperties().deleteProperty('ATHENA_DEMENAGE');
+  Logger.log('Ancien système rouvert : le site fonctionne de nouveau comme avant.');
 }
 
 function _json(obj) {
